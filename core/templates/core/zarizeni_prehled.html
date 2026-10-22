@@ -1,0 +1,18 @@
+{% extends "core/base.html" %}{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2"><h3 class="mb-0">Zařízení <small class="text-muted fs-6">({{ rows|length }})</small></h3>
+<a class="btn btn-sm btn-primary" href="{% url 'create' 'zarizeni' %}?next={{ request.path }}">+ Nové zařízení</a></div>
+<form method="get" class="d-flex flex-wrap gap-2 mb-3"><input type="hidden" name="o" value="{{ o }}">
+<select name="f" class="form-select w-auto" onchange="this.form.submit()">{% for k,n in filtry %}<option value="{{ k }}" {% if k == f %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+<input class="form-control w-auto flex-grow-1" style="max-width:420px" name="q" value="{{ q }}" placeholder="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…">
+<button class="btn btn-outline-secondary">Hledat</button>{% if q or f %}<a class="btn btn-link" href="{% url 'zarizeni_prehled' %}">Zrušit filtr</a>{% endif %}</form>
+<div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr>
+{% for k,l,ord,ar in heads %}<th class="text-nowrap"><a class="text-decoration-none text-dark" href="?q={{ q|urlencode }}&f={{ f }}&o={{ ord }}">{{ l }} <span class="text-primary">{{ ar }}</span></a></th>{% endfor %}<th class="text-end">Zakázek</th></tr></thead><tbody>
+{% for r in rows %}<tr style="cursor:pointer" onclick="if(!event.target.closest('a'))location.href='{% url 'detail' 'zarizeni' r.d.pk %}'">
+<td><a href="{% url 'detail' 'zarizeni' r.d.pk %}" class="fw-semibold">{{ r.d.vyrobce }} {{ r.d.typ }}{% if not r.d.vyrobce and not r.d.typ %}Zařízení {{ r.d.pk }}{% endif %}</a>{% if r.d.seriove_cislo %}<br><small class="text-muted">S/N: {{ r.d.seriove_cislo }}</small>{% endif %}</td>
+<td><a href="{% url 'detail' 'zakaznik' r.d.zakaznik_id %}">{{ r.d.zakaznik }}</a></td>
+<td class="text-nowrap">{% if r.d.zakaznik.telefon %}<a href="tel:{{ r.d.zakaznik.telefon }}">{{ r.d.zakaznik.telefon }}</a>{% else %}–{% endif %}</td>
+<td><span class="badge bg-{{ r.css }}">{{ r.stav }}</span>{% if r.firma %} <span class="badge bg-warning text-dark">ve firmě</span>{% endif %}{% if r.z %}<br><small><a href="{% url 'detail' 'zakazka' r.z.pk %}">#{{ r.z.cislo_zakazky }}</a></small>{% endif %}</td>
+<td class="text-nowrap">{{ r.prijeti|date:"j. n. Y"|default:"–" }}</td>
+<td class="text-nowrap">{{ r.akce|date:"j. n. Y H:i"|default:"–" }}</td>
+<td class="text-end">{{ r.n }}</td></tr>{% empty %}<tr><td colspan="7" class="text-muted">Žádná zařízení neodpovídají filtru.</td></tr>{% endfor %}</tbody></table></div>
+<p class="small text-muted">Datum přijetí se zobrazuje jen u zařízení, které je právě v servisu (otevřená zakázka). Poslední akce = poslední změna zařízení nebo kterékoli jeho zakázky.</p>{% endblock %}

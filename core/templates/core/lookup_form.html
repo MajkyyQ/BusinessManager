@@ -1,0 +1,3 @@
+<form method="post" class="lk-form" action="{% url 'lookup_new' slug %}">{% csrf_token %}<input type="hidden" name="dep" value="{{ dep }}"><h5>{{ title }}</h5>
+{% if form.non_field_errors %}<div class="alert alert-danger py-1">{{ form.non_field_errors }}</div>{% endif %}{% for f in form %}<div class="mb-2"><label class="form-label mb-0">{{ f.label }}</label>{{ f }}<div class="text-danger small">{{ f.errors }}</div></div>{% endfor %}
+<div class="text-end"><button type="button" class="btn btn-secondary lk-cancel">Zrušit</button> <button class="btn btn-primary">Vytvořit</button></div></form>

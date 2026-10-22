@@ -1,0 +1,33 @@
+<!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BusinessManager</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://unpkg.com/htmx.org@2.0.3"></script>{% block head %}{% endblock %}<style>.lk-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}.lk-modal>div{background:#fff;padding:1rem;border-radius:.5rem;width:min(520px,95vw);max-height:90vh;overflow:auto}</style></head>
+<body hx-boost="{% block boost %}false{% endblock %}"><nav class="navbar navbar-dark bg-dark mb-3"><div class="container-fluid">
+<a class="navbar-brand" href="/">BusinessManager</a>
+<div class="d-flex gap-2 align-items-center"><span class="text-light">{{ request.user }}</span>
+{% if request.user.is_staff %}<a class="btn btn-sm btn-outline-light" href="/admin/" hx-boost="false">Admin</a>{% endif %}
+<form method="post" action="{% url 'logout' %}" hx-boost="false">{% csrf_token %}<button class="btn btn-sm btn-outline-light">Odhlásit</button></form></div></div></nav>
+<div class="container-fluid"><div class="row">
+<aside class="col-md-2 mb-3">{% for k,l,u in nav %}{% if k == "zakazky" or k == "nastaveni" %}<hr class="my-2">{% endif %}<a class="d-block px-2 py-1 mb-1 rounded text-decoration-none {% if k == sec %}bg-primary text-white{% else %}text-dark{% endif %}" href="{{ u }}">{{ l }}</a>{% endfor %}</aside>
+<main class="col-md-10">{% if crumbs %}<nav class="small text-muted mb-2">{% for l,u in crumbs %}{% if u %}<a href="{{ u }}">{{ l }}</a>{% else %}{{ l }}{% endif %}{% if not forloop.last %} › {% endif %}{% endfor %}</nav>{% endif %}{% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %}">{{ m }}</div>{% endfor %}
+{% if subtabs %}<ul class="nav nav-tabs mb-3">{% for l,u,a in subtabs %}<li class="nav-item"><a class="nav-link {% if a %}active{% endif %}" href="{{ u }}">{{ l }}</a></li>{% endfor %}</ul>{% endif %}{% block content %}{% endblock %}</main></div></div><script>(function(){
+const Q=(e,s)=>e.querySelector(s),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));let T,CUR;
+const dep=c=>{const d=c.dataset.dep,f=c.closest('form'),i=d&&f&&f.querySelector('[name="'+d+'"]');return i?i.value:''};
+async function search(c){const q=Q(c,'.lk-q').value,r=await(await fetch(c.dataset.url+'?q='+encodeURIComponent(q)+'&dep='+dep(c))).json(),dd=Q(c,'.lk-dd');dd.innerHTML='';
+ r.forEach(o=>{const a=document.createElement('a');a.href='#';a.className='list-group-item list-group-item-action py-1';a.innerHTML='<div>'+esc(o.label)+'</div><small class="text-muted">'+esc(o.sub)+'</small>';a.onmousedown=e=>{e.preventDefault();pick(c,o)};dd.appendChild(a)});
+ const n=document.createElement('a');n.href='#';n.className='list-group-item list-group-item-action py-1 text-primary';n.textContent='+ Vytvořit nového';n.onmousedown=e=>{e.preventDefault();create(c)};dd.appendChild(n);dd.classList.remove('d-none')}
+function pick(c,o){Q(c,'.lk-dd').classList.add('d-none');let ch=false;
+ if(c.dataset.multi=='1'){if(!c.querySelector('.lk-chip input[value="'+o.id+'"]')){const s=document.createElement('span');s.className='badge bg-secondary me-1 lk-chip';s.innerHTML=esc(o.label)+' <a href="#" class="lk-x text-white text-decoration-none">×</a><input type="hidden" name="'+c.dataset.name+'" value="'+o.id+'">';c.firstElementChild.appendChild(s)}Q(c,'.lk-q').value=''}
+ else{const v=Q(c,'.lk-v');ch=v.value!=String(o.id);v.value=o.id;Q(c,'.lk-q').value=o.label}
+ if(o.price!=null){const s=c.closest('.mrow')||c.closest('form'),p=s&&s.querySelector('[name=mat_cena],[name=jednotkova_cena]');if(p&&!p.value)p.value=o.price}
+ if(ch)document.querySelectorAll('.lk[data-dep="'+c.dataset.name+'"]').forEach(x=>{if(x.closest('form')==c.closest('form')){const v=Q(x,'.lk-v');if(v)v.value='';x.firstElementChild.innerHTML='';Q(x,'.lk-q').value=''}})}
+function modal(h){let m=document.querySelector('.lk-modal');if(!m){m=document.createElement('div');m.className='lk-modal';m.innerHTML='<div></div>';document.body.appendChild(m)}m.firstChild.innerHTML=h}
+async function create(c){const d=dep(c);if(c.dataset.dep&&!d){alert('Nejdřív vyberte zákazníka.');return}CUR=c;modal(await(await fetch(c.dataset.new+'?dep='+d)).text())}
+document.addEventListener('input',e=>{if(e.target.matches('.lk-q')){const c=e.target.closest('.lk');if(c.dataset.multi!='1')Q(c,'.lk-v').value='';clearTimeout(T);T=setTimeout(()=>search(c),200)}});
+document.addEventListener('focusin',e=>{if(e.target.matches('.lk-q'))search(e.target.closest('.lk'))});
+document.addEventListener('focusout',e=>{if(e.target.matches('.lk-q')){const c=e.target.closest('.lk');setTimeout(()=>Q(c,'.lk-dd').classList.add('d-none'),150)}});
+document.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.matches('.lk-q'))e.preventDefault()});
+document.addEventListener('click',e=>{const t=e.target;if(t.classList.contains('lk-x')){e.preventDefault();t.closest('.lk-chip').remove()}if(t.classList.contains('lk-new'))create(t.closest('.lk'));if(t.classList.contains('lk-cancel'))document.querySelector('.lk-modal').remove()});
+document.addEventListener('submit',async e=>{const f=e.target;if(!f.classList.contains('lk-form'))return;e.preventDefault();const r=await fetch(f.action,{method:'POST',body:new FormData(f)});
+ if((r.headers.get('content-type')||'').includes('json')){pick(CUR,await r.json());document.querySelector('.lk-modal').remove()}else modal(await r.text())});
+})();</script></body></html>

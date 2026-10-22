@@ -1,0 +1,23 @@
+# Tajné údaje (nikdy necommitovat)
+.env
+.env.*
+!.env.example
+
+# Data a nahrané soubory
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Editor / systém
+.vscode/
+.idea/
+*.log
+Thumbs.db
+.DS_Store

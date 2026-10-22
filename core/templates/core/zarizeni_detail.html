@@ -1,0 +1,33 @@
+{% extends "core/base.html" %}{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+<div><h3 class="mb-0">{{ d.vyrobce }} {{ d.typ }}{% if not d.vyrobce and not d.typ %}Zařízení {{ d.pk }}{% endif %} {% if not d.aktivni %}<span class="badge bg-secondary fs-6">neaktivní</span>{% endif %}</h3>
+<div class="mt-1">{% if akt %}<span class="badge bg-warning text-dark">Ve firmě – zakázka <a class="text-dark" href="{% url 'detail' 'zakazka' akt.pk %}">#{{ akt.cislo_zakazky }}</a> ({{ akt.stav|default:"–" }})</span>{% elif zak %}<span class="badge bg-secondary">U zákazníka</span>{% else %}<span class="badge bg-light text-dark border">Zatím bez zakázky</span>{% endif %}</div></div>
+<div class="d-flex flex-wrap gap-1"><a class="btn btn-sm btn-primary" href="{% url 'edit' 'zarizeni' d.pk %}?next={{ nxt }}">Upravit</a>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'zakazka_nova' %}?zakaznik={{ d.zakaznik_id }}&zarizeni={{ d.pk }}">+ Nová zakázka</a>
+{% if d.aktivni %}<a class="btn btn-sm btn-outline-danger" href="{% url 'delete' 'zarizeni' d.pk %}">Deaktivovat</a>{% endif %}
+<a class="btn btn-sm btn-secondary" href="{% url 'zarizeni_prehled' %}">Zpět</a></div></div>
+<div class="row g-3 mb-3"><div class="col-lg-6"><div class="card h-100"><div class="card-header py-1 fw-semibold">Základní informace</div><div class="card-body py-2">
+<table class="table table-sm mb-0"><tr><th class="w-25">Výrobce</th><td>{{ d.vyrobce|default:"–" }}</td></tr><tr><th>Typ</th><td>{{ d.typ|default:"–" }}</td></tr>
+<tr><th>Sériové číslo</th><td>{{ d.seriove_cislo|default:"–" }}</td></tr><tr><th>Popis</th><td style="white-space:pre-line">{{ d.popis|default:"–" }}</td></tr>
+<tr><th>Evidováno od</th><td>{{ d.datum_vytvoreni|date:"j. n. Y" }}</td></tr><tr><th>Poslední akce</th><td>{{ posl|date:"j. n. Y H:i"|default:"–" }}</td></tr><tr><th>Počet zakázek</th><td>{{ zak|length }}</td></tr></table></div></div></div>
+<div class="col-lg-6"><div class="card h-100"><div class="card-header py-1 fw-semibold">Zákazník</div><div class="card-body py-2">{% with c=d.zakaznik %}
+<table class="table table-sm mb-0"><tr><th class="w-25">Zákazník</th><td><a href="{% url 'detail' 'zakaznik' c.pk %}">{{ c }}</a>{% if c.firma and c.jmeno %}<br><small class="text-muted">{{ c.jmeno }}</small>{% endif %}</td></tr>
+<tr><th>Telefon</th><td>{% if c.telefon %}<a href="tel:{{ c.telefon }}">{{ c.telefon }}</a>{% else %}–{% endif %}</td></tr><tr><th>E-mail</th><td>{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% else %}–{% endif %}</td></tr>
+<tr><th>Adresa</th><td>{{ c.adresa|default:"–" }}</td></tr>{% if c.ico %}<tr><th>IČO</th><td>{{ c.ico }}</td></tr>{% endif %}</table>{% endwith %}</div></div></div></div>
+
+<h5>Historie zařízení</h5>
+<div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr><th>Zakázka</th><th>Datum přijetí</th><th>Datum vydání</th><th>Stav</th><th>Popis závady</th><th class="text-end">Práce</th><th class="text-end">Materiál</th><th></th></tr></thead><tbody>
+{% for z in zak %}<tr><td class="text-nowrap"><a class="fw-semibold" href="{% url 'detail' 'zakazka' z.pk %}">#{{ z.cislo_zakazky }}</a></td>
+<td class="text-nowrap">{{ z.datum_prijeti|date:"j. n. Y"|default:"–" }}</td><td class="text-nowrap">{{ z.datum_vydani|date:"j. n. Y"|default:"–" }}</td>
+<td><span class="badge bg-{{ z.css }}">{{ z.stav|default:"–" }}</span></td><td>{{ z.popis_zavady|truncatechars:80|default:"–" }}</td>
+<td class="text-end text-nowrap">{{ z.provedenyukon_set.all|length }}× {% if z.cena_prace %}<small class="text-muted">({{ z.cena_prace|floatformat:2 }} Kč)</small>{% endif %}</td>
+<td class="text-end text-nowrap">{{ z.pouzitymaterial_set.all|length }}× {% if z.cena_mat %}<small class="text-muted">({{ z.cena_mat|floatformat:2 }} Kč)</small>{% endif %}</td>
+<td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="document.getElementById('zd{{ z.pk }}').classList.toggle('d-none')">Podrobnosti</button></td></tr>
+<tr id="zd{{ z.pk }}" class="d-none"><td colspan="8" class="bg-light"><div class="row small g-3 p-1">
+<div class="col-md-6"><b>Popis závady</b><div style="white-space:pre-line">{{ z.popis_zavady|default:"–" }}</div>{% if z.poznamka %}<b class="d-block mt-2">Poznámka</b><div style="white-space:pre-line">{{ z.poznamka }}</div>{% endif %}
+{% if z.zamestnanci.all %}<b class="d-block mt-2">Řešili</b>{{ z.zamestnanci.all|join:", " }}{% endif %}
+{% if z.zakazkakontakt_set.all %}<b class="d-block mt-2">Kontakty</b>{% for k in z.zakazkakontakt_set.all %}{{ k.kontakt }}{% if k.role %} ({{ k.role }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</div>
+<div class="col-md-6"><b>Provedené práce</b><ul class="mb-2">{% for u in z.provedenyukon_set.all %}<li>{{ u.typ_ukonu }}{% if u.cena is not None %} – {{ u.cena|floatformat:2 }} Kč{% endif %}{% if u.poznamka %} <span class="text-muted">· {{ u.poznamka }}</span>{% endif %}{% if u.zamestnanci.all %} <span class="text-muted">· {{ u.zamestnanci.all|join:", " }}</span>{% endif %}</li>{% empty %}<li class="text-muted">žádné</li>{% endfor %}</ul>
+<b>Použitý materiál</b><ul class="mb-0">{% for m in z.pouzitymaterial_set.all %}<li>{{ m.material }} – {{ m.mnozstvi|floatformat:"-3" }} {{ m.material.jednotka }}{% if m.jednotkova_cena is not None %} × {{ m.jednotkova_cena|floatformat:2 }} Kč{% endif %}{% if m.poznamka %} <span class="text-muted">· {{ m.poznamka }}</span>{% endif %}</li>{% empty %}<li class="text-muted">žádný</li>{% endfor %}</ul></div></div></td></tr>
+{% empty %}<tr><td colspan="8" class="text-muted">Zařízení zatím nebylo připojeno k žádné zakázce.</td></tr>{% endfor %}</tbody></table></div>
+{% if hist %}<h5 class="mt-3">Změny záznamu zařízení</h5><table class="table table-sm small">{% for h in hist %}<tr><td>{{ h.datum|date:"d.m.Y H:i" }}</td><td>{{ h.uzivatel|default:"" }}</td><td>{{ h.akce }}</td><td>{{ h.pole }}</td><td>{{ h.puvodni_hodnota }} → {{ h.nova_hodnota }}</td></tr>{% endfor %}</table>{% endif %}{% endblock %}

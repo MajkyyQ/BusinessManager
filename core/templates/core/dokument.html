@@ -1,0 +1,9 @@
+<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>{{ nazev }} {{ cislo }}</title>
+<style>body{font:14px Arial,sans-serif;margin:30px;color:#222}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}.r{text-align:right}.box{display:flex;gap:40px;margin:20px 0}h1{margin:0}</style></head><body>
+<div style="display:flex;justify-content:space-between"><div><h1>{{ nazev }} č. {{ cislo }}</h1><div>Datum vystavení: {{ d.datum_vystaveni|date:"d.m.Y" }}{% if typ == "faktura" %} · Splatnost: {{ d.datum_splatnosti|date:"d.m.Y"|default:"–" }}{% endif %}</div></div>
+<div class="r"><b>{{ f.nazev_firmy }}</b><br>{{ f.adresa }}<br>IČO {{ f.ico }} {% if f.dic %}· DIČ {{ f.dic }}{% endif %}<br>{{ f.telefon }} {{ f.email }}</div></div>
+<div class="box"><div><b>Odběratel</b><br>{{ d.zakaznik_firma }} {{ d.zakaznik_jmeno }}<br>{{ d.zakaznik_adresa }}<br>{% if d.zakaznik_ico %}IČO {{ d.zakaznik_ico }}{% endif %} {% if d.zakaznik_dic %}DIČ {{ d.zakaznik_dic }}{% endif %}</div></div>
+<table><tr><th>Popis</th><th class="r">Množství</th><th class="r">Cena/j.</th><th class="r">DPH %</th><th class="r">Bez DPH</th><th class="r">S DPH</th></tr>
+{% for p in polozky %}<tr><td>{{ p.popis }}</td><td class="r">{{ p.mnozstvi|floatformat:"-3" }} {{ p.jednotka }}</td><td class="r">{{ p.jednotkova_cena|default:"" }}</td><td class="r">{{ p.sazba_dph|default:"" }}</td><td class="r">{{ p.cena_bez_dph|default:"" }}</td><td class="r">{{ p.cena_s_dph|default:"" }}</td></tr>{% endfor %}</table>
+<p class="r">Bez DPH: {{ d.cena_bez_dph|default:"0" }} {{ f.mena }}<br>DPH: {{ d.dph|default:"0" }} {{ f.mena }}<br><b>Celkem: {{ d.cena_s_dph|default:"0" }} {{ f.mena }}</b></p>
+{% if d.poznamka %}<p>{{ d.poznamka|linebreaksbr }}</p>{% endif %}</body></html>

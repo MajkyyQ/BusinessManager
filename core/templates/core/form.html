@@ -1,0 +1,4 @@
+{% extends "core/base.html" %}{% block content %}<h3>{% if o %}Úprava: {{ o }}{% else %}Nový záznam: {{ vn }}{% endif %}</h3>
+<form method="post" {% if multipart %}enctype="multipart/form-data"{% endif %} hx-boost="false" class="col-md-7">{% csrf_token %}{{ form.non_field_errors }}
+{% for f in form %}<div class="mb-2"><label class="form-label mb-0 {% if f.field.required %}fw-bold{% endif %}">{{ f.label }}</label>{{ f }}{% if f.help_text %}<div class="form-text">{{ f.help_text }}</div>{% endif %}<div class="text-danger small">{{ f.errors }}</div></div>{% endfor %}
+<button class="btn btn-primary">Uložit</button> <a class="btn btn-secondary" href="{% if o %}{% url 'detail' slug o.pk %}{% else %}{% url 'list' slug %}{% endif %}">Zrušit</a></form>{% endblock %}

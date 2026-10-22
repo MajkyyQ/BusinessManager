@@ -1,0 +1,7 @@
+{% if z %}<div class="card mb-2"><div class="card-body py-2 small"><b>Zákazník:</b> {{ z.zakaznik }}{% if z.zakaznik.adresa %} · {{ z.zakaznik.adresa }}{% endif %}{% if z.zakaznik.ico %} · IČO {{ z.zakaznik.ico }}{% endif %}{% if z.zakaznik.dic %} · DIČ {{ z.zakaznik.dic }}{% endif %}<br>
+<b>Ident. čísla:</b> {{ z.identifikacni_cislo|default:"–" }} / {{ z.sekundarni_cislo|default:"–" }} · <b>Vypracoval:</b> {{ request.user }} · <b>Číslo nabídky:</b> přidělí se automaticky</div></div>
+{% if polozky %}<table class="table table-sm"><tr><th>Popis</th><th class="text-end">Množství</th><th class="text-end">Cena/j.</th><th class="text-end">DPH %</th><th class="text-end">Bez DPH</th><th class="text-end">S DPH</th></tr>
+{% for p in polozky %}<tr><td>{{ p.popis }}</td><td class="text-end">{{ p.mnozstvi|floatformat:"-3" }} {{ p.jednotka }}</td><td class="text-end">{{ p.cena }}</td><td class="text-end">{{ p.dph|floatformat:"-2" }}</td><td class="text-end">{{ p.bez }}</td><td class="text-end">{{ p.s }}</td></tr>{% endfor %}
+<tr class="fw-bold"><td colspan="4" class="text-end">Celkem (DPH {{ sum_dph }})</td><td class="text-end">{{ sum_bez }}</td><td class="text-end">{{ sum_s }}</td></tr></table>
+{% else %}<div class="alert alert-warning py-2">Zakázka nemá žádné provedené úkony ani použitý materiál – nabídka vznikne bez položek (můžete je doplnit v zakázce a nabídku vytvořit znovu).</div>{% endif %}
+{% else %}<p class="text-muted">Po výběru zakázky se zde zobrazí náhled nabídky.</p>{% endif %}

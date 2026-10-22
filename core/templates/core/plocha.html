@@ -1,0 +1,76 @@
+{% extends "core/base.html" %}{% block boost %}false{% endblock %}
+{% block head %}<style>.pb{position:relative;overflow:hidden;height:72vh;background:#f1f3f5;cursor:grab;touch-action:none}.pn{flex:1;min-width:0;border:2px solid #dee2e6;background:#fff}.pn.act{border-color:#0d6efd}.th{height:80px;cursor:pointer;border:1px solid #ccc}.pt{font-size:.85rem;font-weight:600;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}</style>{% endblock %}
+{% block content %}<div id="plocha">
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-2 gap-2">
+<div><h4 class="mb-0">Zakázka #{{ z.cislo_zakazky }}</h4><div class="text-muted">{{ z.zakaznik }}{% if zarizeni %} – {{ zarizeni.0 }}{% endif %}</div></div>
+<div class="d-flex flex-wrap gap-1">
+<a class="btn btn-sm btn-primary" href="{% url 'edit' 'zakazka' z.pk %}?next={{ nxt }}">Upravit zakázku</a>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'fotografie' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat fotografii</a>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'priloha' %}?zakazky={{ z.pk }}&next={{ nxt }}">Přidat přílohu</a>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'provedenyukon' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat práci</a>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'pouzitymaterial' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat materiál</a>
+<a class="btn btn-sm btn-outline-success" href="{% url 'create' 'nabidka' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit nabídku</a>
+<a class="btn btn-sm btn-outline-success" href="{% url 'create' 'faktura' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit fakturu</a>
+</div></div>
+<form method="post" action="{% url 'stav_akce' z.pk %}" class="d-flex flex-wrap gap-1 align-items-center mb-3 p-2 border rounded bg-light">{% csrf_token %}
+<span class="small text-muted me-1">Stav zakázky:</span><span class="badge fs-6 bg-{{ stav_css }} me-2">{{ z.stav|default:"–" }}</span>
+{% for k,l,s in akce %}<button name="akce" value="{{ k }}" class="btn btn-sm btn-{{ s }}" {% if k == "vydat" or k == "zrusit" %}onclick="return confirm('{{ l }}?')"{% endif %}>{{ l }}</button>{% endfor %}
+{% if moze_stav %}<span class="ms-auto d-flex gap-1"><select name="stav" class="form-select form-select-sm w-auto">{% for s in stavy %}<option value="{{ s.pk }}" {% if s.pk == z.stav_id %}selected{% endif %}>{{ s.nazev }}</option>{% endfor %}</select><button name="akce" value="rucne" class="btn btn-sm btn-outline-secondary">Změnit ručně</button></span>{% endif %}
+<div class="w-100 small text-muted">Stav zakázky je nezávislý na stavu nabídek, faktur a plateb.{% if z.datum_vydani %} Vydáno {{ z.datum_vydani|date:"d.m.Y H:i" }}.{% endif %}</div></form>
+<div class="row g-3"><div class="col-xl-5"><ul class="nav nav-pills flex-wrap gap-1 mb-2 small">{% for k,n in tabs %}<li><button class="nav-link py-1 px-2" data-tab="{{ k }}">{{ n }}</button></li>{% endfor %}</ul>
+<div class="tp" data-tab="info"><table class="table table-sm">
+<tr><th>Zákazník</th><td><a href="{% url 'detail' 'zakaznik' z.zakaznik_id %}">{{ z.zakaznik }}</a><br><small>{{ z.zakaznik.telefon }} {{ z.zakaznik.email }}<br>{{ z.zakaznik.adresa }} {% if z.zakaznik.ico %}· IČO {{ z.zakaznik.ico }}{% endif %}</small></td></tr>
+<tr><th>Přijato</th><td>{{ z.datum_prijeti|date:"d.m.Y H:i"|default:"–" }}</td></tr><tr><th>Vydáno</th><td>{{ z.datum_vydani|date:"d.m.Y H:i"|default:"–" }}</td></tr>
+<tr><th>Ident. čísla</th><td>{{ z.identifikacni_cislo|default:"–" }} / {{ z.sekundarni_cislo|default:"–" }}</td></tr>
+<tr><th>Popis závady</th><td>{{ z.popis_zavady|linebreaksbr|default:"–" }}</td></tr><tr><th>Poznámka</th><td>{{ z.poznamka|linebreaksbr|default:"–" }}</td></tr></table></div>
+<div class="tp d-none" data-tab="prace"><table class="table table-sm"><tr><th>Úkon</th><th>Pracovníci</th><th>Cena</th><th>DPH %</th></tr>{% for u in ukony %}<tr><td><a href="{% url 'detail' 'provedenyukon' u.pk %}">{{ u.typ_ukonu }}</a></td><td>{% for e in u.zamestnanci.all %}{{ e }} {% endfor %}</td><td>{{ u.cena|default:"–" }}</td><td>{{ u.sazba_dph|default:"–" }}</td></tr>{% empty %}<tr><td colspan="4" class="text-muted">Žádné práce.</td></tr>{% endfor %}</table><b>Práce celkem bez DPH: {{ sum_u }}</b></div>
+<div class="tp d-none" data-tab="mat"><table class="table table-sm"><tr><th>Materiál</th><th>Množ.</th><th>Cena/j.</th><th>DPH %</th></tr>{% for m in mat %}<tr><td><a href="{% url 'detail' 'pouzitymaterial' m.pk %}">{{ m.material }}</a></td><td>{{ m.mnozstvi|floatformat:"-3" }} {{ m.material.jednotka }}</td><td>{{ m.jednotkova_cena|default:"–" }}</td><td>{{ m.sazba_dph|default:"–" }}</td></tr>{% empty %}<tr><td colspan="4" class="text-muted">Žádný materiál.</td></tr>{% endfor %}</table><b>Materiál celkem bez DPH: {{ sum_m }}</b></div>
+<div class="tp d-none" data-tab="foto"><div class="d-flex flex-wrap gap-2">{% for f in foto %}<img class="th" src="{{ f.url }}" title="{{ f.title }}" onclick="PL.open({{ f.i }})">{% empty %}<p class="text-muted">Žádné fotografie.</p>{% endfor %}</div></div>
+<div class="tp d-none" data-tab="pril"><table class="table table-sm">{% for d in pril %}<tr><td><a href="#" onclick="PL.open({{ d.i }});return false">{{ d.title }}</a></td><td class="text-muted small">{{ d.kind }}</td></tr>{% empty %}<tr><td class="text-muted">Žádné přílohy.</td></tr>{% endfor %}</table></div>
+<div class="tp d-none" data-tab="dok"><table class="table table-sm">{% for d in dok %}<tr><td>{{ d.title }}</td><td><span class="badge bg-secondary">{{ d.group }}</span></td><td class="text-end">{% if d.kind == "link" %}<a class="btn btn-sm btn-outline-primary" href="{{ d.url }}">Otevřít</a>{% else %}<button type="button" class="btn btn-sm btn-outline-primary" onclick="PL.open({{ d.i }})">Otevřít</button>{% endif %}</td></tr>{% empty %}<tr><td class="text-muted">Žádné dokumenty.</td></tr>{% endfor %}</table>
+<h6 class="mt-3">Platby</h6><table class="table table-sm">{% for p in platby %}<tr><td><a href="{% url 'detail' 'platba' p.pk %}">{{ p.castka|default:"–" }}</a></td><td>{{ p.stav }}</td><td>{{ p.zpusob }}</td><td>{{ p.faktura|default:"" }}</td></tr>{% empty %}<tr><td class="text-muted">Žádné platby.</td></tr>{% endfor %}</table>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'platba' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat platbu</a></div>
+<div class="tp d-none" data-tab="kont"><table class="table table-sm">{% for k in kontakty %}<tr><td><a href="{% url 'detail' 'kontaktniosoba' k.kontakt_id %}">{{ k.kontakt }}</a></td><td>{{ k.role|default:"kontakt" }}</td><td>{{ k.kontakt.telefon }} {{ k.kontakt.email }}</td></tr>{% empty %}<tr><td class="text-muted">Žádné kontakty.</td></tr>{% endfor %}</table>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'zakazkakontakt' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat kontakt</a> <a class="btn btn-sm btn-outline-secondary" href="{% url 'create' 'kontaktniosoba' %}?next={{ nxt }}">Nová kontaktní osoba</a></div>
+<div class="tp d-none" data-tab="zar"><ul>{% for x in zarizeni %}<li><a href="{% url 'detail' 'zarizeni' x.pk %}">{{ x }}</a></li>{% empty %}<li class="text-muted">Žádná zařízení.</li>{% endfor %}</ul>
+<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'zarizeni' %}?zakaznik={{ z.zakaznik_id }}&next={{ nxt }}">Nové zařízení zákazníka</a> <small class="text-muted">Přiřazení k zakázce: Upravit zakázku.</small></div>
+<div class="tp d-none" data-tab="zam"><ul>{% for e in zam %}<li>{{ e }} <small class="text-muted">{{ e.pracovni_pozice }}</small></li>{% empty %}<li class="text-muted">Nikdo nepřiřazen.</li>{% endfor %}</ul><small class="text-muted">Změna přiřazení: Upravit zakázku.</small></div>
+<div class="tp d-none" data-tab="hist"><table class="table table-sm small">{% for h in hist %}<tr><td>{{ h.datum|date:"d.m.Y H:i" }}</td><td>{{ h.uzivatel }}</td><td>{{ h.akce }}</td><td>{{ h.pole }}</td><td>{{ h.puvodni_hodnota }} → {{ h.nova_hodnota }}</td></tr>{% empty %}<tr><td class="text-muted">Bez záznamů.</td></tr>{% endfor %}</table></div>
+</div>
+<div class="col-xl-7"><div class="d-flex gap-3 mb-1 small"><button type="button" class="btn btn-sm btn-outline-primary" id="add2">Přidat druhý dokument</button><label><input type="checkbox" id="split"> Porovnání (2 panely)</label><label><input type="checkbox" id="sync"> Synchronizovat zoom a posun (obrázky)</label><span class="text-muted">kolečko = zoom, tažení = posun, ←/→ = další soubor</span></div>
+<div class="d-flex gap-2">{% for n in "01" %}<div class="pn{% if n == '1' %} d-none{% endif %}" id="pn{{ n }}" data-p="{{ n }}"><div class="d-flex justify-content-between align-items-center bg-light"><div class="pt">—</div>
+<div class="btn-group btn-group-sm flex-wrap"><button class="btn btn-outline-secondary" data-a="prev">‹</button><button class="btn btn-outline-secondary" data-a="next">›</button><button class="btn btn-outline-secondary" data-a="in">Přiblížit</button><button class="btn btn-outline-secondary" data-a="out">Oddálit</button><button class="btn btn-outline-secondary" data-a="fit">Přizpůsobit</button><button class="btn btn-outline-secondary" data-a="dl">Stáhnout</button><button class="btn btn-outline-secondary" data-a="print">Vytisknout</button><button class="btn btn-outline-secondary" data-a="open">Otevřít</button><button class="btn btn-outline-danger" data-a="del">Smazat</button></div></div><div class="pb"></div></div>{% endfor %}</div></div></div></div>
+{{ items|json_script:"items" }}
+<script>(function(){
+const items=JSON.parse(document.getElementById('items').textContent),P=[{i:-1,s:1,x:0,y:0},{i:-1,s:1,x:0,y:0}];let act=0,sync=false;
+const $=(s,r=document)=>r.querySelector(s),pn=n=>document.getElementById('pn'+n),img=n=>$('img',pn(n)),vp=n=>$('.pb',pn(n));
+function tf(n){const e=img(n);if(e)e.style.transform='translate('+P[n].x+'px,'+P[n].y+'px) scale('+P[n].s+')'}
+function set(n,s,x,y){s=Math.min(30,Math.max(.05,s));[n].concat(sync?[1-n]:[]).forEach(k=>{Object.assign(P[k],{s:s,x:x,y:y});tf(k)})}
+function fit(n){const e=img(n),v=vp(n);if(!e||!e.naturalWidth)return;const s=Math.min(v.clientWidth/e.naturalWidth,v.clientHeight/e.naturalHeight,1);set(n,s,(v.clientWidth-e.naturalWidth*s)/2,(v.clientHeight-e.naturalHeight*s)/2)}
+function mark(){document.querySelectorAll('.pn').forEach(x=>x.classList.toggle('act',x.id=='pn'+act))}
+function render(n){const it=items[P[n].i],b=vp(n);b.innerHTML='';$('.pt',pn(n)).textContent=it?it.title:'—';
+ if(!it){b.innerHTML='<div class="p-3 text-muted">Vyberte dokument nebo soubor vlevo (záložka Dokumenty).</div>';return}
+ if(it.kind=='img'){const e=new Image();e.draggable=false;e.style.cssText='position:absolute;left:0;top:0;transform-origin:0 0;max-width:none';e.onload=()=>fit(n);e.src=it.url;b.appendChild(e)}
+ else if(it.kind=='pdf'||it.kind=='html'){const f=document.createElement('iframe');f.src=it.url;f.style.cssText='width:100%;height:100%;border:0';b.appendChild(f)}
+ else b.innerHTML='<div class="p-3">Náhled tohoto typu není k dispozici – použijte Stáhnout.</div>'}
+function open(i){P[act].i=i;render(act)}
+function nav(n,d){const it=items[P[n].i];if(!it)return;const g=items.filter(x=>x.group==it.group&&x.kind!='link'),k=g.indexOf(it);P[n].i=g[(k+d+g.length)%g.length].i;render(n)}
+function zc(n,f){const v=vp(n),q=P[n],mx=v.clientWidth/2,my=v.clientHeight/2;set(n,q.s*f,mx-(mx-q.x)*f,my-(my-q.y)*f)}
+function print(n,it){if(it.kind=='img'){const w=window.open('');w.document.write('<img src="'+it.url+'" style="max-width:100%" onload="print()">')}else{try{$('iframe',pn(n)).contentWindow.print()}catch(e){window.open(it.url)}}}
+[0,1].forEach(n=>{const b=vp(n);let d=null;
+ b.addEventListener('wheel',e=>{if(!img(n))return;e.preventDefault();const r=b.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,f=e.deltaY<0?1.15:1/1.15,q=P[n];set(n,q.s*f,mx-(mx-q.x)*f,my-(my-q.y)*f)},{passive:false});
+ b.onpointerdown=e=>{if(!img(n))return;d={x:e.clientX-P[n].x,y:e.clientY-P[n].y};b.setPointerCapture(e.pointerId)};
+ b.onpointermove=e=>{if(d)set(n,P[n].s,e.clientX-d.x,e.clientY-d.y)};b.onpointerup=()=>{d=null};
+ pn(n).addEventListener('mousedown',()=>{act=n;mark()});
+ pn(n).querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{const a=btn.dataset.a,it=items[P[n].i];act=n;mark();
+  if(a=='prev')nav(n,-1);else if(a=='next')nav(n,1);else if(!it)return;else if(a=='in')zc(n,1.3);else if(a=='out')zc(n,1/1.3);else if(a=='fit')fit(n);
+  else if(a=='dl'){const l=document.createElement('a');l.href=it.dl;l.download='';l.click()}else if(a=='print')print(n,it);else if(a=='open')window.open(it.url,'_blank');
+  else if(a=='del'){if(it.delete)location=it.delete;else alert('Tento dokument nelze z plochy smazat.')}})});
+$('#split').onchange=e=>{pn(1).classList.toggle('d-none',!e.target.checked);if(!e.target.checked){act=0;mark()}[0,1].forEach(fit)};
+$('#sync').onchange=e=>{sync=e.target.checked};
+document.addEventListener('keydown',e=>{if(!document.getElementById('plocha')||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(e.key=='ArrowLeft')nav(act,-1);if(e.key=='ArrowRight')nav(act,1)});
+function tab(t){document.querySelectorAll('.tp').forEach(x=>x.classList.toggle('d-none',x.dataset.tab!=t));document.querySelectorAll('.nav-link[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==t));history.replaceState(null,'','#'+t)}
+document.querySelectorAll('.nav-link[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));tab(location.hash.slice(1)||'info');
+$('#add2').onclick=()=>{const s=$('#split');s.checked=true;s.onchange({target:s});act=1;mark();tab('dok')};
+window.PL={open:open};render(0);render(1);mark();
+})();</script></div>{% endblock %}

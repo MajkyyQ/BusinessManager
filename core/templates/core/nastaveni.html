@@ -1,0 +1,2 @@
+{% extends "core/base.html" %}{% block content %}<h3>Nastavení</h3><div class="row g-3 mt-1">{% for n,items,note in groups %}<div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body"><h5>{{ n }}</h5>
+{% for l,u in items %}<a class="d-block" href="{{ u }}">{{ l }}</a>{% endfor %}{% if note %}<div class="small text-muted mt-1">{{ note }}</div>{% endif %}</div></div></div>{% endfor %}</div>{% endblock %}

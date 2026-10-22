@@ -1,0 +1,7 @@
+{% extends "core/base.html" %}{% block content %}
+<div class="d-flex justify-content-between mb-2"><h3>{{ vnp }}</h3>
+<form class="d-flex gap-2" method="get"><input class="form-control" name="q" value="{{ q }}" placeholder="Hledat…" hx-get="" hx-trigger="keyup changed delay:400ms" hx-target="#tbl" hx-select="#tbl" hx-swap="outerHTML">
+<button class="btn btn-outline-secondary">Hledat</button>{% if not ro %}<a class="btn btn-primary text-nowrap" href="{% url 'create' slug %}">+ Nový</a>{% endif %}</form></div>
+<div id="tbl"><table class="table table-sm table-hover"><thead><tr>{% for h in heads %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>
+{% for o,cells in rows %}<tr>{% for c in cells %}<td>{% if forloop.first %}<a href="{% url 'detail' slug o.pk %}">{{ c }}</a>{% else %}{{ c }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="9">Žádné záznamy.</td></tr>{% endfor %}</tbody></table>
+{% if page.has_other_pages %}<div>{% if page.has_previous %}<a href="?q={{ q }}&page={{ page.previous_page_number }}">‹</a>{% endif %} {{ page.number }}/{{ page.paginator.num_pages }} {% if page.has_next %}<a href="?q={{ q }}&page={{ page.next_page_number }}">›</a>{% endif %}</div>{% endif %}</div>{% endblock %}
