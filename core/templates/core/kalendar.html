@@ -1,6 +1,12 @@
 {% extends "core/base.html" %}{% block content %}
 <div class="d-flex flex-wrap gap-2 align-items-center mb-2"><h3 class="mb-0 me-2">Kalendář</h3>
-<div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary" href="?v={{ v }}&d={{ prev|date:'Y-m-d' }}{{ qq }}">‹</a><a class="btn btn-outline-secondary" href="?v={{ v }}&d={{ today|date:'Y-m-d' }}{{ qq }}">Dnes</a><a class="btn btn-outline-secondary" href="?v={{ v }}&d={{ nxt|date:'Y-m-d' }}{{ qq }}">›</a></div><strong>{{ title }}</strong>
+<div class="btn-group btn-group-sm"><a class="btn btn-outline-secondary" href="?v={{ v }}&d={{ prev|date:'Y-m-d' }}{{ qq }}">‹</a><a class="btn btn-outline-secondary" href="?v={{ v }}&d={{ today|date:'Y-m-d' }}{{ qq }}">Dnes ({{ today|date:"j. n. Y" }})</a><a class="btn btn-outline-secondary" href="?v={{ v }}&d={{ nxt|date:'Y-m-d' }}{{ qq }}">›</a></div>
+<div class="position-relative"><button type="button" class="btn btn-sm btn-light border fw-bold" id="kp-btn" title="Vybrat měsíc nebo datum">{{ title }} ▾</button>
+<div id="kp" class="card shadow p-2 position-absolute d-none" style="z-index:1050;width:300px;top:110%;left:0" data-y="{{ d.year }}" data-m="{{ d.month }}" data-ty="{{ today.year }}" data-tm="{{ today.month }}" data-qq="{{ qq }}">
+<div class="d-flex justify-content-between align-items-center mb-2"><button type="button" class="btn btn-sm btn-outline-secondary" data-dy="-1">‹</button><strong id="kp-y"></strong><button type="button" class="btn btn-sm btn-outline-secondary" data-dy="1">›</button></div>
+<div class="row g-1" id="kp-m"></div><hr class="my-2">
+<form method="get" class="d-flex gap-1"><input type="hidden" name="v" value="{{ v }}">{% if typ %}<input type="hidden" name="typ" value="{{ typ }}">{% endif %}{% if zam %}<input type="hidden" name="zam" value="{{ zam }}">{% endif %}
+<input type="date" name="d" class="form-control form-control-sm" value="{{ d|date:'Y-m-d' }}" required><button class="btn btn-sm btn-primary">Přejít</button></form></div></div>
 <div class="btn-group btn-group-sm ms-auto">{% for k,n in modes %}<a class="btn btn-outline-primary {% if v == k %}active{% endif %}" href="?v={{ k }}&d={{ d|date:'Y-m-d' }}{{ qq }}">{{ n }}</a>{% endfor %}</div>
 <a class="btn btn-sm btn-primary" href="{% url 'create' 'kalendarudalost' %}?datum={{ d|date:'Y-m-d' }}T09:00&next={{ nxtpath|urlencode }}">+ Událost</a></div>
 <form method="get" class="d-flex gap-1 mb-2"><input type="hidden" name="v" value="{{ v }}"><input type="hidden" name="d" value="{{ d|date:'Y-m-d' }}">
@@ -9,4 +15,12 @@
 {% if v == "month" %}<table class="table table-bordered" style="table-layout:fixed"><tr>{% for w in wd %}<th>{{ w }}</th>{% endfor %}</tr>{% for r in rows %}<tr>{% for c in r %}<td class="{% if c.out %}bg-light text-muted{% endif %} {% if c.today %}border-primary border-2{% endif %}" style="height:110px;vertical-align:top;overflow:hidden">
 <div class="d-flex justify-content-between"><a class="text-decoration-none fw-bold" href="?v=day&d={{ c.d|date:'Y-m-d' }}{{ qq }}">{{ c.d.day }}</a><a class="text-decoration-none" href="{% url 'create' 'kalendarudalost' %}?datum={{ c.d|date:'Y-m-d' }}T09:00&next={{ nxtpath|urlencode }}">+</a></div>{% for e in c.ev %}{% include "core/kal_event.html" %}{% endfor %}</td>{% endfor %}</tr>{% endfor %}</table>
 {% elif v == "week" %}<div class="row row-cols-1 row-cols-md-7 g-2">{% for c in days %}<div class="col"><div class="card h-100 {% if c.today %}border-primary{% endif %}"><div class="card-header py-1 small"><a href="?v=day&d={{ c.d|date:'Y-m-d' }}{{ qq }}">{{ c.d|date:"D j.n." }}</a></div><div class="card-body p-2">{% for e in c.ev %}{% include "core/kal_event.html" %}{% endfor %}</div></div></div>{% endfor %}</div>
-{% else %}{% for c in days %}{% for e in c.ev %}{% include "core/kal_event.html" %}{% if e.popis %}<div class="small text-muted ms-5 mb-2">{{ e.popis }}</div>{% endif %}{% empty %}<p class="text-muted">Žádné události.</p>{% endfor %}{% endfor %}{% endif %}{% endblock %}
+{% else %}{% for c in days %}{% for e in c.ev %}{% include "core/kal_event.html" %}{% if e.popis %}<div class="small text-muted ms-5 mb-2">{{ e.popis }}</div>{% endif %}{% empty %}<p class="text-muted">Žádné události.</p>{% endfor %}{% endfor %}{% endif %}
+<script>(function(){const p=document.getElementById('kp'),b=document.getElementById('kp-btn'),D=p.dataset,
+M=["Leden","Únor","Březen","Duben","Květen","Červen","Červenec","Srpen","Září","Říjen","Listopad","Prosinec"];let y=+D.y;
+function draw(){document.getElementById('kp-y').textContent=y;document.getElementById('kp-m').innerHTML=M.map((n,i)=>{const sel=y==+D.y&&i+1==+D.m,dn=y==+D.ty&&i+1==+D.tm;
+ return '<div class="col-4"><a class="btn btn-sm w-100 '+(sel?'btn-primary':dn?'btn-outline-primary':'btn-outline-secondary')+'" href="?v=month&d='+y+'-'+String(i+1).padStart(2,'0')+'-01'+D.qq+'">'+n+'</a></div>'}).join('')}
+b.onclick=()=>{p.classList.toggle('d-none');y=+D.y;draw()};
+p.querySelectorAll('[data-dy]').forEach(x=>x.onclick=()=>{y+=+x.dataset.dy;draw()});
+document.addEventListener('click',e=>{if(!p.contains(e.target)&&!b.contains(e.target))p.classList.add('d-none')});
+document.addEventListener('keydown',e=>{if(e.key=='Escape')p.classList.add('d-none')});})();</script>{% endblock %}
