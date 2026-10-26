@@ -37,15 +37,15 @@
 <div class="tp d-none" data-tab="zam"><ul>{% for e in zam %}<li>{{ e }} <small class="text-muted">{{ e.pracovni_pozice }}</small></li>{% empty %}<li class="text-muted">Nikdo nepřiřazen.</li>{% endfor %}</ul><small class="text-muted">Změna přiřazení: Upravit zakázku.</small></div>
 <div class="tp d-none" data-tab="hist"><table class="table table-sm small">{% for h in hist %}<tr><td>{{ h.datum|date:"d.m.Y H:i" }}</td><td>{{ h.uzivatel }}</td><td>{{ h.akce }}</td><td>{{ h.pole }}</td><td>{{ h.puvodni_hodnota }} → {{ h.nova_hodnota }}</td></tr>{% empty %}<tr><td class="text-muted">Bez záznamů.</td></tr>{% endfor %}</table></div>
 </div>
-<div class="col-xl-7"><div class="d-flex gap-3 mb-1 small"><button type="button" class="btn btn-sm btn-outline-primary" id="add2">Přidat druhý dokument</button><label><input type="checkbox" id="split"> Porovnání (2 panely)</label><label><input type="checkbox" id="sync"> Synchronizovat zoom a posun (obrázky)</label><span class="text-muted">kolečko = zoom, tažení = posun, ←/→ = další soubor</span></div>
+<div class="col-xl-7"><div class="d-flex gap-3 mb-1 small"><label><input type="checkbox" id="split"> Porovnání (2 panely)</label><span class="text-muted">kolečko = zoom, tažení = posun, ←/→ = další soubor</span></div>
 <div class="d-flex gap-2">{% for n in "01" %}<div class="pn{% if n == '1' %} d-none{% endif %}" id="pn{{ n }}" data-p="{{ n }}"><div class="d-flex justify-content-between align-items-center bg-light"><div class="pt">—</div>
-<div class="btn-group btn-group-sm flex-wrap"><button class="btn btn-outline-secondary" data-a="prev">‹</button><button class="btn btn-outline-secondary" data-a="next">›</button><button class="btn btn-outline-secondary" data-a="in">Přiblížit</button><button class="btn btn-outline-secondary" data-a="out">Oddálit</button><button class="btn btn-outline-secondary" data-a="fit">Přizpůsobit</button><button class="btn btn-outline-secondary" data-a="dl">Stáhnout</button><button class="btn btn-outline-secondary" data-a="print">Vytisknout</button><button class="btn btn-outline-secondary" data-a="open">Otevřít</button><button class="btn btn-outline-danger" data-a="del">Smazat</button></div></div><div class="pb"></div></div>{% endfor %}</div></div></div></div>
+<div class="btn-group btn-group-sm flex-wrap"><button class="btn btn-outline-secondary" data-a="prev">‹</button><button class="btn btn-outline-secondary" data-a="next">›</button><button class="btn btn-outline-secondary" data-a="in">Přiblížit</button><button class="btn btn-outline-secondary" data-a="out">Oddálit</button><button class="btn btn-outline-secondary" data-a="fit">Přizpůsobit</button><button class="btn btn-outline-secondary" data-a="dl">Stáhnout</button><button class="btn btn-outline-secondary" data-a="print">Vytisknout</button><button class="btn btn-outline-secondary" data-a="open">Otevřít</button><button class="btn btn-outline-danger" data-a="del">Smazat</button><button class="btn btn-outline-secondary" data-a="close" title="Zavřít náhled a vyčistit plochu">✕ Zavřít</button></div></div><div class="pb"></div></div>{% endfor %}</div></div></div></div>
 {{ items|json_script:"items" }}
 <script>(function(){
-const items=JSON.parse(document.getElementById('items').textContent),P=[{i:-1,s:1,x:0,y:0},{i:-1,s:1,x:0,y:0}];let act=0,sync=false;
+const items=JSON.parse(document.getElementById('items').textContent),P=[{i:-1,s:1,x:0,y:0},{i:-1,s:1,x:0,y:0}];let act=0;
 const $=(s,r=document)=>r.querySelector(s),pn=n=>document.getElementById('pn'+n),img=n=>$('img',pn(n)),vp=n=>$('.pb',pn(n));
 function tf(n){const e=img(n);if(e)e.style.transform='translate('+P[n].x+'px,'+P[n].y+'px) scale('+P[n].s+')'}
-function set(n,s,x,y){s=Math.min(30,Math.max(.05,s));[n].concat(sync?[1-n]:[]).forEach(k=>{Object.assign(P[k],{s:s,x:x,y:y});tf(k)})}
+function set(n,s,x,y){s=Math.min(30,Math.max(.05,s));Object.assign(P[n],{s:s,x:x,y:y});tf(n)}
 function fit(n){const e=img(n),v=vp(n);if(!e||!e.naturalWidth)return;const s=Math.min(v.clientWidth/e.naturalWidth,v.clientHeight/e.naturalHeight,1);set(n,s,(v.clientWidth-e.naturalWidth*s)/2,(v.clientHeight-e.naturalHeight*s)/2)}
 function mark(){document.querySelectorAll('.pn').forEach(x=>x.classList.toggle('act',x.id=='pn'+act))}
 function render(n){const it=items[P[n].i],b=vp(n);b.innerHTML='';$('.pt',pn(n)).textContent=it?it.title:'—';
@@ -63,14 +63,12 @@ function print(n,it){if(it.kind=='img'){const w=window.open('');w.document.write
  b.onpointermove=e=>{if(d)set(n,P[n].s,e.clientX-d.x,e.clientY-d.y)};b.onpointerup=()=>{d=null};
  pn(n).addEventListener('mousedown',()=>{act=n;mark()});
  pn(n).querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{const a=btn.dataset.a,it=items[P[n].i];act=n;mark();
-  if(a=='prev')nav(n,-1);else if(a=='next')nav(n,1);else if(!it)return;else if(a=='in')zc(n,1.3);else if(a=='out')zc(n,1/1.3);else if(a=='fit')fit(n);
+  if(a=='close'){P[n]={i:-1,s:1,x:0,y:0};render(n)}else if(a=='prev')nav(n,-1);else if(a=='next')nav(n,1);else if(!it)return;else if(a=='in')zc(n,1.3);else if(a=='out')zc(n,1/1.3);else if(a=='fit')fit(n);
   else if(a=='dl'){const l=document.createElement('a');l.href=it.dl;l.download='';l.click()}else if(a=='print')print(n,it);else if(a=='open')window.open(it.url,'_blank');
   else if(a=='del'){if(it.delete)location=it.delete;else alert('Tento dokument nelze z plochy smazat.')}})});
-$('#split').onchange=e=>{pn(1).classList.toggle('d-none',!e.target.checked);if(!e.target.checked){act=0;mark()}[0,1].forEach(fit)};
-$('#sync').onchange=e=>{sync=e.target.checked};
+$('#split').onchange=e=>{const on=e.target.checked;pn(1).classList.toggle('d-none',!on);act=on?1:0;mark();[0,1].forEach(fit)};
 document.addEventListener('keydown',e=>{if(!document.getElementById('plocha')||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(e.key=='ArrowLeft')nav(act,-1);if(e.key=='ArrowRight')nav(act,1)});
 function tab(t){document.querySelectorAll('.tp').forEach(x=>x.classList.toggle('d-none',x.dataset.tab!=t));document.querySelectorAll('.nav-link[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab==t));history.replaceState(null,'','#'+t)}
 document.querySelectorAll('.nav-link[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));tab(location.hash.slice(1)||'info');
-$('#add2').onclick=()=>{const s=$('#split');s.checked=true;s.onchange({target:s});act=1;mark();tab('dok')};
 window.PL={open:open};render(0);render(1);mark();
 })();</script></div>{% endblock %}
