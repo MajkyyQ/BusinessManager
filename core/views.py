@@ -11,7 +11,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 import operator
 from functools import reduce
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, date
+from django.db.models import OuterRef, Subquery
+from django.db.models.functions import Coalesce
+from django.utils.text import capfirst
 from django.http import JsonResponse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
@@ -49,6 +52,8 @@ def R(request, tpl, sec=None, crumbs=None, **c):
     if slug in SEC and not sec: sec, g = SEC[slug]
     if crumbs is None and slug in SEC:
         crumbs = [(sl[sec][0], sl[sec][1])] + ([(g, reverse("nastaveni"))] if g else []) + [(c["vnp"], None if tpl == "list" else reverse("list", args=[slug]))]
+        if not g and sl[sec][0].split(" ", 1)[-1] == c["vnp"]:  # sekce a tabulka se jmenují stejně (Zakázky › Zakázky) -> bez duplicity
+            crumbs = None if tpl == "list" else crumbs[:1]
     return render(request, f"core/{tpl}.html", {"nav": nav, "sec": sec, "crumbs": crumbs, **c})
 
 # ---------- Vyhledávací pole s inline vytvářením (místo <select>) ----------
@@ -141,17 +146,39 @@ def val(o, f):
 def dashboard(request):
     return R(request, "dashboard", groups=[(g, [(s, MODELS[s]._meta.verbose_name_plural, MODELS[s].objects.count()) for s in ss]) for g, ss in GROUPS])
 
+TYP_ZKR = {"Firma": ("F", "Firma"), "Soukromá osoba": ("SO", "Soukromá osoba")}
+ZAK_FILTRY = [("prijeti_od", "datum_prijeti__date__gte"), ("prijeti_do", "datum_prijeti__date__lte"), ("vydani_od", "datum_vydani__date__gte"), ("vydani_do", "datum_vydani__date__lte")]
+def _dt(v): return timezone.localtime(v).strftime("%d.%m.%Y %H:%M") if v else "–"
 def lst(request, slug):
-    M = get(slug); q = request.GET.get("q", ""); qs = M.objects.all()
+    M = get(slug); q = request.GET.get("q", ""); qs = M.objects.all(); flt = {}
     if q:
         f = Q()
         for x in M._meta.fields:
             if isinstance(x, (models.CharField, models.TextField)): f |= Q(**{x.name + "__icontains": q})
+        if slug == "zakazka": f |= Q(zakaznik__firma__icontains=q) | Q(zakaznik__jmeno__icontains=q)
         qs = qs.filter(f)
-    cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
+    if slug == "zakazka":
+        for k, lk in ZAK_FILTRY:
+            x = request.GET.get(k, "")
+            try: date.fromisoformat(x)
+            except ValueError: continue
+            flt[k] = x; qs = qs.filter(**{lk: x})
+        qs = qs.select_related("zakaznik", "stav")
+    if slug == "zakaznik":
+        h = HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=OuterRef("pk")).order_by("-datum").values("datum")[:1]
+        qs = qs.annotate(posl=Coalesce(Subquery(h), "datum_vytvoreni"))
     page = Paginator(qs if qs.ordered else qs.order_by("pk"), 50).get_page(request.GET.get("page"))
-    rows = [(o, [val(o, c) for c in cols]) for o in page]
-    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=[c.verbose_name for c in cols], rows=rows, ro=slug in READONLY)
+    if slug == "zakaznik":
+        heads = ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]
+        rows = [(o, [o.jmeno or o.firma or str(o), o.firma or "–", o.adresa or "–", o.telefon or "–", o.email or "–", _dt(o.posl)], TYP_ZKR.get(o.typ_zakaznika)) for o in page]
+    elif slug == "zakazka":
+        heads = ["Číslo zakázky", "Zákazník", "Stav", "Datum přijetí", "Datum vydání", "Identifikační číslo"]
+        rows = [(o, [o.cislo_zakazky, o.zakaznik, o.stav or "–", _dt(o.datum_prijeti), _dt(o.datum_vydani), o.identifikacni_cislo or "–"], None) for o in page]
+    else:
+        cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
+        heads = [capfirst(c.verbose_name) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
+    keep = urlencode({k: x for k, x in {"q": q, **flt}.items() if x})
+    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, flt=flt, keep=keep, datum_filtr=slug == "zakazka")
 
 def detail(request, slug, pk):
     if slug == "zakazka": return plocha(request, pk)       # detail zakázky = pracovní prostor zakázky
