@@ -147,10 +147,10 @@ def dashboard(request):
     return R(request, "dashboard", groups=[(g, [(s, MODELS[s]._meta.verbose_name_plural, MODELS[s].objects.count()) for s in ss]) for g, ss in GROUPS])
 
 TYP_ZKR = {"Firma": ("F", "Firma"), "Soukromá osoba": ("SO", "Soukromá osoba")}
-ZAK_FILTRY = [("prijeti_od", "datum_prijeti__date__gte"), ("prijeti_do", "datum_prijeti__date__lte"), ("vydani_od", "datum_vydani__date__gte"), ("vydani_do", "datum_vydani__date__lte")]
+ZAK_RAZENI = {"cislo": "cislo_zakazky", "prijeti": "datum_prijeti", "vydani": "datum_vydani"}  # sloupce zakázek, podle kterých jde řadit
 def _dt(v): return timezone.localtime(v).strftime("%d.%m.%Y %H:%M") if v else "–"
 def lst(request, slug):
-    M = get(slug); q = request.GET.get("q", ""); qs = M.objects.all(); flt = {}
+    M = get(slug); q = request.GET.get("q", ""); qs = M.objects.all(); flt = {}; o = ""
     if q:
         f = Q()
         for x in M._meta.fields:
@@ -158,27 +158,29 @@ def lst(request, slug):
         if slug == "zakazka": f |= Q(zakaznik__firma__icontains=q) | Q(zakaznik__jmeno__icontains=q)
         qs = qs.filter(f)
     if slug == "zakazka":
-        for k, lk in ZAK_FILTRY:
-            x = request.GET.get(k, "")
-            try: date.fromisoformat(x)
-            except ValueError: continue
-            flt[k] = x; qs = qs.filter(**{lk: x})
-        qs = qs.select_related("zakaznik", "stav")
+        st = request.GET.get("st", "")
+        if st: flt["st"] = st; qs = qs.filter(stav__nazev=st)
+        o = request.GET.get("o", "-cislo"); key = o.lstrip("-") if o.lstrip("-") in ZAK_RAZENI else "cislo"; desc = o.startswith("-"); o = ("-" if desc else "") + key
+        pole = models.F(ZAK_RAZENI[key]); qs = qs.select_related("zakaznik", "stav").order_by(pole.desc(nulls_last=True) if desc else pole.asc(nulls_last=True), "-pk")
     if slug == "zakaznik":
         h = HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=OuterRef("pk")).order_by("-datum").values("datum")[:1]
         qs = qs.annotate(posl=Coalesce(Subquery(h), "datum_vytvoreni"))
     page = Paginator(qs if qs.ordered else qs.order_by("pk"), 50).get_page(request.GET.get("page"))
     if slug == "zakaznik":
-        heads = ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]
+        heads = [dict(l=x) for x in ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]]
         rows = [(o, [o.jmeno or o.firma or str(o), o.firma or "–", o.adresa or "–", o.telefon or "–", o.email or "–", _dt(o.posl)], TYP_ZKR.get(o.typ_zakaznika)) for o in page]
     elif slug == "zakazka":
-        heads = ["Číslo zakázky", "Zákazník", "Stav", "Datum přijetí", "Datum vydání", "Identifikační číslo"]
+        sk = {"Číslo zakázky": "cislo", "Datum přijetí": "prijeti", "Datum vydání": "vydani"}
+        heads = [dict(l=x, ord=sk.get(x) and ("" if desc or sk[x] != key else "-") + sk[x], ar=(("▼" if desc else "▲") if sk.get(x) == key else ("↕" if x in sk else "")),
+                      stav=x == "Stav") for x in ["Číslo zakázky", "Zákazník", "Stav", "Datum přijetí", "Datum vydání", "Identifikační číslo"]]
         rows = [(o, [o.cislo_zakazky, o.zakaznik, o.stav or "–", _dt(o.datum_prijeti), _dt(o.datum_vydani), o.identifikacni_cislo or "–"], None) for o in page]
     else:
         cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
-        heads = [capfirst(c.verbose_name) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
+        heads = [dict(l=capfirst(c.verbose_name)) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
     keep = urlencode({k: x for k, x in {"q": q, **flt}.items() if x})
-    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, flt=flt, keep=keep, datum_filtr=slug == "zakazka")
+    stavy = StavZakazky.objects.filter(aktivni=True).values_list("nazev", flat=True) if slug == "zakazka" else []
+    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, flt=flt, keep=keep, o=o,
+             keep_o=urlencode({k: x for k, x in {"q": q, **flt, "o": o}.items() if x}), stavy=stavy)
 
 def detail(request, slug, pk):
     if slug == "zakazka": return plocha(request, pk)       # detail zakázky = pracovní prostor zakázky
