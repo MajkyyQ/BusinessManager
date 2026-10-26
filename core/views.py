@@ -380,7 +380,7 @@ def zakazka_nova(request):
                 dt = parse_datetime(P.get("datum_prijeti", "")) or timezone.now()
                 o = Zakazka.objects.create(zakaznik=z, stav=stav_by_name("Nová"), popis_zavady=P.get("popis_zavady", ""),
                                            poznamka=P.get("poznamka", ""), datum_prijeti=timezone.make_aware(dt) if timezone.is_naive(dt) else dt)
-                o.zarizeni.set(Zarizeni.objects.filter(pk__in=ids("zarizeni"), zakaznik=z)); o.zamestnanci.set(ids("zamestnanci"))
+                o.zarizeni.set(Zarizeni.objects.filter(pk__in=ids("zarizeni"), zakaznik=z)); o.zamestnanci.set(ids("prijal")[:1])  # kdo zařízení převzal
                 k = KontaktniOsoba.objects.filter(pk__in=ids("kontakt")).first()
                 if k: ZakazkaKontakt.objects.create(zakazka=o, kontakt=k, role=P.get("kontakt_role", "")); ZakaznikKontakt.objects.get_or_create(zakaznik=z, kontakt=k)
                 for f in request.FILES.getlist("fotky"):
@@ -398,6 +398,7 @@ def zakazka_nova(request):
         w_zakaznik=W("zakaznik", "zakaznik", P.get("zakaznik") or request.GET.get("zakaznik")), w_zarizeni=W("zarizeni", "zarizeni", P.getlist("zarizeni") or request.GET.getlist("zarizeni"), True, "zakaznik"),
         w_kontakt=W("kontakt", "kontaktniosoba", P.get("kontakt"), False, "zakaznik"), w_mat=W("mat_id", "material", None), typy=TypUkonu.objects.filter(aktivni=True),
         sazby=SazbaDPH.objects.filter(aktivni=True), dph0=ns.vychozi_dph if ns and ns.vychozi_dph is not None else Decimal(21), zam=Zamestnanec.objects.filter(aktivni=True),
+        prijal=P.get("prijal") if request.method == "POST" else str(Zamestnanec.objects.filter(uzivatel=request.user).values_list("pk", flat=True).first() or ""),
         role=["Přinesl zařízení", "Vyzvedl zařízení", "Kontakt", "Jiné"], now=timezone.localtime().strftime("%Y-%m-%dT%H:%M"))
 
 # ---------------- Zařízení (samostatná evidence) ----------------
