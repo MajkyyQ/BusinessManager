@@ -54,7 +54,8 @@ def R(request, tpl, sec=None, crumbs=None, **c):
         crumbs = [(sl[sec][0], sl[sec][1])] + ([(g, reverse("nastaveni"))] if g else []) + [(c["vnp"], None if tpl == "list" else reverse("list", args=[slug]))]
         if not g and sl[sec][0].split(" ", 1)[-1] == c["vnp"]:  # sekce a tabulka se jmenují stejně (Zakázky › Zakázky) -> bez duplicity
             crumbs = None if tpl == "list" else crumbs[:1]
-    return render(request, f"core/{tpl}.html", {"nav": nav, "sec": sec, "crumbs": crumbs, **c})
+    navx = [(k, *(l.split(" ", 1) if " " in l else ("", l)), u) for k, l, u in nav]  # (klíč, ikona, název, url) pro levou lištu
+    return render(request, f"core/{tpl}.html", {"nav": nav, "navx": navx, "sec": sec, "crumbs": crumbs, **c})
 
 # ---------- Vyhledávací pole s inline vytvářením (místo <select>) ----------
 LOOKUP = {  # slug -> pole pro hledání, závislost (filtr podle zákazníka), pole formuláře "Nový ..."
