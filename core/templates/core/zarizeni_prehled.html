@@ -15,4 +15,4 @@
 <td class="text-nowrap">{{ r.prijeti|date:"j. n. Y"|default:"–" }}</td>
 <td class="text-nowrap">{{ r.akce|date:"j. n. Y H:i"|default:"–" }}</td>
 <td class="text-end">{{ r.n }}</td></tr>{% empty %}<tr><td colspan="7" class="text-muted">Žádná zařízení neodpovídají filtru.</td></tr>{% endfor %}</tbody></table></div>
-<p class="small text-muted">Datum přijetí se zobrazuje jen u zařízení, které je právě v servisu (otevřená zakázka). Poslední akce = poslední změna zařízení nebo kterékoli jeho zakázky.</p>{% endblock %}
+<p class="small text-muted">Poslední akce = poslední změna zařízení nebo kterékoli jeho zakázky.</p>{% endblock %}

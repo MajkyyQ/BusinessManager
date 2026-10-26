@@ -425,7 +425,7 @@ def zarizeni_prehled(request):
         z = d.zz[0] if d.zz else None; st = z.stav.nazev if z and z.stav else ""; otevrena = bool(z) and st not in CLOSED
         if not {"firma": otevrena, "oprava": st in ("Rozpracováno", "Opraveno"), "dil": st == "Čeká na díl", "zakaznik": bool(z) and not otevrena, "bez": not z}.get(f, True): continue
         rows.append(dict(d=d, z=z, stav=st or ("Bez zakázky" if not z else "–"), css=STAV_CSS.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
-                         prijeti=z.datum_prijeti if otevrena else None, akce=_zar_posledni_akce(d, hist)))
+                         prijeti=z.datum_prijeti if z else None, akce=_zar_posledni_akce(d, hist)))
     far = timezone.make_aware(datetime(1900, 1, 1))
     sk = {"zarizeni": lambda r: f"{r['d'].vyrobce} {r['d'].typ}".lower(), "zakaznik": lambda r: str(r["d"].zakaznik).lower(), "telefon": lambda r: r["d"].zakaznik.telefon or "",
           "stav": lambda r: r["stav"].lower(), "prijeti": lambda r: r["prijeti"] or far, "akce": lambda r: r["akce"] or far}[key]
