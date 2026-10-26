@@ -429,7 +429,7 @@ def zakazka_nova(request):
         role=["Přinesl zařízení", "Vyzvedl zařízení", "Kontakt", "Jiné"], now=timezone.localtime().strftime("%Y-%m-%dT%H:%M"))
 
 # ---------------- Zařízení (samostatná evidence) ----------------
-ZAR_FILTRY = [("", "Všechna zařízení"), ("firma", "Ve firmě (otevřená zakázka)"), ("oprava", "V opravě"), ("dil", "Čeká na díl"),
+ZAR_FILTRY = [("", "Všechna zařízení"), ("firma", "Na firmě (otevřená zakázka)"), ("oprava", "V opravě"), ("dil", "Čeká na díl"),
               ("zakaznik", "U zákazníka"), ("bez", "Bez zakázky"), ("neaktivni", "Neaktivní")]
 ZAR_RAZENI = {"zarizeni": "Zařízení", "zakaznik": "Zákazník", "telefon": "Telefon", "stav": "Stav", "prijeti": "Datum přijetí", "akce": "Poslední akce"}
 def _zar_posledni_akce(d, hist):
@@ -437,6 +437,7 @@ def _zar_posledni_akce(d, hist):
     return max((x for x in t if x), default=None)
 def zarizeni_prehled(request):
     f = request.GET.get("f", ""); q = request.GET.get("q", "").strip(); o = request.GET.get("o", "-akce")
+    fs = request.GET.get("st", ""); fi = request.GET.get("fi", "")  # filtr stavu a filtr „na firmě“
     key = o.lstrip("-") if o.lstrip("-") in ZAR_RAZENI else "akce"; desc = o.startswith("-")
     qs = Zarizeni.objects.select_related("zakaznik").prefetch_related(Prefetch("zakazka_set", queryset=Zakazka.objects.select_related("stav").order_by("-datum_prijeti", "-datum_vytvoreni"), to_attr="zz"))
     if f != "neaktivni": qs = qs.filter(aktivni=True)
@@ -451,14 +452,18 @@ def zarizeni_prehled(request):
     for d in qs:
         z = d.zz[0] if d.zz else None; st = z.stav.nazev if z and z.stav else ""; otevrena = bool(z) and st not in CLOSED
         if not {"firma": otevrena, "oprava": st in ("Rozpracováno", "Opraveno"), "dil": st == "Čeká na díl", "zakaznik": bool(z) and not otevrena, "bez": not z}.get(f, True): continue
-        rows.append(dict(d=d, z=z, stav=st or ("Bez zakázky" if not z else "–"), css=STAV_CSS.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
+        stav = st or ("Bez zakázky" if not z else "–")
+        if (fs and stav != fs) or (fi == "ano" and not otevrena) or (fi == "ne" and otevrena): continue
+        rows.append(dict(d=d, z=z, stav=stav, css=STAV_CSS.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
                          prijeti=z.datum_prijeti if z else None, akce=_zar_posledni_akce(d, hist)))
     far = timezone.make_aware(datetime(1900, 1, 1))
     sk = {"zarizeni": lambda r: f"{r['d'].vyrobce} {r['d'].typ}".lower(), "zakaznik": lambda r: str(r["d"].zakaznik).lower(), "telefon": lambda r: r["d"].zakaznik.telefon or "",
           "stav": lambda r: r["stav"].lower(), "prijeti": lambda r: r["prijeti"] or far, "akce": lambda r: r["akce"] or far}[key]
     rows.sort(key=sk, reverse=desc)
     heads = [(k, l, ("" if desc or k != key else "-") + k, ("▼" if desc else "▲") if k == key else "") for k, l in ZAR_RAZENI.items()]
-    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=[("🔧 Zařízení", None)], rows=rows, f=f, q=q, o=o, heads=heads, filtry=ZAR_FILTRY)
+    stavy = list(StavZakazky.objects.filter(aktivni=True).values_list("nazev", flat=True)) + ["Bez zakázky"]
+    keep = urlencode({k: x for k, x in (("q", q), ("f", f), ("st", fs), ("fi", fi)) if x})
+    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtry=ZAR_FILTRY, stavy=stavy, fs=fs, fi=fi, keep=keep)
 def zarizeni_detail(request, pk):
     d = get_object_or_404(Zarizeni.objects.select_related("zakaznik"), pk=pk)
     zak = list(d.zakazka_set.select_related("stav").prefetch_related("zamestnanci", Prefetch("provedenyukon_set", queryset=ProvedenyUkon.objects.select_related("typ_ukonu").prefetch_related("zamestnanci")),
