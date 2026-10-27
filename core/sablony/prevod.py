@@ -45,19 +45,24 @@ def _profil():
     return p
 
 
-def na_pdf(soubor, filtr=None):
-    """Převede soubor (xlsx, html…) na PDF a vrátí jeho obsah (bytes)."""
+def na_xlsx(soubor):
+    """Starý formát .xls -> .xlsx (bytes)."""
+    return na_pdf(soubor, cil="xlsx")
+
+
+def na_pdf(soubor, filtr=None, cil="pdf"):
+    """Převede soubor (xlsx, html…) na PDF (nebo jiný formát `cil`) a vrátí jeho obsah (bytes)."""
     exe = soffice()
     if not exe: raise ChybiLibreOffice("Pro převod do PDF je potřeba nainstalovat LibreOffice (zdarma, libreoffice.org).")
     soubor = Path(soubor)
     profil = _profil()
     with tempfile.TemporaryDirectory() as out, _ZAMEK:
         cmd = [exe, f"-env:UserInstallation={profil.as_uri()}", "--headless", "--norestore", "--nologo",
-               "--convert-to", f"pdf:{filtr}" if filtr else "pdf", "--outdir", out, str(soubor)]
+               "--convert-to", f"{cil}:{filtr}" if filtr else cil, "--outdir", out, str(soubor)]
         r = subprocess.run(cmd, capture_output=True, timeout=120)
-        pdf = Path(out) / (soubor.stem + ".pdf")
+        pdf = Path(out) / (soubor.stem + "." + cil)
         if not pdf.exists():
-            raise RuntimeError("LibreOffice nevytvořil PDF: " + (r.stderr or r.stdout).decode(errors="ignore")[-500:])
+            raise RuntimeError("LibreOffice soubor nepřevedl: " + (r.stderr or r.stdout).decode(errors="ignore")[-500:])
         return pdf.read_bytes()
 
 

@@ -22,11 +22,11 @@ def vestavene_sablony():
     lo = bool(soffice())
     for kod, t in typy.REGISTR.items():
         nove = []
-        for soubor, nazev, fmt in ((f"{kod}_standardni.xlsx", "standardní", "excel"), ("jednoducha.html", "jednoduchá", "html")):
+        for soubor, nazev, fmt in ((f"{kod}_firemni.xlsx", "firemní", "excel"), (f"{kod}_standardni.xlsx", "standardní", "excel"), ("jednoducha.html", "jednoduchá", "html")):
             if not S.objects.filter(typ_dokumentu=kod, vestavena=soubor).exists():
                 nove.append(S.objects.create(typ_dokumentu=kod, vestavena=soubor, format=fmt, nazev=f"{t.nazev} – {nazev}"))
         if nove and not S.objects.filter(typ_dokumentu=kod, vychozi=True).exists():
-            v = next((x for x in nove if x.format == ("excel" if lo else "html")), nove[0]); v.vychozi = True; v.save()
+            v = next((x for x in nove if x.format == ("excel" if lo else "html")), nove[0]); v.vychozi = True; v.save()  # první Excel = firemní
         for s in nove:
             if s.format == "excel":
                 try:

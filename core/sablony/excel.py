@@ -76,7 +76,8 @@ def analyzuj(cesta, typ_cls):
 def rozpoznej(wb, typ_cls):
     """Návrh mapování podle textů v šabloně (popisek -> nejbližší volná oblast vpravo, případně pod ním)."""
     vsechna = typ_cls.pole()
-    jednoducha = [p for p in vsechna if not p.klic.startswith("polozka.") and p.synonyma]
+    from .typy import SEZNAMY
+    jednoducha = [p for p in vsechna if p.klic.split(".")[0] not in SEZNAMY and p.synonyma]
     polozkova = [p for p in vsechna if p.klic.startswith("polozka.")]
     pole, tabulky, pouzite = [], [], set()
     for ws in wb.worksheets:
@@ -219,97 +220,133 @@ def _posun_vzorec(f, r, k):
     return _TOK.sub(sub, f)
 
 
-def rozsir_radek(ws, r, n):
-    """Řádek r je vzor tabulky položek. Zajistí n řádků (r .. r+n-1) se stejným vzhledem."""
-    k = n - 1
+def vloz_radky(ws, r, za, k):
+    """Vloží k řádků pod řádek `za` se vzhledem vzorového řádku r (sloučení, výška, styly, vzorce).
+    Vše pod nimi se posune: sloučené oblasti, výšky řádků, vzorce, obrázky i tisková oblast."""
     if k <= 0: return
     max_col = ws.max_column
     sl_radek = [CellRange(m.coord) for m in ws.merged_cells.ranges if m.min_row == m.max_row == r]
     rozsahy = list(ws.merged_cells.ranges)
-    ws.insert_rows(r + 1, k)
-    # sloučené oblasti pod vzorem posunout, oblasti přes vzor prodloužit
+    ws.insert_rows(za + 1, k)
     nove = MultiCellRange()
     for mr in rozsahy:
         cr = CellRange(mr.coord)
-        if cr.min_row > r: cr.shift(row_shift=k)
-        elif cr.max_row > r: cr.expand(down=k)
+        if cr.min_row > za: cr.shift(row_shift=k)
+        elif cr.max_row > za: cr.expand(down=k)
         nove.add(cr)
     for i in range(1, k + 1):
         for cr in sl_radek:
-            x = CellRange(cr.coord); x.shift(row_shift=i); nove.add(x)
+            x = CellRange(cr.coord); x.shift(row_shift=za + i - r); nove.add(x)
     ws.merged_cells = MultiCellRange()
     for cr in nove.ranges: ws.merge_cells(cr.coord)
-    # výšky řádků
-    vysky = {i: d.height for i, d in ws.row_dimensions.items() if d.height is not None and i > r}
-    for i in sorted(vysky, reverse=True): ws.row_dimensions[i + k].height = vysky[i]
-    for i in range(r + 1, r + k + 1): ws.row_dimensions[i].height = ws.row_dimensions[r].height
-    # styly a vzorce vzorového řádku do nových řádků
+    for i in range(ws.max_row - k, za, -1):  # výšky řádků posunout (včetně výchozích) – insert_rows to nedělá
+        ws.row_dimensions[i + k].height = ws.row_dimensions[i].height if i in ws.row_dimensions else None
+    for i in range(za + 1, za + k + 1): ws.row_dimensions[i].height = ws.row_dimensions[r].height
     for c in range(1, max_col + 1):
         src = ws.cell(r, c)
         if isinstance(src, MergedCell): continue
-        for i in range(1, k + 1):
-            dst = ws.cell(r + i, c)
+        for i in range(za + 1, za + k + 1):
+            dst = ws.cell(i, c)
             if isinstance(dst, MergedCell): continue
             if src.has_style: dst._style = copy(src._style)
-            if isinstance(src.value, str) and src.value.startswith("="):
-                dst.value = Translator(src.value, origin=src.coordinate).translate_formula(dst.coordinate)
-            else:
-                dst.value = src.value  # značky {{polozka.*}} se vyplní později
-    # vzorce ve zbytku listu
     for row in ws.iter_rows():
         for cell in row:
-            if isinstance(cell, MergedCell): continue
-            if r <= cell.row <= r + k: continue
-            if isinstance(cell.value, str) and cell.value.startswith("="): cell.value = _posun_vzorec(cell.value, r, k)
-    # obrázky pod tabulkou
+            if isinstance(cell, MergedCell) or za < cell.row <= za + k: continue
+            if isinstance(cell.value, str) and cell.value.startswith("="): cell.value = _posun_vzorec(cell.value, za, k)
     for img in getattr(ws, "_images", []):
-        a = img.anchor
-        fr = getattr(a, "_from", None)
-        if fr is not None and fr.row >= r:  # anchor je 0-based
+        fr = getattr(img.anchor, "_from", None)
+        if fr is not None and fr.row >= za:  # anchor je 0-based
             fr.row += k
-            to = getattr(a, "to", None)
+            to = getattr(img.anchor, "to", None)
             if to is not None: to.row += k
-    # tisková oblast
     if ws.print_area:
         pa = ws.print_area if isinstance(ws.print_area, str) else ",".join(ws.print_area)
-        ws.print_area = [_posun_vzorec(x.split("!")[-1].replace("$", ""), r, k) for x in pa.split(",")]
+        ws.print_area = [_posun_vzorec(x.split("!")[-1].replace("$", ""), za, k) for x in pa.split(",")]
 
 
-def _vypln_tabulku(ws, t, polozky, pole_dict, mena):
-    r = int(t["radek"]); n = len(polozky)
-    rozsir_radek(ws, r, max(n, 1))
+def _sloupce_tabulky(ws, t, predpona):
+    """Rozsah sloupců vzorového řádku (podle značek a namapovaných sloupců, včetně sloučení)."""
+    r = int(t["radek"]); cols = {column_index_from_string(c) for c in (t.get("sloupce") or {})}
+    for c in ws[r]:
+        if not isinstance(c, MergedCell) and isinstance(c.value, str) and "{{" + predpona + "." in c.value: cols.add(c.column)
+    if not cols: return 1, ws.max_column
+    lo, hi = min(cols), max(cols)
+    for m in ws.merged_cells.ranges:
+        if m.min_row <= r <= m.max_row and m.max_col >= lo and m.min_col <= hi: lo, hi = min(lo, m.min_col), max(hi, m.max_col)
+    return lo, hi
+
+
+def _kapacita(ws, r, lo, hi):
+    """Kolik řádků tabulka v šabloně už má: vzorový řádek + navazující prázdné řádky s rámečkem (předkreslené řádky)."""
+    n = 1
+    while n < 200:
+        rr = r + n
+        if rr > ws.max_row: break
+        cells = [ws.cell(rr, c) for c in range(lo, hi + 1)]
+        if any(not isinstance(c, MergedCell) and c.value not in (None, "") for c in ws[rr]): break  # v řádku už je jiný obsah
+        if not any(c.border and any(getattr(c.border, x).style for x in ("top", "bottom", "left", "right")) for c in cells): break
+        n += 1
+    return n
+
+
+def _vypln_tabulku(ws, t, radky, pole_dict, mena):
+    """Vyplní opakující se řádek. Vrátí (za, k) = pod kterým řádkem a kolik řádků se vložilo."""
+    predpona = t.get("predpona", "polozka")
+    r = int(t["radek"]); n = len(radky); lo, hi = _sloupce_tabulky(ws, t, predpona)
+    kap = _kapacita(ws, r, lo, hi)
+    za, k = r + kap - 1, max(n - kap, 0)
+    vloz_radky(ws, r, za, k)
     sloupce = t.get("sloupce") or {}
+    for rr in range(r + 1, r + n):  # další řádky přebírají značky a vzorce ze vzorového řádku (a vzhled, pokud vlastní nemají)
+        for c in range(1, ws.max_column + 1):
+            src, dst = ws.cell(r, c), ws.cell(rr, c)
+            if isinstance(src, MergedCell) or isinstance(dst, MergedCell): continue
+            if not dst.has_style and src.has_style: dst._style = copy(src._style)
+            if dst.value in (None, "") and isinstance(src.value, str):
+                if src.value.startswith("="): dst.value = Translator(src.value, origin=src.coordinate).translate_formula(dst.coordinate)
+                elif "{{" + predpona + "." in src.value: dst.value = src.value  # jiný text v řádku (popisky) se neopakuje
     for i in range(max(n, 1)):
-        data = polozky[i] if i < n else {}
+        data = radky[i] if i < n else {}
         rr = r + i
-        for row in ws.iter_rows(min_row=rr, max_row=rr):
-            for cell in row:
-                if isinstance(cell, MergedCell): continue
-                if isinstance(cell.value, str) and "{{" in cell.value:
-                    if data: _nahrad_znacky(ws, cell, data, pole_dict, mena)
-                    else: cell.value = None
-        for col, k in sloupce.items():
+        for c in range(lo, hi + 1):
+            cell = ws.cell(rr, c)
+            if isinstance(cell, MergedCell) or not (isinstance(cell.value, str) and "{{" in cell.value): continue
+            if data: _nahrad_znacky(ws, cell, data, pole_dict, mena)
+            else: cell.value = None
+        for col, key in sloupce.items():
             cell = ws.cell(rr, column_index_from_string(col))
             if isinstance(cell, MergedCell) or (isinstance(cell.value, str) and cell.value.startswith("=")): continue  # vzorec šablony má přednost
-            p = pole_dict.get(k)
-            _zapis(ws, cell, data.get(k, "") if data else "", p.druh if p else "text", mena)
+            p = pole_dict.get(key)
+            _zapis(ws, cell, data.get(key, "") if data else "", p.druh if p else "text", mena)
+    return za, k
+
+
+def najdi_tabulky(wb, mapovani):
+    """Tabulky z mapování + tabulky definované značkami ({{polozka.*}}, {{material.*}}, {{prace.*}})."""
+    from .typy import SEZNAMY
+    tabulky = [dict(t, predpona=t.get("predpona", "polozka")) for t in (mapovani.get("tabulky") or [])]
+    for ws in wb.worksheets:
+        for pred in SEZNAMY:
+            if any(t["list"] == ws.title and t["predpona"] == pred for t in tabulky): continue
+            for row in ws.iter_rows():  # každý řádek se značkami je samostatná tabulka (např. práce ve dvou místech listu)
+                if any(isinstance(c.value, str) and "{{" + pred + "." in c.value for c in row if not isinstance(c, MergedCell)):
+                    tabulky.append({"list": ws.title, "radek": row[0].row, "sloupce": {}, "predpona": pred})
+    return tabulky
 
 
 def vypln(cesta, mapovani, data, typ_cls):
-    """Vrátí vyplněný sešit (openpyxl Workbook). Původní soubor šablony se nemění."""
+    """Vrátí vyplněný sešit (openpyxl Workbook). Původní soubor šablony se nemění.
+    Atribut wb._bm_posuny = {list: [(za, k), ...]} popisuje vložené řádky (pro posun kreseb)."""
+    from .typy import SEZNAMY
     wb = load_workbook(cesta)
     pole_dict = typ_cls.pole_dict(); hodnoty = data["pole"]; mena = hodnoty.get("soucty.mena", "CZK")
     mapovani = mapovani or {}
-    tabulky = list(mapovani.get("tabulky") or [])
-    # tabulky definované značkami {{polozka.*}} (první takový řádek na listu)
-    for ws in wb.worksheets:
-        if any(t["list"] == ws.title for t in tabulky): continue
-        for row in ws.iter_rows():
-            if any(isinstance(c.value, str) and "{{polozka." in c.value for c in row if not isinstance(c, MergedCell)):
-                tabulky.append({"list": ws.title, "radek": row[0].row, "sloupce": {}}); break
-    for t in tabulky:
-        if t["list"] in wb.sheetnames: _vypln_tabulku(wb[t["list"]], t, data["polozky"], pole_dict, mena)
-    posuny = {t["list"]: (int(t["radek"]), max(len(data["polozky"]), 1) - 1) for t in tabulky}
+    posuny = {}
+    # odspodu nahoru, aby vložené řádky neposunuly tabulky nad sebou
+    for t in sorted(najdi_tabulky(wb, mapovani), key=lambda t: -int(t["radek"])):
+        if t["list"] not in wb.sheetnames: continue
+        za, k = _vypln_tabulku(wb[t["list"]], t, data.get(SEZNAMY.get(t["predpona"], "polozky"), []), pole_dict, mena)
+        if k: posuny.setdefault(t["list"], []).append((za, k))
     for ws in wb.worksheets:
         for row in ws.iter_rows():
             for cell in row:
@@ -317,11 +354,12 @@ def vypln(cesta, mapovani, data, typ_cls):
     for f in mapovani.get("pole") or []:
         if f.get("list") not in wb.sheetnames: continue
         ws = wb[f["list"]]; cr = CellRange(f["oblast"])
-        r0, k = posuny.get(ws.title, (0, 0))
-        if k and cr.min_row > r0: cr.shift(row_shift=k)
+        posun = sum(k for za, k in posuny.get(ws.title, []) if cr.min_row > za)
+        if posun: cr.shift(row_shift=posun)
         p = pole_dict.get(f["pole"])
         if p and p.druh == "obrazek": _vloz_obrazek(ws, cr, hodnoty.get(f["pole"])); continue
         _zapis(ws, ws.cell(cr.min_row, cr.min_col), hodnoty.get(f["pole"], ""), p.druh if p else "text", mena)
+    wb._bm_posuny = posuny
     return wb
 
 

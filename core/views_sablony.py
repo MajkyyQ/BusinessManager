@@ -115,6 +115,13 @@ def sablona_edit(request, pk=None):
             if o.soubor: o.format = renderery.podle_pripony(o.soubor.name).kod
             if s: o.verze += 1
         o.save()
+        if novy_soubor and o.soubor and o.soubor.name.lower().endswith(".xls"):  # starý Excel -> .xlsx (openpyxl umí jen nový formát)
+            try:
+                data = prevod.na_xlsx(o.soubor.path); stary = o.soubor.name
+                o.soubor.save(Path(stary).stem + ".xlsx", ContentFile(data), save=True); o.soubor.storage.delete(stary)
+                messages.info(request, "Soubor ve starém formátu .xls byl převeden na .xlsx.")
+            except Exception as e:
+                messages.error(request, f"Soubor .xls se nepodařilo převést na .xlsx ({e}). Uložte ho v Excelu jako .xlsx a nahrajte znovu.")
         if novy_soubor:
             try:
                 _znovu_analyzovat(o); o.save()
@@ -248,7 +255,7 @@ def dokument_pdf(request, typ, pk):
     t, o = _objekt(typ, pk); s = vyber_sablonu(request, typ)
     r = _obsah(s, t, t.data(o), jako_pdf=True)
     if r["Content-Type"] == "application/pdf":
-        r["Content-Disposition"] = f'attachment; filename="{slugify(t.titulek(o)) or "dokument"}.pdf"'
+        r["Content-Disposition"] = f'attachment; filename="{t.nazev_souboru(o) or "dokument"}.pdf"'
     return r
 
 

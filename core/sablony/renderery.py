@@ -67,7 +67,7 @@ class Renderer:
 
 @registruj
 class ExcelRenderer(Renderer):
-    kod = "excel"; nazev = "Excel (.xlsx)"; pripony = ("xlsx", "xlsm")
+    kod = "excel"; nazev = "Excel (.xlsx)"; pripony = ("xlsx", "xlsm", "xls")
 
     def analyzuj(self, sablona, typ_cls):
         from .excel import analyzuj
@@ -75,9 +75,19 @@ class ExcelRenderer(Renderer):
 
     def xlsx(self, sablona, typ_cls, data):
         from .excel import vypln
+        from openpyxl import load_workbook
+        from . import kresby
         import io
-        wb = vypln(cesta_souboru(sablona), sablona.mapovani, data, typ_cls)
-        b = io.BytesIO(); wb.save(b); return b.getvalue()
+        cesta = cesta_souboru(sablona)
+        puvodni = [len(ws._images) for ws in load_workbook(cesta).worksheets]
+        wb = vypln(cesta, sablona.mapovani, data, typ_cls)
+        b = io.BytesIO(); wb.save(b)
+        posuny = [wb._bm_posuny.get(ws.title, []) for ws in wb.worksheets]
+        nove = [len(ws._images) - (puvodni[i] if i < len(puvodni) else 0) for i, ws in enumerate(wb.worksheets)]
+        try:
+            return kresby.zachovej(cesta, b.getvalue(), posuny, nove)
+        except Exception:
+            return b.getvalue()  # tvary se nepodařilo přenést, dokument se vytvoří bez nich
 
     def pdf(self, sablona, typ_cls, data):
         c = _cache(sablona, data, "pdf")
