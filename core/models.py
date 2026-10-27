@@ -1,3 +1,5 @@
+import re
+from datetime import date
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -169,8 +171,19 @@ class Objednavka(models.Model):
     def __str__(self): return f"Objednávka {self.cislo_objednavky}"
 class Faktura(Dokument):
     class Meta(Dokument.Meta): verbose_name = "faktura"; verbose_name_plural = "Faktury"
-    cislo_faktury = models.CharField(max_length=50, unique=True); datum_vystaveni = models.DateField(default=timezone.localdate)
+    cislo_faktury = models.CharField(max_length=50, unique=True, blank=True, help_text="Prázdné = vygeneruje se automaticky ve tvaru 001-den-měsíc/rok")
+    datum_vystaveni = models.DateField(default=timezone.localdate)
     datum_splatnosti = models.DateField(null=True, blank=True); datum_zdanitelneho_plneni = models.DateField(null=True, blank=True); vystavil = FK(User)
+    @staticmethod
+    def poradi_z_cisla(c):
+        m = re.match(r"^(\d+)-\d{1,2}-\d{1,2}/(\d{4})$", c or ""); return (int(m.group(1)), int(m.group(2))) if m else (None, None)
+    def save(self, *a, **k):
+        if not self.cislo_faktury:  # pořadí se počítá v rámci roku vystavení: 001-27-10/2026
+            d = self.datum_vystaveni or timezone.localdate()
+            if isinstance(d, str): d = date.fromisoformat(d)
+            n = max([p for p, r in map(Faktura.poradi_z_cisla, Faktura.objects.values_list("cislo_faktury", flat=True)) if r == d.year] or [0]) + 1
+            self.cislo_faktury = f"{n:03d}-{d.day:02d}-{d.month:02d}/{d.year}"
+        super().save(*a, **k)
     def __str__(self): return f"Faktura {self.cislo_faktury}"
 class PolozkaFaktury(Polozka):
     class Meta: verbose_name = "položka faktury"; verbose_name_plural = "Položky faktur"
@@ -200,6 +213,7 @@ class HistorieZmen(models.Model):
 class NastaveniFirmy(models.Model):
     class Meta: verbose_name = "nastavení firmy"; verbose_name_plural = "Nastavení firmy"
     nazev_firmy = C(255); adresa = C(); ico = ICO(); dic = DIC(); telefon = TEL(); email = models.EmailField(blank=True)
+    web = C(200); cislo_uctu = C(50, verbose_name="číslo účtu")
     logo = models.ImageField(upload_to="logo/", blank=True); mena = C(3, default="CZK", choices=[("CZK", "CZK"), ("EUR", "EUR")]); vychozi_dph = DPH(); datum_upravy = models.DateTimeField(auto_now=True)
     def __str__(self): return self.nazev_firmy or "Nastavení"
 class SazbaDPH(models.Model):
@@ -218,3 +232,23 @@ def _ev_f(sender, instance, created, **k):
 def _ev_p(sender, instance, created, **k):
     if instance.stav == "Zaplaceno" and not instance.kalendarudalost_set.exists():
         KalendarUdalost.objects.create(nazev=f"Zaplaceno {instance.castka or ''}", datum=instance.datum_zaplaceni or timezone.now(), typ="Zaplaceno", automaticka=True, platba=instance, faktura=instance.faktura, zakazka=instance.zakazka)
+
+# ---------------- Šablony výstupních dokumentů ----------------
+class SablonaDokumentu(models.Model):
+    """Vzhled výsledného dokumentu. Obsahuje jen soubor šablony a mapování polí, žádná data."""
+    class Meta: verbose_name = "šablona dokumentu"; verbose_name_plural = "Šablony dokumentů"; ordering = ["typ_dokumentu", "-vychozi", "nazev"]
+    nazev = models.CharField("název", max_length=150)
+    typ_dokumentu = models.CharField("typ dokumentu", max_length=30, db_index=True)   # klíč z core.sablony.typy.REGISTR
+    format = models.CharField("formát", max_length=20, default="excel")              # klíč z core.sablony.renderery.REGISTR
+    soubor = models.FileField("soubor šablony", upload_to="sablony/", blank=True)
+    vestavena = models.CharField("vestavěná šablona", max_length=100, blank=True, editable=False)  # název souboru v aplikaci (nelze smazat)
+    mapovani = models.JSONField("mapování polí", default=dict, blank=True)
+    nahled = models.ImageField("miniatura", upload_to="sablony/nahledy/", blank=True, editable=False)
+    popis = T(); vychozi = models.BooleanField("výchozí", default=False); aktivni = A()
+    verze = models.PositiveIntegerField(default=1, editable=False)
+    datum_vytvoreni = DV(); datum_upravy = models.DateTimeField(auto_now=True)
+    def save(self, *a, **k):
+        super().save(*a, **k)
+        if self.vychozi:  # v každém typu je výchozí jen jedna
+            SablonaDokumentu.objects.filter(typ_dokumentu=self.typ_dokumentu, vychozi=True).exclude(pk=self.pk).update(vychozi=False)
+    def __str__(self): return self.nazev

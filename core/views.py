@@ -38,7 +38,7 @@ SEC["zarizeni"] = ("zarizeni", None)
 for _s in ("nabidka", "polozkanabidky", "objednavka", "faktura", "polozkafaktury", "platba"): SEC[_s] = ("dokumenty", None)
 SEC["kalendarudalost"] = ("kalendar", None)
 for _s, _g in (("nastavenifirmy", "Firma"), ("sazbadph", "DPH"), ("zamestnanec", "Uživatelé a oprávnění"), ("role", "Uživatelé a oprávnění"),
-               ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("historiezmen", "Systém")): SEC[_s] = ("nastaveni", _g)
+               ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("historiezmen", "Systém"), ("sablonadokumentu", "Dokumenty")): SEC[_s] = ("nastaveni", _g)
 
 def safe_next(request):
     n = request.GET.get("next", "")
@@ -223,7 +223,9 @@ def edit(request, slug, pk=None):
         if changed:
             for n in changed: log(request, o, "Úprava", n, old[n], form.cleaned_data[n])
         else: log(request, o, "Vytvoření" if not pk else "Úprava")
-        messages.success(request, "Uloženo."); nx = safe_next(request); return redirect(nx) if nx else redirect("detail", slug=slug, pk=o.pk)
+        messages.success(request, "Uloženo."); nx = safe_next(request)
+        if slug == "faktura" and not pk: return redirect(reverse("dokument", args=["faktura", o.pk]) + ("?" + urlencode({"next": nx}) if nx else ""))  # nová faktura -> náhled
+        return redirect(nx) if nx else redirect("detail", slug=slug, pk=o.pk)
     return R(request, "form", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart())
 
 def delete(request, slug, pk):
@@ -262,8 +264,11 @@ def plocha(request, pk):
     foto = [add("Fotografie", f.popis[:40] or f"Foto {f.pk}", "img", f.soubor.url, delete=reverse("delete", args=["fotografie", f.pk]) + back) for f in z.fotografie_set.all()]
     pril = [add("Přílohy", p.nazev, kind_of(p.soubor.name), p.soubor.url, delete=reverse("delete", args=["priloha", p.pk]) + back) for p in z.priloha_set.all()]
     dok = []
-    for n in z.nabidka_set.all(): dok.append(add("Nabídky", n, "html", reverse("dokument", args=["nabidka", n.pk])))
-    for f in z.faktura_set.all(): dok.append(add("Faktury", f, "html", reverse("dokument", args=["faktura", f.pk])))
+    def dok_add(group, typ, o, title=None):  # zobrazí se ve výchozí šabloně, stažení = PDF
+        it = add(group, title or o, "html", reverse("dokument_obsah", args=[typ, o.pk])); it["dl"] = reverse("dokument_pdf", args=[typ, o.pk]); dok.append(it)
+    dok_add("Zakázkový list", "zakazkovy_list", z, f"Zakázkový list {z.cislo_zakazky}")
+    for n in z.nabidka_set.all(): dok_add("Nabídky", "nabidka", n)
+    for f in z.faktura_set.all(): dok_add("Faktury", "faktura", f)
     for o in z.objednavka_set.select_related("priloha"):
         if o.priloha and o.priloha.soubor: dok.append(add("Objednávky", o, kind_of(o.priloha.soubor.name), o.priloha.soubor.url))
         else: dok.append(dict(group="Objednávky", title=str(o), kind="link", url=reverse("detail", args=["objednavka", o.pk])))
@@ -276,13 +281,6 @@ def plocha(request, pk):
     hist = HistorieZmen.objects.filter(typ_objektu="zakazka", id_objektu=pk)[:60]
     return R(request, "plocha", **stav_ctx(request, z), sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
              kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=z.zamestnanci.all(), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby)
-
-def dokument(request, typ, pk):
-    M = {"nabidka": Nabidka, "faktura": Faktura}.get(typ)
-    if not M: raise Http404
-    d = get_object_or_404(M, pk=pk)
-    return render(request, "core/dokument.html", {"d": d, "typ": typ, "nazev": "Nabídka" if typ == "nabidka" else "Faktura",
-        "cislo": d.cislo_nabidky if typ == "nabidka" else d.cislo_faktury, "f": NastaveniFirmy.objects.first(), "polozky": d.polozky.all()})
 
 # ---------------- Nabídka ze zakázky ----------------
 def nabidka_polozky(z):
@@ -324,7 +322,7 @@ def nabidka_nova(request):
             log(request, n, "Vytvoření", popis_z=z)
         if z.stav and z.stav.nazev == "Nová": set_stav(request, z, "Čeká na schválení")  # nabídka čeká na schválení zákazníkem
         messages.success(request, f"Nabídka {n.cislo_nabidky} vytvořena ze zakázky {z.cislo_zakazky}.")
-        return redirect(safe_next(request) or reverse("detail", args=["nabidka", n.pk]))
+        nx = safe_next(request); return redirect(reverse("dokument", args=["nabidka", n.pk]) + ("?" + urlencode({"next": nx}) if nx else ""))  # rovnou náhled dokumentu
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "nabidka_nova", sec="dokumenty", form=form, nahled=nahled_ctx(z) if z else None)
 
@@ -384,7 +382,7 @@ def kalendar(request):
 def nastaveni(request):
     L = lambda s: reverse("list", args=[s]); st = request.user.is_staff
     g = [("Firma", [("Údaje o firmě a logo", reverse("nastaveni_firma"))], ""),
-         ("Dokumenty", [], "Číslování a vzhled dokumentů zatím nemají vlastní nastavení (připravuje se společně s PDF šablonami)."),
+         ("Dokumenty", [("Šablony dokumentů", reverse("sablony")), ("Značky pro vlastní šablony", reverse("sablony_znacky"))], "Vzhled zakázkových listů, nabídek a faktur (Excel, HTML) a výchozí šablona pro každý typ."),
          ("DPH", [("Sazby DPH", L("sazbadph"))], "Výchozí sazba DPH se nastavuje v části Firma."),
          ("Uživatelé a oprávnění", [("Zaměstnanci", L("zamestnanec")), ("Role", L("role")), ("Oprávnění", L("opravneni"))] + ([("Uživatelské účty", "/admin/auth/user/")] if st else []), ""),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material"))], ""),

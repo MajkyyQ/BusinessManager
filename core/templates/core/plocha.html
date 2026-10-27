@@ -9,6 +9,7 @@
 <a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'priloha' %}?zakazky={{ z.pk }}&next={{ nxt }}">Přidat přílohu</a>
 <a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'provedenyukon' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat práci</a>
 <a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'pouzitymaterial' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat materiál</a>
+<a class="btn btn-sm btn-outline-success" href="{% url 'dokument' 'zakazkovy_list' z.pk %}?next={{ nxt }}">Zakázkový list</a>
 <a class="btn btn-sm btn-outline-success" href="{% url 'create' 'nabidka' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit nabídku</a>
 <a class="btn btn-sm btn-outline-success" href="{% url 'create' 'faktura' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit fakturu</a>
 </div></div>
