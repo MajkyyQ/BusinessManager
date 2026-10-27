@@ -1,0 +1,8 @@
+{% extends "core/base.html" %}{% block content %}<h3>Značky pro vlastní šablony – {{ typ.nazev }}</h3>
+<p>Do buňky Excelu napište značku a při vytvoření dokumentu se nahradí údajem z databáze. Značka může být sama v buňce (pak se zapíše jako číslo nebo datum a Excel ji zformátuje podle buňky), nebo uprostřed textu, např. <code>Faktura č. {% templatetag openvariable %}dokument.cislo{% templatetag closevariable %}</code>.
+Ve sloučené oblasti stačí značka v první buňce.</p>
+<p><b>Tabulka položek:</b> do jednoho řádku napište značky <code>{% templatetag openvariable %}polozka.…{% templatetag closevariable %}</code> – tento řádek se zopakuje pro každou položku. Vzorce pod tabulkou (např. <code>=SUMA(H20:H20)</code>) se automaticky rozšíří na všechny řádky.</p>
+{% if vzory %}<p>Hotový vzor ke stažení a úpravě: {% for v in vzory %}<a class="btn btn-sm btn-outline-primary" href="{% url 'sablona_stahnout' v.pk %}">{{ v.nazev }} (.xlsx)</a> {% endfor %}</p>{% endif %}
+<div class="row g-3">{% for sk,items in skupiny %}<div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body"><h6>{{ sk }}</h6>
+<table class="table table-sm small mb-0">{% for p in items %}<tr><td>{{ p.nazev }}</td><td class="text-end"><code class="zn" role="button" title="Kliknutím zkopírujete">{% templatetag openvariable %}{{ p.klic }}{% templatetag closevariable %}</code></td></tr>{% endfor %}</table></div></div></div>{% endfor %}</div>
+<script>document.querySelectorAll('.zn').forEach(e=>e.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(e.textContent);e.classList.add('text-success');setTimeout(()=>e.classList.remove('text-success'),800)})</script>{% endblock %}

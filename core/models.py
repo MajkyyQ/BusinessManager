@@ -218,3 +218,23 @@ def _ev_f(sender, instance, created, **k):
 def _ev_p(sender, instance, created, **k):
     if instance.stav == "Zaplaceno" and not instance.kalendarudalost_set.exists():
         KalendarUdalost.objects.create(nazev=f"Zaplaceno {instance.castka or ''}", datum=instance.datum_zaplaceni or timezone.now(), typ="Zaplaceno", automaticka=True, platba=instance, faktura=instance.faktura, zakazka=instance.zakazka)
+
+# ---------------- Šablony výstupních dokumentů ----------------
+class SablonaDokumentu(models.Model):
+    """Vzhled výsledného dokumentu. Obsahuje jen soubor šablony a mapování polí, žádná data."""
+    class Meta: verbose_name = "šablona dokumentu"; verbose_name_plural = "Šablony dokumentů"; ordering = ["typ_dokumentu", "-vychozi", "nazev"]
+    nazev = models.CharField("název", max_length=150)
+    typ_dokumentu = models.CharField("typ dokumentu", max_length=30, db_index=True)   # klíč z core.sablony.typy.REGISTR
+    format = models.CharField("formát", max_length=20, default="excel")              # klíč z core.sablony.renderery.REGISTR
+    soubor = models.FileField("soubor šablony", upload_to="sablony/", blank=True)
+    vestavena = models.CharField("vestavěná šablona", max_length=100, blank=True, editable=False)  # název souboru v aplikaci (nelze smazat)
+    mapovani = models.JSONField("mapování polí", default=dict, blank=True)
+    nahled = models.ImageField("miniatura", upload_to="sablony/nahledy/", blank=True, editable=False)
+    popis = T(); vychozi = models.BooleanField("výchozí", default=False); aktivni = A()
+    verze = models.PositiveIntegerField(default=1, editable=False)
+    datum_vytvoreni = DV(); datum_upravy = models.DateTimeField(auto_now=True)
+    def save(self, *a, **k):
+        super().save(*a, **k)
+        if self.vychozi:  # v každém typu je výchozí jen jedna
+            SablonaDokumentu.objects.filter(typ_dokumentu=self.typ_dokumentu, vychozi=True).exclude(pk=self.pk).update(vychozi=False)
+    def __str__(self): return self.nazev

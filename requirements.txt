@@ -3,3 +3,5 @@ Pillow
 psycopg[binary]
 gunicorn
 whitenoise
+openpyxl>=3.1
+pypdfium2

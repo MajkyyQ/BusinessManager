@@ -1,0 +1,46 @@
+<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>{{ typ.nazev }} {{ dokument.cislo }}</title>
+<style>
+@page{size:A4;margin:14mm}
+body{font:13px/1.35 Arial,Helvetica,sans-serif;color:#222;margin:0}
+.str{max-width:182mm;margin:0 auto;padding:6mm 0}
+table{border-collapse:collapse;width:100%}
+.hl td{vertical-align:top}
+h1{font-size:22px;margin:0 0 4px}
+.muted{color:#666}
+.box{border:1px solid #bbb;padding:8px 10px;vertical-align:top}
+.box b.t{display:block;font-size:11px;text-transform:uppercase;color:#666;margin-bottom:3px}
+.pol th{background:#eee;border-bottom:1px solid #999;padding:5px;text-align:left;font-size:12px}
+.pol td{border-bottom:1px solid #ddd;padding:4px 5px;margin:0}
+.r{text-align:right}
+.pol tr.s td{border:0}
+.pol tr.c td{font-size:15px;border-top:2px solid #333}
+.pod{margin-top:40px}.pod td{width:50%;padding-top:30px;border-top:1px solid #999;text-align:center}
+</style></head><body><div class="str">
+<table class="hl" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td>{% if firma.logo_url %}<img src="{% if pro_pdf %}{{ firma.logo_uri }}{% else %}{{ firma.logo_url }}{% endif %}" style="max-height:60px;max-width:200px"><br>{% endif %}
+<b style="font-size:15px">{{ firma.nazev }}</b><br>{{ firma.adresa|linebreaksbr }}<br>
+{% if firma.ico %}IČO: {{ firma.ico }}{% endif %}{% if firma.dic %} · DIČ: {{ firma.dic }}{% endif %}<br>{{ firma.telefon }} {{ firma.email }}</td>
+<td class="r" align="right" valign="top"><h1>{{ typ.nazev }}</h1><div style="font-size:16px">č. <b>{{ dokument.cislo }}</b></div>
+<div class="muted" style="margin-top:6px">
+{% if typ.kod == "zakazkovy_list" %}Přijato: {{ zakazka.datum_prijeti|default:"–" }}{% if zakazka.datum_vydani %}<br>Vydáno: {{ zakazka.datum_vydani }}{% endif %}
+{% else %}Datum vystavení: {{ dokument.datum_vystaveni }}{% if dokument.datum_splatnosti %}<br>Datum splatnosti: <b>{{ dokument.datum_splatnosti }}</b>{% endif %}{% if dokument.duzp %}<br>DUZP: {{ dokument.duzp }}{% endif %}{% endif %}
+</div></td></tr></table>
+<table width="100%" cellpadding="8" cellspacing="0" style="margin-top:14px"><tr>
+<td class="box" width="49%" valign="top" style="border:1px solid #bbb"><b class="t">{% if typ.kod == "zakazkovy_list" %}Zákazník{% else %}Odběratel{% endif %}</b>
+<b>{{ zakaznik.nazev }}</b>{% if zakaznik.firma and zakaznik.jmeno %}<br>{{ zakaznik.jmeno }}{% endif %}<br>{{ zakaznik.adresa|linebreaksbr }}
+{% if zakaznik.ico %}<br>IČO: {{ zakaznik.ico }}{% endif %}{% if zakaznik.dic %} · DIČ: {{ zakaznik.dic }}{% endif %}
+{% if zakaznik.telefon or zakaznik.email %}<br>{{ zakaznik.telefon }} {{ zakaznik.email }}{% endif %}</td>
+<td width="2%"></td>
+<td class="box" width="49%" valign="top" style="border:1px solid #bbb"><b class="t">{% if typ.kod == "zakazkovy_list" %}Zařízení{% else %}Zakázka{% endif %}</b>
+{% if typ.kod == "zakazkovy_list" %}{{ zarizeni.vse|linebreaksbr|default:"–" }}{% if zakazka.identifikacni_cislo %}<br>Ident. číslo: {{ zakazka.identifikacni_cislo }}{% endif %}
+{% else %}{% if zakazka.cislo %}Číslo zakázky: {{ zakazka.cislo }}<br>{% endif %}{% if zarizeni.vse %}{{ zarizeni.vse|linebreaksbr }}{% endif %}{% if dokument.vystavil %}<br>Vystavil: {{ dokument.vystavil }}{% endif %}{% endif %}</td>
+</tr></table>
+{% if typ.kod == "zakazkovy_list" %}<p><b>Popis závady:</b><br>{{ zakazka.popis_zavady|linebreaksbr|default:"–" }}</p>{% if zakazka.poznamka %}<p><b>Poznámka:</b><br>{{ zakazka.poznamka|linebreaksbr }}</p>{% endif %}{% endif %}
+<table class="pol" width="100%" cellpadding="4" cellspacing="0" style="margin-top:14px">{% if polozky %}<tr bgcolor="#eeeeee"><th width="4%" align="left">#</th><th align="left">Popis</th><th class="r" align="right" width="11%">Množství</th><th class="r" align="right" width="13%">Cena/j.</th><th class="r" align="right" width="7%">DPH</th><th class="r" align="right" width="13%">Bez DPH</th><th class="r" align="right" width="13%">S DPH</th></tr>
+{% for p in polozky %}<tr><td>{{ p.poradi }}</td><td>{{ p.popis }}</td><td class="r" align="right">{{ p.mnozstvi }} {{ p.jednotka }}</td><td class="r" align="right">{{ p.jednotkova_cena }}</td><td class="r" align="right">{{ p.sazba_dph }} %</td><td class="r" align="right">{{ p.cena_bez_dph }}</td><td class="r" align="right">{{ p.cena_s_dph }}</td></tr>{% endfor %}{% endif %}
+<tr class="s"><td colspan="5" class="r" align="right">Celkem bez DPH</td><td colspan="2" class="r" align="right">{{ soucty.bez_dph }}</td></tr>
+<tr class="s"><td colspan="5" class="r" align="right">DPH</td><td colspan="2" class="r" align="right">{{ soucty.dph }}</td></tr>
+<tr class="s c"><td colspan="5" class="r" align="right"><b>{% if typ.kod == "faktura" %}Celkem k úhradě{% else %}Celkem s DPH{% endif %}</b></td><td colspan="2" class="r" align="right"><b>{{ soucty.s_dph }}</b></td></tr></table>
+{% if dokument.poznamka %}<p style="margin-top:18px">{{ dokument.poznamka|linebreaksbr }}</p>{% endif %}
+{% if typ.kod == "zakazkovy_list" %}<table class="pod" width="100%" cellpadding="6" style="margin-top:50px"><tr><td>Převzal (zákazník)</td><td style="width:20px;border:0"></td><td>Za servis</td></tr></table>{% endif %}
+</div></body></html>

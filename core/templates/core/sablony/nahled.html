@@ -1,0 +1,10 @@
+{% extends "core/base.html" %}{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><div><h4 class="mb-0">{{ titulek }}</h4>
+<div class="text-muted small">Šablona: <b>{{ s|default:"žádná" }}</b>{% if s and s.vychozi %} (výchozí){% endif %}</div></div>
+<div class="d-flex flex-wrap gap-1">
+{% if s %}<a class="btn btn-primary" href="{% url 'dokument_pdf' typ pk %}{{ q }}" hx-boost="false">⬇ Stáhnout PDF</a>
+<button class="btn btn-outline-primary" type="button" id="tisk">🖨 Vytisknout</button>{% endif %}
+<a class="btn btn-outline-secondary" href="{% url 'dokument_sablony' typ pk %}{% if q %}{{ q }}&{% else %}?{% endif %}next={{ nx|urlencode }}">Změnit šablonu{% if ostatni > 1 %} ({{ ostatni }}){% endif %}</a>
+<a class="btn btn-secondary" href="{{ zpet }}">Zpět</a></div></div>
+<iframe id="dok" src="{% url 'dokument_obsah' typ pk %}{{ q }}" style="width:100%;height:82vh;border:1px solid #dee2e6;background:#fff"></iframe>
+<script>(function(){const b=document.getElementById('tisk');if(!b)return;b.onclick=()=>{const f=document.getElementById('dok');try{f.contentWindow.focus();f.contentWindow.print()}catch(e){window.open(f.src,'_blank')}}})();</script>{% endblock %}
