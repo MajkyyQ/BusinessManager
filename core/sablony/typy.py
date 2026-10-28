@@ -58,6 +58,7 @@ ZAKAZKA = [
     Pole("zakazka.prijeti_den_mesic", "Den a měsíc přijetí (27. 10.)", "Zakázka"),
     Pole("zakazka.objednavka", "Číslo objednávky", "Zakázka", synonyma=("číslo objednávky", "objednávka č", "ks-objednávka čís")),
     Pole("zakazka.nabidka", "Číslo nabídky k zakázce", "Zakázka", synonyma=("dle nabídkového rozpočtu č", "číslo nabídky")),
+    Pole("zakazka.ukony", "Úkony zakázky jedním řádkem (diagnostika, servisní práce)", "Zakázka", synonyma=("účtujeme vám za",)),
     Pole("zakazka.prace_seznam", "Seznam prací (s pracovníky)", "Zakázka", "dlouhy_text", ("provedení práce",)),
     Pole("zakazka.material_seznam", "Seznam materiálu", "Zakázka", "dlouhy_text"),
     Pole("zakazka.material_bez_dph", "Materiál celkem bez DPH", "Zakázka", "penize"),
@@ -158,6 +159,21 @@ def _seznamy(zk):
     return mat, pr
 
 
+def _maly(t):
+    """První písmeno malé (Diagnostika -> diagnostika), zkratky jako DPH nebo UPS zůstávají."""
+    return t if not t or (len(t) > 1 and t[1].isupper()) else t[0].lower() + t[1:]
+
+
+def ukony_textem(zk):
+    """Názvy provedených úkonů za sebou, každý jen jednou: „diagnostika, servisní práce“."""
+    if not zk: return ""
+    out = []
+    for u in zk.provedenyukon_set.select_related("typ_ukonu").order_by("pk"):
+        n = _maly(u.typ_ukonu.nazev.strip())
+        if n and n not in out: out.append(n)
+    return ", ".join(out)
+
+
 def _zakazka(zk):
     if not zk: return {p.klic: "" for p in ZAKAZKA + ZARIZENI}
     zar = list(zk.zarizeni.all()); z0 = zar[0] if zar else None
@@ -168,6 +184,7 @@ def _zakazka(zk):
     dp = _d(zk.datum_prijeti)
     return {"zakazka.prijeti_den_mesic": f"{dp.day}. {dp.month}." if dp else "", "zakazka.poradove_cislo": por if por else zk.cislo_zakazky, "zakazka.rok": rok if rok.isdigit() else "",
             "zakazka.objednavka": obj.cislo_objednavky if obj else "", "zakazka.nabidka": nab.cislo_nabidky if nab else "",
+            "zakazka.ukony": ukony_textem(zk),
             "zakazka.prace_seznam": "\n".join(x["prace.popis"] for x in pr), "zakazka.material_seznam": "\n".join(
                 f'{x["material.nazev"]} {formatuj(x["material.mnozstvi"])} {x["material.jednotka"]}' for x in mat),
             "zakazka.material_bez_dph": S(mat, "material.cena_bez_dph"), "zakazka.material_s_dph": S(mat, "material.cena_s_dph"),
@@ -261,6 +278,7 @@ class TypDokumentu:
                "prace.poznamka": "", "prace.sazba_dph": Decimal(21), "prace.cena_bez_dph": Decimal(975), "prace.cena_s_dph": Decimal("1179.75")}]
         p.update({"zakazka.poradove_cislo": "001", "zakazka.prijeti_den_mesic": f"{(dnes - timedelta(days=7)).day}. {(dnes - timedelta(days=7)).month}.",
                   "zakaznik.ulice": "Hlavní 123", "zakaznik.mesto": "400 01 Ústí nad Labem", "zakazka.rok": str(dnes.year), "zakazka.objednavka": "OBJ-2026-15", "zakazka.nabidka": f"NAB-{dnes.year}-001",
+                  "zakazka.ukony": "diagnostika, servisní práce",
                   "zakazka.prace_seznam": "Petr Svoboda: Diagnostika\nJan Dvořák: Servisní práce", "zakazka.material_seznam": "Ložisko 6204-2RS 2 ks",
                   "zakazka.material_bez_dph": Decimal(600), "zakazka.material_s_dph": Decimal(726), "zakazka.prace_bez_dph": Decimal(2475),
                   "zakazka.prace_s_dph": Decimal("2994.75"), "zarizeni.nazev": "Bosch GSR 18V SN123456789",
