@@ -157,6 +157,12 @@ class Nabidka(Dokument):
             while Nabidka.objects.filter(cislo_nabidky=f"NAB-{y}-{n:03d}").exists(): n += 1
             self.cislo_nabidky = f"NAB-{y}-{n:03d}"
         super().save(*a, **k)
+    @staticmethod
+    def cislo_ze_zakazky(z):
+        """Nabídka má stejné číslo jako zakázka (2026-048); další nabídka ke stejné zakázce dostane -2, -3 …"""
+        c = z.cislo_zakazky; n = 1
+        while Nabidka.objects.filter(cislo_nabidky=c if n == 1 else f"{z.cislo_zakazky}-{n}").exists(): n += 1
+        return c if n == 1 else f"{c}-{n}"
     def __str__(self): return f"Nabídka {self.cislo_nabidky}"
 class PolozkaNabidky(Polozka):
     class Meta: verbose_name = "položka nabídky"; verbose_name_plural = "Položky nabídek"

@@ -188,6 +188,8 @@ def _poradi(cislo):
     c = cislo or ""
     m = re.match(r"^(\d+)-\d{1,2}-\d{1,2}/\d{4}$", c)
     if m: return m.group(1)
+    m = re.match(r"^\d{4}-(\d+)(-\d+)?$", c)  # číslo zakázky, i nabídka se stejným číslem (2026-048-2 -> 048)
+    if m: return m.group(1)
     m = re.search(r"(\d+)$", c)
     return m.group(1) if m else c
 
