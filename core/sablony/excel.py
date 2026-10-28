@@ -364,13 +364,23 @@ def vypln(cesta, mapovani, data, typ_cls):
 
 
 # ---------------------------------------------------------------- mřížka pro editor
-def mrizka(cesta, max_rows=120, max_cols=30):
-    """Zjednodušený popis listů pro zobrazení v editoru (HTML tabulka se sloučenými buňkami)."""
+def _text_bunky(v):
+    """Hodnota buňky jako text pro úpravu (vzorec včetně =, datum česky)."""
+    if v is None: return ""
+    if isinstance(v, (datetime, date)): return v.strftime("%d.%m.%Y")
+    if isinstance(v, float) and v.is_integer(): return str(int(v))
+    return str(v)
+
+
+def mrizka(cesta, max_rows=200, max_cols=40):
+    """Popis listů pro zobrazení v editoru (HTML tabulka se sloučenými buňkami).
+    Každá buňka: c = sloupec, a = adresa nebo sloučená oblast, rs/cs = rozpětí, v = zobrazený text, f = text k úpravě, s = CSS."""
     wb = load_workbook(cesta)
     out = []
     for ws in wb.worksheets:
         sl = _slouceni(ws); nr = min(ws.max_row, max_rows); nc = min(ws.max_column, max_cols)
-        cols = [round((ws.column_dimensions[get_column_letter(c)].width or 8.43) * 7 + 5) for c in range(1, nc + 1)]
+        cols = [0 if ws.column_dimensions[get_column_letter(c)].hidden else round((ws.column_dimensions[get_column_letter(c)].width or 8.43) * 7 + 5)
+                for c in range(1, nc + 1)]
         rows = []
         for r in range(1, nr + 1):
             cells = []
@@ -381,17 +391,85 @@ def mrizka(cesta, max_rows=120, max_cols=30):
                 st = []
                 if cell.font is not None:
                     if cell.font.b: st.append("font-weight:bold")
+                    if cell.font.i: st.append("font-style:italic")
                     if cell.font.sz: st.append(f"font-size:{min(float(cell.font.sz), 20) * 1.15:.0f}px")
-                if cell.alignment is not None and cell.alignment.horizontal in ("center", "right"): st.append(f"text-align:{cell.alignment.horizontal}")
+                al = cell.alignment
+                if al is not None:
+                    if al.horizontal in ("center", "right", "centerContinuous"): st.append(f"text-align:{'center' if al.horizontal != 'right' else 'right'}")
+                    if al.vertical in ("top", "center"): st.append(f"vertical-align:{'middle' if al.vertical == 'center' else 'top'}")
+                    if al.wrap_text: st.append("white-space:pre-wrap")
                 fill = getattr(cell.fill, "fgColor", None)
                 if cell.fill is not None and cell.fill.fill_type == "solid" and fill is not None and isinstance(fill.rgb, str) and len(fill.rgb) == 8 and fill.rgb != "00000000":
                     st.append(f"background:#{fill.rgb[2:]}")
                 b = cell.border
-                for side, nm in ((b.top, "top"), (b.bottom, "bottom"), (b.left, "left"), (b.right, "right")):
+                if mr:  # okraje sloučené oblasti jsou uložené na krajních buňkách
+                    b_dole = ws.cell(mr.max_row, mr.min_col).border; b_vpravo = ws.cell(mr.min_row, mr.max_col).border
+                    strany = ((b.top, "top"), (b_dole.bottom, "bottom"), (b.left, "left"), (b_vpravo.right, "right"))
+                else:
+                    strany = ((b.top, "top"), (b.bottom, "bottom"), (b.left, "left"), (b.right, "right"))
+                for side, nm in strany:
                     if side is not None and side.style: st.append(f"border-{nm}:1px solid #555")
-                cells.append({"c": c, "a": (mr.coord if mr else cell.coordinate), "rs": (mr.max_row - mr.min_row + 1) if mr else 1,
+                if isinstance(v, str) and v.startswith("="): zobraz = v
+                elif isinstance(v, str): zobraz = v
+                else: zobraz = "" if v is None else formatuj(v)
+                cells.append({"c": c, "a": (mr.coord if mr else cell.coordinate),
+                              "rs": (min(mr.max_row, nr) - mr.min_row + 1) if mr else 1,
                               "cs": (min(mr.max_col, nc) - mr.min_col + 1) if mr else 1,
-                              "v": "" if v is None else (formatuj(v) if not isinstance(v, str) else v), "s": ";".join(st)})
-            rows.append({"r": r, "h": round((ws.row_dimensions[r].height or 15) * 96 / 72), "cells": cells})
+                              "v": zobraz, "f": _text_bunky(v), "s": ";".join(st)})
+            rows.append({"r": r, "h": 0 if ws.row_dimensions[r].hidden else round((ws.row_dimensions[r].height or 15) * 96 / 72), "cells": cells})
         out.append({"nazev": ws.title, "cols": cols, "rows": rows})
     return out
+
+
+_CISLO = re.compile(r"-?(0|[1-9]\d*)([.,]\d+)?")
+
+
+def _hodnota_z_textu(t):
+    """Text z editoru -> hodnota buňky (čísla jako čísla, prázdné jako nic)."""
+    if t is None: return None
+    t = str(t)
+    if not t.strip(): return None
+    if _CISLO.fullmatch(t.strip()):
+        x = t.strip().replace(",", ".")
+        return float(x) if "." in x else int(x)
+    return t
+
+
+def uprav(cesta, zmeny=(), slouceni=(), rozdeleni=()):
+    """Úpravy šablony z editoru. Vrací bytes nového .xlsx (tvary a obrázky zůstávají).
+    zmeny: [{list, bunka, hodnota}], slouceni / rozdeleni: [{list, oblast}]."""
+    import io
+    from . import kresby
+    wb = load_workbook(cesta)
+    def list_(n):
+        if n not in wb.sheetnames: raise ValueError(f"List „{n}“ v šabloně není.")
+        return wb[n]
+    for o in rozdeleni:
+        ws = list_(o["list"]); cr = CellRange(o["oblast"])
+        for mr in list(ws.merged_cells.ranges):
+            if mr.coord == cr.coord or not mr.isdisjoint(cr): ws.unmerge_cells(mr.coord)
+    for o in slouceni:
+        ws = list_(o["list"]); cr = CellRange(o["oblast"])
+        if cr.size["rows"] * cr.size["columns"] < 2: continue
+        for mr in list(ws.merged_cells.ranges):  # překrývající se sloučení nejdřív zrušit
+            if not mr.isdisjoint(cr): ws.unmerge_cells(mr.coord)
+        prvni = ws.cell(cr.min_row, cr.min_col)
+        if prvni.value is None:  # Excel ponechá hodnotu levé horní buňky; když je prázdná, vezmeme první neprázdnou
+            for row in ws.iter_rows(min_row=cr.min_row, max_row=cr.max_row, min_col=cr.min_col, max_col=cr.max_col):
+                for c in row:
+                    if c.value is not None: prvni.value = c.value; break
+                if prvni.value is not None: break
+        ws.merge_cells(cr.coord)
+    for z in zmeny:
+        ws = list_(z["list"]); cr = CellRange(z["bunka"])
+        cell = ws.cell(cr.min_row, cr.min_col)
+        if isinstance(cell, MergedCell):
+            cell = ws.cell(*(lambda o: (o.min_row, o.min_col))(oblast_bunky(ws, cell)))
+        cell.value = _hodnota_z_textu(z.get("hodnota"))
+        if isinstance(cell.value, str) and "\n" in cell.value:
+            al = copy(cell.alignment); al.wrap_text = True; cell.alignment = al
+    b = io.BytesIO(); wb.save(b); n = len(wb.worksheets)
+    try:
+        return kresby.zachovej(cesta, b.getvalue(), [[] for _ in range(n)], [0] * n)
+    except Exception:
+        return b.getvalue()

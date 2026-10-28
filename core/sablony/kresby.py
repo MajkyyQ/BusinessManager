@@ -127,3 +127,28 @@ def zachovej(original, vystup, posuny_listu, nove_obrazky):
     with zipfile.ZipFile(b, "w", zipfile.ZIP_DEFLATED) as z:
         for n, d in soubory.items(): z.writestr(n, d)
     return b.getvalue()
+
+
+def obrysy(original):
+    """Polohy tvarů a obrázků na listech (pro zobrazení v editoru šablony).
+    Vrací [[{c1, x1, r1, y1, c2, x2, r2, y2, text, obrazek}, ...] pro každý list]; sloupce a řádky od 0, posuny v px."""
+    try:
+        z = zipfile.ZipFile(original)
+    except (zipfile.BadZipFile, FileNotFoundError):
+        return []
+    A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    out = []
+    for sheet in _listy(z):
+        d = _kresba(z, sheet); seznam = []
+        if d and d in z.namelist():
+            for k in etree.fromstring(z.read(d)):
+                f, t = k.find("xdr:from", NS), k.find("xdr:to", NS)
+                if f is None or t is None: continue
+                def bod(e):
+                    return [int(e.find(f"xdr:{x}", NS).text) // (9525 if "Off" in x else 1) for x in ("col", "colOff", "row", "rowOff")]
+                c1, x1, r1, y1 = bod(f); c2, x2, r2, y2 = bod(t)
+                text = " ".join(x.text for x in k.iter(f"{A}t") if x.text).strip()
+                seznam.append({"c1": c1, "x1": x1, "r1": r1, "y1": y1, "c2": c2, "x2": x2, "r2": r2, "y2": y2,
+                               "text": text[:80], "obrazek": k.find("xdr:pic", NS) is not None})
+        out.append(seznam)
+    return out

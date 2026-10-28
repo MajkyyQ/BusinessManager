@@ -5,7 +5,9 @@ from urllib.parse import urlencode
 from django import forms
 from django.contrib import messages
 from django.core.files.base import ContentFile
-from django.http import Http404, HttpResponse
+import json
+
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils.text import slugify
@@ -40,7 +42,8 @@ def vyber_sablonu(request, kod):
 def zajisti_miniaturu(s):
     """Miniatura šablony s ukázkovými daty (vytvoří se jednou pro každou verzi šablony)."""
     st = s.nahled.storage
-    if s.nahled and st.exists(s.nahled.name): return True
+    jmeno = f"sablony/nahledy/sablona_{s.pk}_v{s.verze}_{renderery.otisk(s)}.png"
+    if s.nahled and s.nahled.name == jmeno and st.exists(s.nahled.name): return True
     t = typy.typ(s.typ_dokumentu)
     if not t: return False
     try:
@@ -48,7 +51,9 @@ def zajisti_miniaturu(s):
     except Exception:
         return False
     if not png: return False
-    jmeno = st.save(f"sablony/nahledy/sablona_{s.pk}_v{s.verze}.png", ContentFile(png))
+    if s.nahled and st.exists(s.nahled.name): st.delete(s.nahled.name)
+    if st.exists(jmeno): st.delete(jmeno)
+    jmeno = st.save(jmeno, ContentFile(png))
     S.objects.filter(pk=s.pk).update(nahled=jmeno); s.nahled.name = jmeno
     return True
 
@@ -160,6 +165,8 @@ def sablona_akce(request, pk, akce):
         s.aktivni = True; s.save(); messages.success(request, f"Šablona „{s}“ je opět aktivní.")
     elif akce == "analyzovat":
         _znovu_analyzovat(s); s.save(); messages.success(request, "Šablona byla znovu načtena a pole znovu rozpoznána.")
+    elif akce == "puvodni" and s.vestavena and s.soubor:
+        s.soubor = ""; s.verze += 1; _znovu_analyzovat(s); s.save(); messages.success(request, "Šablona je vrácena do původní podoby.")
     elif akce == "kopie":
         n = S.objects.create(nazev=f"{s.nazev} (kopie)", typ_dokumentu=s.typ_dokumentu, format=s.format, vestavena=s.vestavena,
                              mapovani=s.mapovani, popis=s.popis)
@@ -267,3 +274,50 @@ def dokument_sablony(request, typ, pk):
     zpet = reverse("dokument", args=[typ, pk]) + "?" + urlencode({k: v for k, v in (("sablona", akt.pk if akt else ""), ("next", nx)) if v})
     return R(request, "sablony/vyber", sec="zakazky" if typ == "zakazkovy_list" else "dokumenty",
              crumbs=[(t.titulek(o), zpet), ("Změnit šablonu", None)], t=t, o=o, typ=typ, pk=pk, sab=sab, akt=akt, zpet=zpet, nx=nx, titulek=t.titulek(o))
+
+
+# ======================================================== Editor Excelové šablony
+def _pole_editoru(t):
+    from .sablony.typy import SEZNAMY
+    return [{"k": p.klic, "n": p.nazev, "sk": p.skupina, "d": p.druh, "opak": p.klic.split(".")[0] in SEZNAMY} for p in t.pole()]
+
+
+def _z_mapovani(s):
+    """Automaticky rozpoznaná pole (bez značek v souboru) převedená na značky, aby šla v editoru přesouvat."""
+    m = s.mapovani or {}; out = []
+    for f in m.get("pole") or []:
+        out.append({"list": f["list"], "bunka": f["oblast"].split(":")[0], "hodnota": "{{" + f["pole"] + "}}"})
+    for x in m.get("tabulky") or []:
+        for col, k in (x.get("sloupce") or {}).items():
+            out.append({"list": x["list"], "bunka": f"{col}{x['radek']}", "hodnota": "{{" + k + "}}"})
+    return out
+
+
+def sablona_editor(request, pk):
+    from .sablony import excel, kresby
+    s = get_object_or_404(S, pk=pk); t = _typ(s.typ_dokumentu)
+    if s.format != "excel": raise Http404
+    p = renderery.cesta_souboru(s)
+    if request.method == "POST":
+        try:
+            d = json.loads(request.body or b"{}")
+            b = excel.uprav(p, d.get("zmeny") or [], d.get("slouceni") or [], d.get("rozdeleni") or [])
+        except Exception as e:
+            return JsonResponse({"ok": False, "chyba": f"Změny se nepodařilo uložit: {e}"}, status=400)
+        m = s.mapovani or {}
+        predchozi = list(m.get("predchozi_soubory") or []) + ([s.soubor.name] if s.soubor else [])
+        while len(predchozi) > 10:  # starší verze souboru se mažou, posledních 10 zůstává
+            s.soubor.storage.delete(predchozi.pop(0))
+        s.verze += 1
+        s.soubor.save(f"{slugify(s.nazev) or 'sablona'}_v{s.verze}.xlsx", ContentFile(b), save=False)
+        _znovu_analyzovat(s)
+        s.mapovani.update({"pole": [], "tabulky": [], "upraveno_v_editoru": True, "predchozi_soubory": predchozi})
+        s.save(); log(request, s, "Úprava", "šablona", "", "editor")
+        return JsonResponse({"ok": True, "verze": s.verze, "nezname": s.mapovani.get("nezname_znacky", [])})
+    try:
+        listy = excel.mrizka(p); tvary = kresby.obrysy(p)
+    except Exception as e:
+        messages.error(request, f"Šablonu se nepodařilo otevřít: {e}"); return redirect("sablona_detail", pk=s.pk)
+    return R(request, "sablony/editor", sec="nastaveni",
+             crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), (str(s), reverse("sablona_detail", args=[s.pk])), ("Editor", None)],
+             s=s, typ=t, data={"listy": listy, "tvary": tvary, "pole": _pole_editoru(t), "z_mapovani": _z_mapovani(s)})

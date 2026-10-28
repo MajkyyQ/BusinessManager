@@ -27,7 +27,9 @@ def vestavene_sablony():
                 nove.append(S.objects.create(typ_dokumentu=kod, vestavena=soubor, format=fmt, nazev=f"{t.nazev} – {nazev}"))
         if nove and not S.objects.filter(typ_dokumentu=kod, vychozi=True).exists():
             v = next((x for x in nove if x.format == ("excel" if lo else "html")), nove[0]); v.vychozi = True; v.save()  # první Excel = firemní
-        for s in nove:
+        # vestavěné Excely bez vlastního souboru znovu rozebrat (vzor se mohl aktualizací aplikace změnit)
+        stare = list(S.objects.filter(typ_dokumentu=kod, format="excel", soubor="").exclude(vestavena="").exclude(pk__in=[x.pk for x in nove]))
+        for s in nove + stare:
             if s.format == "excel":
                 try:
                     from .sablony.renderery import renderer
