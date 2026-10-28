@@ -39,13 +39,22 @@ def cesta_souboru(sablona):
     return None
 
 
+def otisk(sablona):
+    """Čas poslední změny souboru šablony – po změně souboru (i vestavěného) se náhledy a PDF vytvoří znovu."""
+    p = cesta_souboru(sablona)
+    try:
+        return int(p.stat().st_mtime) if p else 0
+    except OSError:
+        return 0
+
+
 def _json(o):
     return json.dumps(o, default=str, sort_keys=True, ensure_ascii=False)
 
 
 def _cache(sablona, data, pripona):
     """Hotové PDF se ukládá, dokud se nezmění šablona ani data (převod trvá 1–3 s)."""
-    k = hashlib.sha1(_json([sablona.pk, sablona.verze, str(sablona.datum_upravy), sablona.format, str(cesta_souboru(sablona)), sablona.mapovani, data]).encode()).hexdigest()
+    k = hashlib.sha1(_json([sablona.pk, sablona.verze, str(sablona.datum_upravy), sablona.format, str(cesta_souboru(sablona)), otisk(sablona), sablona.mapovani, data]).encode()).hexdigest()
     d = Path(settings.MEDIA_ROOT) / "cache" / "dokumenty"; d.mkdir(parents=True, exist_ok=True)
     return d / f"{k}.{pripona}"
 

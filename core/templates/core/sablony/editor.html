@@ -1,0 +1,171 @@
+{% extends "core/base.html" %}{% block head %}<style>
+.ed-top{position:sticky;top:0;z-index:20;background:#fff;padding:.4rem 0;border-bottom:1px solid #dee2e6}
+.ed-grid-wrap{overflow:auto;max-height:78vh;border:1px solid #dee2e6;background:#e9ecef}
+.ed-in{position:relative;display:inline-block;background:#fff}
+table.ed{border-collapse:collapse;table-layout:fixed;font-family:Calibri,Carlito,Arial,sans-serif;font-size:13px;user-select:none}
+table.ed td{border:1px dotted #d5d8dc;padding:0 2px;overflow:hidden;white-space:nowrap;word-break:break-word;vertical-align:bottom;line-height:1.15;cursor:cell}
+table.ed th{background:#f1f3f5;color:#6c757d;font-weight:normal;font-size:11px;text-align:center;border:1px solid #dee2e6;position:sticky;z-index:5}
+table.ed thead th{top:0}table.ed tbody th{left:0;width:34px}
+table.ed td.sel{outline:2px solid #0d6efd;outline-offset:-2px;background-color:rgba(13,110,253,.08)!important}
+table.ed td.drop{outline:2px dashed #198754;outline-offset:-2px}
+table.ed tr.opak td{background-image:linear-gradient(rgba(255,193,7,.13),rgba(255,193,7,.13))}
+table.ed tr.opak th{background:#ffe8a1;color:#664d03}
+table.ed td.vzorec{color:#6f42c1}
+.chip{display:inline-block;background:#cfe2ff;color:#084298;border:1px solid #9ec5fe;border-radius:3px;padding:0 3px;margin:0 1px;font-size:11px;line-height:15px;cursor:grab;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.chip.opak{background:#fff3cd;color:#664d03;border-color:#ffda6a}.chip.nezname{background:#f8d7da;color:#842029;border-color:#f1aeb5}
+.chip .x{margin-left:3px;color:inherit;opacity:.55;cursor:pointer;font-weight:bold}.chip .x:hover{opacity:1}
+.tvar{position:absolute;border:1.5px dashed rgba(108,117,125,.65);pointer-events:none;border-radius:2px}
+.tvar span{position:absolute;top:-1px;right:2px;font-size:10px;color:#6c757d;background:rgba(255,255,255,.8)}
+.ed-panel{max-height:78vh;overflow:auto}
+.pole-i{cursor:grab;font-size:13px;padding:.15rem .4rem;border-radius:3px;display:flex;justify-content:space-between;gap:.5rem}
+.pole-i:hover{background:#e7f1ff}.pole-i .u{font-size:11px;color:#198754;white-space:nowrap}
+#ed-iframe{width:100%;height:72vh;border:1px solid #dee2e6;background:#fff}
+</style>{% endblock %}{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2"><div><h4 class="mb-0">Editor šablony: {{ s.nazev }}</h4>
+<div class="small text-muted">{{ typ.nazev }} · verze <span id="ed-verze">{{ s.verze }}</span>. Pole přesunete přetažením, odeberete křížkem, nové přidáte z pravého panelu.</div></div>
+<div class="d-flex gap-1 flex-wrap"><a class="btn btn-sm btn-outline-secondary" href="{% url 'sablony_znacky' %}?typ={{ s.typ_dokumentu }}" target="_blank">Nápověda ke značkám</a>
+<a class="btn btn-sm btn-secondary" href="{% url 'sablona_detail' s.pk %}" id="ed-zpet">Zpět</a></div></div>
+{% if s.vestavena and not s.soubor %}<div class="alert alert-info py-1 small mb-2">Upravujete vestavěnou šablonu. Po uložení se použije vaše upravená verze, k původní se lze kdykoli vrátit na stránce šablony.</div>{% endif %}
+<div id="ed-info" class="alert alert-warning py-1 small mb-2 d-none"></div>
+<div class="ed-top d-flex flex-wrap align-items-center gap-1">
+<ul class="nav nav-pills nav-sm me-2" id="ed-listy"></ul>
+<span class="badge bg-light text-dark border me-1" id="ed-adresa" style="min-width:4.5rem">–</span>
+<input id="ed-text" class="form-control form-control-sm" style="flex:1 1 260px;min-width:200px" placeholder="Vyberte buňku a pište, např. Výrobce: {{ '{' }}{{ '{' }}zarizeni.vyrobce{{ '}' }}{{ '}' }}" disabled>
+<button class="btn btn-sm btn-outline-secondary" id="b-vymazat" title="Vymazat obsah vybraných buněk (Delete)">Vymazat</button>
+<button class="btn btn-sm btn-outline-secondary" id="b-sloucit" title="Sloučit vybrané buňky do jedné">Sloučit</button>
+<button class="btn btn-sm btn-outline-secondary" id="b-rozdelit" title="Zrušit sloučení vybrané oblasti">Zrušit sloučení</button>
+<button class="btn btn-sm btn-outline-secondary" id="b-zpet" title="Vrátit poslední změnu (Ctrl+Z)">↶ Zpět</button>
+<span class="ms-auto small text-muted" id="ed-stav">Bez změn</span>
+<button class="btn btn-sm btn-outline-danger" id="b-zahodit" disabled>Zahodit změny</button>
+<button class="btn btn-sm btn-primary" id="b-ulozit" disabled>Uložit</button></div>
+<div class="row g-2 mt-1"><div class="col-xl-8"><div class="ed-grid-wrap" id="ed-wrap"><div class="ed-in" id="ed-in"></div></div>
+<div class="small text-muted mt-1"><span class="chip">pole</span> doplní se z databáze · <span class="chip opak">pole řádku</span> žlutý řádek se zopakuje pro každou položku (materiál, práce…) · přerušované rámečky jsou tvary z Excelu (zůstávají beze změny) · Shift+klik vybere oblast</div></div>
+<div class="col-xl-4"><ul class="nav nav-tabs" id="ed-tabs"><li class="nav-item"><a class="nav-link active" href="#" data-tab="pole">Pole</a></li><li class="nav-item"><a class="nav-link" href="#" data-tab="nahled">Náhled</a></li></ul>
+<div class="ed-panel border border-top-0 p-2" id="tab-pole"><input class="form-control form-control-sm mb-2" id="ed-hledat" placeholder="Hledat pole…">
+<div class="small text-muted mb-2">Klikněte na pole a vloží se do vybrané buňky, nebo ho přetáhněte do buňky v mřížce.</div><div id="ed-pole"></div></div>
+<div class="border border-top-0 p-2 d-none" id="tab-nahled"><div class="small text-muted mb-1">Náhled uložené verze s ukázkovými daty. Neuložené změny se v něm neprojeví.</div><iframe id="ed-iframe" data-src="{% url 'sablona_ukazka' s.pk %}"></iframe></div></div></div>
+{{ data|json_script:"ed-data" }}
+<script>(function(){
+const D=JSON.parse(document.getElementById('ed-data').textContent),URL_ULOZ=location.pathname,CSRF='{{ csrf_token }}';
+const $=id=>document.getElementById(id),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const POLE={};D.pole.forEach(p=>POLE[p.k]=p);
+const ZN=/\{\{\s*([a-z_]+\.[a-z_]+)\s*\}\}/g, OPAK=new Set(['polozka','material','prace']);
+const L=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s};
+const colNum=s=>{let n=0;for(const ch of s)n=n*26+ch.charCodeAt(0)-64;return n};
+const parse=a=>{const m=/^([A-Z]+)(\d+)$/.exec(a);return {c:colNum(m[1]),r:+m[2]}};
+const rng=a=>{const [x,y]=a.split(':'),p=parse(x),q=y?parse(y):p;return {r1:p.r,c1:p.c,r2:q.r,c2:q.c}};
+const adr=(r,c)=>L(c-1)+r, oblast=(o)=>o.r1==o.r2&&o.c1==o.c2?adr(o.r1,o.c1):adr(o.r1,o.c1)+':'+adr(o.r2,o.c2);
+// ---- model: pro každý list buňky podle "r,c" levého horního rohu
+let S=D.listy.map(l=>{const b={};l.rows.forEach(row=>row.cells.forEach(x=>{b[row.r+','+x.c]={rs:x.rs,cs:x.cs,f:x.f,s:x.s,a0:x.a}}));
+  return {nazev:l.nazev,cols:l.cols,rows:l.rows.map(r=>({r:r.r,h:r.h})),b:b}});
+let ZM={},SL=[],RZ=[],HIST=[],AKT=0,SEL=null,KOTVA=null;   // ZM: "list|adresa" -> text
+const stav=()=>JSON.stringify({b:S.map(x=>x.b),ZM,SL,RZ});
+function zaloha(){HIST.push(stav());if(HIST.length>100)HIST.shift()}
+function zpet(){if(!HIST.length)return;const o=JSON.parse(HIST.pop());S.forEach((x,i)=>x.b=o.b[i]);ZM=o.ZM;SL=o.SL;RZ=o.RZ;kresli();oznac()}
+const zmen=()=>Object.keys(ZM).length+SL.length+RZ.length;
+function oznac(){const n=zmen();$('ed-stav').textContent=n?('Neuložené změny: '+n):'Bez změn';$('ed-stav').className='ms-auto small '+(n?'text-danger fw-bold':'text-muted');
+  $('b-ulozit').disabled=!n;$('b-zahodit').disabled=!n;$('b-zpet').disabled=!HIST.length;polePanel()}
+// ---- buňky
+const listA=()=>S[AKT];
+function kryje(l){const k={};for(const key in l.b){const x=l.b[key],[r,c]=key.split(',').map(Number);for(let i=r;i<r+x.rs;i++)for(let j=c;j<c+x.cs;j++)if(i!=r||j!=c)k[i+','+j]=key}return k}
+function vlastnik(l,r,c){if(l.b[r+','+c])return r+','+c;return kryje(l)[r+','+c]||null}
+function setText(li,key,t){const l=S[li],x=l.b[key];if(!x||x.f===t)return;x.f=t;const [r,c]=key.split(',').map(Number);ZM[l.nazev+'|'+adr(r,c)]=t}
+function obsah(t){if(t.startsWith('='))return '<span title="Vzorec">'+esc(t)+'</span>';let h='',i=0;t.replace(ZN,(m,k,off)=>{h+=esc(t.slice(i,off));const p=POLE[k],op=OPAK.has(k.split('.')[0]);
+  h+='<span class="chip'+(p?(op?' opak':''):' nezname')+'" draggable="true" data-k="'+k+'" title="'+esc(m)+(p?'':' – neznámé pole')+'">'+esc(p?p.n:k)+'<span class="x" title="Odebrat">×</span></span>';i=off+m.length});
+  return h+esc(t.slice(i))}
+function kresli(){const l=listA(),k=kryje(l),nc=l.cols.length;let h='<table class="ed"><colgroup><col style="width:34px">'+l.cols.map(w=>'<col style="width:'+w+'px">').join('')+'</colgroup><thead><tr><th style="left:0;z-index:6"></th>';
+  for(let c=1;c<=nc;c++)h+='<th>'+L(c-1)+'</th>';h+='</tr></thead><tbody>';
+  const opak=new Set();for(const key in l.b){if(/\{\{\s*(polozka|material|prace)\./.test(l.b[key].f))opak.add(+key.split(',')[0])}
+  l.rows.forEach(row=>{h+='<tr'+(opak.has(row.r)?' class="opak" title="Tento řádek se zopakuje pro každou položku"':'')+' style="height:'+row.h+'px'+(row.h?'':';display:none')+'"><th>'+row.r+'</th>';
+    for(let c=1;c<=nc;c++){const key=row.r+','+c;if(k[key])continue;const x=l.b[key];if(!x){h+='<td data-k="'+key+'"></td>';continue}
+      h+='<td data-k="'+key+'"'+(x.rs>1?' rowspan="'+x.rs+'"':'')+(x.cs>1?' colspan="'+x.cs+'"':'')+' class="'+(x.f.startsWith('=')?'vzorec':'')+'" style="'+esc(x.s)+'">'+obsah(x.f)+'</td>'}
+    h+='</tr>'});
+  $('ed-in').innerHTML=h+'</tbody></table>';tvary();vyber(SEL)}
+function tvary(){const t=D.tvary[AKT]||[],l=listA(),tab=$('ed-in').querySelector('table');if(!tab)return;
+  const th=tab.querySelector('thead tr').offsetHeight,X=[34],Y=[th];l.cols.forEach(w=>X.push(X[X.length-1]+w));
+  const trs=tab.tBodies[0].rows;for(let i=0;i<trs.length;i++)Y.push(Y[Y.length-1]+trs[i].offsetHeight);
+  const px=(A,i,o)=>(i<A.length?A[i]:A[A.length-1])+o;
+  t.forEach(s=>{const d=document.createElement('div');d.className='tvar';const x1=px(X,s.c1,s.x1),y1=px(Y,s.r1,s.y1),x2=px(X,s.c2,s.x2),y2=px(Y,s.r2,s.y2);
+    Object.assign(d.style,{left:x1+'px',top:y1+'px',width:Math.max(4,x2-x1)+'px',height:Math.max(4,y2-y1)+'px'});if(s.obrazek)d.innerHTML='<span>obrázek</span>';else if(s.text)d.innerHTML='<span>'+esc(s.text)+'</span>';$('ed-in').appendChild(d)})}
+// ---- výběr
+function bunkyVyberu(){if(!SEL)return[];const l=listA(),out=[];for(const key in l.b){const [r,c]=key.split(',').map(Number),x=l.b[key];if(r<=SEL.r2&&r+x.rs-1>=SEL.r1&&c<=SEL.c2&&c+x.cs-1>=SEL.c1)out.push(key)}return out}
+function rozsir(o){const l=listA();let zm=true;while(zm){zm=false;for(const key in l.b){const [r,c]=key.split(',').map(Number),x=l.b[key],r2=r+x.rs-1,c2=c+x.cs-1;
+  if(r<=o.r2&&r2>=o.r1&&c<=o.c2&&c2>=o.c1&&(r<o.r1||r2>o.r2||c<o.c1||c2>o.c2)){o={r1:Math.min(o.r1,r),c1:Math.min(o.c1,c),r2:Math.max(o.r2,r2),c2:Math.max(o.c2,c2)};zm=true}}}return o}
+function vyber(o){SEL=o;document.querySelectorAll('table.ed td.sel').forEach(e=>e.classList.remove('sel'));const inp=$('ed-text');
+  if(!o){$('ed-adresa').textContent='–';inp.value='';inp.disabled=true;return}
+  bunkyVyberu().forEach(key=>{const td=$('ed-in').querySelector('td[data-k="'+key+'"]');if(td)td.classList.add('sel')});
+  $('ed-adresa').textContent=oblast(o);const key=vlastnik(listA(),o.r1,o.c1),x=key&&listA().b[key];inp.disabled=!x;inp.value=x?x.f:''}
+function zBunky(key){const [r,c]=key.split(',').map(Number),x=listA().b[key]||{rs:1,cs:1};return {r1:r,c1:c,r2:r+x.rs-1,c2:c+x.cs-1}}
+$('ed-in').addEventListener('mousedown',e=>{const td=e.target.closest('td');if(!td||e.target.classList.contains('x'))return;const o=zBunky(td.dataset.k);
+  if(e.shiftKey&&KOTVA){vyber(rozsir({r1:Math.min(KOTVA.r1,o.r1),c1:Math.min(KOTVA.c1,o.c1),r2:Math.max(KOTVA.r2,o.r2),c2:Math.max(KOTVA.c2,o.c2)}))}else{KOTVA=o;vyber(o)}});
+// ---- úprava textu
+let psani=false;
+$('ed-text').addEventListener('focus',()=>{psani=false});
+$('ed-text').addEventListener('input',e=>{if(!SEL)return;const key=vlastnik(listA(),SEL.r1,SEL.c1);if(!key)return;if(!psani){zaloha();psani=true}
+  setText(AKT,key,e.target.value);const td=$('ed-in').querySelector('td[data-k="'+key+'"]');if(td){td.innerHTML=obsah(e.target.value);td.classList.toggle('vzorec',e.target.value.startsWith('='))}oznac()});
+$('ed-text').addEventListener('change',()=>{psani=false;kresli()});
+$('ed-text').addEventListener('keydown',e=>{if(e.key=='Enter'){e.preventDefault();psani=false;kresli();if(SEL){const r=SEL.r2+1;if(r<=listA().rows.length){const k=vlastnik(listA(),r,SEL.c1);KOTVA=zBunky(k||r+','+SEL.c1);vyber(KOTVA)}}}});
+function vymaz(){const ks=bunkyVyberu().filter(k=>listA().b[k].f);if(!ks.length)return;zaloha();ks.forEach(k=>setText(AKT,k,''));kresli();oznac()}
+function vlozPole(k,key){const l=listA();key=key||(SEL&&vlastnik(l,SEL.r1,SEL.c1));if(!key){alert('Nejdřív klikněte na buňku, kam se má pole vložit.');return false}
+  const x=l.b[key];if(!x)return false;if(x.f.startsWith('=')&&!confirm('Buňka obsahuje vzorec. Nahradit ho polem?'))return false;
+  zaloha();const z='{'+'{'+k+'}'+'}';setText(AKT,key,x.f&&!x.f.startsWith('=')?(x.f.replace(/\s+$/,'')+' '+z):z);return true}
+function odeberZnacku(key,k,jen){const x=listA().b[key];if(!x)return;let hotovo=false;
+  const t=x.f.replace(ZN,(m,kk)=>{if(!hotovo&&kk==k){hotovo=true;return ''}return m}).replace(/[ \t]{2,}/g,' ').replace(/^\s+|\s+$/g,'');
+  if(!jen)zaloha();setText(AKT,key,/^[\s,.\-–]*$/.test(t)?'':t)}
+$('ed-in').addEventListener('click',e=>{if(!e.target.classList.contains('x'))return;const ch=e.target.closest('.chip'),td=e.target.closest('td');odeberZnacku(td.dataset.k,ch.dataset.k);kresli();oznac()});
+// ---- přetahování
+let TAH=null;
+$('ed-in').addEventListener('dragstart',e=>{const ch=e.target.closest('.chip');if(!ch)return;TAH={k:ch.dataset.k,z:ch.closest('td').dataset.k};e.dataTransfer.setData('text/plain',ch.dataset.k);e.dataTransfer.effectAllowed='move'});
+$('ed-pole').addEventListener('dragstart',e=>{const p=e.target.closest('.pole-i');if(!p)return;TAH={k:p.dataset.k,z:null};e.dataTransfer.setData('text/plain',p.dataset.k);e.dataTransfer.effectAllowed='copy'});
+$('ed-in').addEventListener('dragover',e=>{const td=e.target.closest('td');if(!td||!TAH)return;e.preventDefault();document.querySelectorAll('td.drop').forEach(x=>x!==td&&x.classList.remove('drop'));td.classList.add('drop')});
+$('ed-in').addEventListener('dragleave',e=>{const td=e.target.closest('td');if(td&&!td.contains(e.relatedTarget))td.classList.remove('drop')});
+$('ed-in').addEventListener('drop',e=>{const td=e.target.closest('td');if(!td||!TAH)return;e.preventDefault();td.classList.remove('drop');const t=TAH;TAH=null;
+  if(t.z===td.dataset.k)return;if(!listA().b[td.dataset.k])listA().b[td.dataset.k]={rs:1,cs:1,f:'',s:''};
+  if(!vlozPole(t.k,td.dataset.k))return;if(t.z)odeberZnacku(t.z,t.k,true);KOTVA=zBunky(td.dataset.k);SEL=KOTVA;kresli();oznac()});
+document.addEventListener('dragend',()=>{TAH=null;document.querySelectorAll('td.drop').forEach(x=>x.classList.remove('drop'))});
+// ---- sloučení
+function sloucit(){if(!SEL)return;const o=rozsir(SEL);if(o.r1==o.r2&&o.c1==o.c2){alert('Vyberte víc buněk (Shift+klik).');return}
+  const l=listA(),ks=bunkyVyberu();const prvni=l.b[o.r1+','+o.c1]||{s:'',f:''};let text=prvni.f;if(!text){const k=ks.find(k=>l.b[k].f);if(k)text=l.b[k].f}
+  if(ks.filter(k=>l.b[k].f).length>1&&!confirm('Sloučením zůstane jen obsah první buňky. Pokračovat?'))return;
+  zaloha();ks.forEach(k=>{const x=l.b[k];if(x.rs>1||x.cs>1){const a=oblast(zBunky(k));const i=SL.findIndex(s=>s.list==l.nazev&&s.oblast==a);if(i>=0)SL.splice(i,1);else RZ.push({list:l.nazev,oblast:a})}
+    if(k!=o.r1+','+o.c1){delete l.b[k];delete ZM[l.nazev+'|'+adr(...k.split(',').map(Number))]}});
+  l.b[o.r1+','+o.c1]={rs:o.r2-o.r1+1,cs:o.c2-o.c1+1,f:prvni.f,s:prvni.s};SL.push({list:l.nazev,oblast:oblast(o)});setText(AKT,o.r1+','+o.c1,text);SEL=o;kresli();oznac()}
+function rozdelit(){if(!SEL)return;const l=listA(),ks=bunkyVyberu().filter(k=>l.b[k].rs>1||l.b[k].cs>1);if(!ks.length){alert('Ve výběru není žádná sloučená oblast.');return}
+  zaloha();ks.forEach(k=>{const x=l.b[k],[r,c]=k.split(',').map(Number),a=oblast(zBunky(k)),i=SL.findIndex(s=>s.list==l.nazev&&s.oblast==a);
+    if(i>=0)SL.splice(i,1);else RZ.push({list:l.nazev,oblast:a});const st=x.s.replace(/border-[a-z]+:[^;]*;?/g,'');
+    for(let i2=r;i2<r+x.rs;i2++)for(let j=c;j<c+x.cs;j++)if(i2!=r||j!=c)l.b[i2+','+j]={rs:1,cs:1,f:'',s:st};x.rs=1;x.cs=1});kresli();oznac()}
+// ---- panel polí
+function pouzite(){const u={};S.forEach(l=>{for(const key in l.b){const t=l.b[key].f;if(!t)continue;t.replace(ZN,(m,k)=>{const [r,c]=key.split(',').map(Number);(u[k]=u[k]||[]).push({li:S.indexOf(l),key,a:(S.length>1?l.nazev+'!':'')+adr(r,c)})})}});return u}
+function polePanel(){const q=($('ed-hledat').value||'').toLowerCase(),u=pouzite(),sk={};D.pole.forEach(p=>{if(q&&!(p.n.toLowerCase().includes(q)||p.k.includes(q)))return;(sk[p.sk]=sk[p.sk]||[]).push(p)});
+  let h='';for(const g in sk){const op=sk[g][0].opak;h+='<div class="fw-bold small mt-2">'+esc(g)+(op?' <span class="badge bg-warning text-dark fw-normal">opakovaný řádek</span>':'')+'</div>';
+    sk[g].forEach(p=>{const m=u[p.k]||[];h+='<div class="pole-i" draggable="true" data-k="'+p.k+'" title="{'+'{'+p.k+'}'+'}"><span>'+esc(p.n)+'</span>'+(m.length?'<span class="u">'+m.map(x=>'<a href="#" class="ukaz text-success" data-li="'+x.li+'" data-key="'+x.key+'">'+esc(x.a)+'</a>').join(', ')+'</span>':'')+'</div>'})}
+  const nez=Object.keys(u).filter(k=>!POLE[k]);if(nez.length&&!q)h='<div class="alert alert-danger py-1 small">Neznámá pole (nic se do nich nedoplní): '+nez.map(k=>esc(k)+' ('+u[k].map(x=>'<a href="#" class="ukaz" data-li="'+x.li+'" data-key="'+x.key+'">'+esc(x.a)+'</a>').join(', ')+')').join('; ')+'</div>'+h;
+  $('ed-pole').innerHTML=h||'<div class="text-muted small">Nic nenalezeno.</div>'}
+$('ed-hledat').addEventListener('input',polePanel);
+$('ed-pole').addEventListener('click',e=>{const a=e.target.closest('.ukaz');if(a){e.preventDefault();e.stopPropagation();if(+a.dataset.li!=AKT){AKT=+a.dataset.li;listyTaby()}KOTVA=zBunky(a.dataset.key);kresli();vyber(KOTVA);
+    const td=$('ed-in').querySelector('td[data-k="'+a.dataset.key+'"]');if(td)td.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});return}
+  const p=e.target.closest('.pole-i');if(p&&vlozPole(p.dataset.k)){kresli();oznac()}});
+// ---- listy, záložky, klávesy
+function listyTaby(){$('ed-listy').innerHTML=S.length<2?'':S.map((l,i)=>'<li class="nav-item"><a href="#" class="nav-link py-0 px-2 '+(i==AKT?'active':'')+'" data-i="'+i+'">'+esc(l.nazev)+'</a></li>').join('')}
+$('ed-listy').addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return;e.preventDefault();AKT=+a.dataset.i;SEL=KOTVA=null;listyTaby();kresli()});
+$('ed-tabs').addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return;e.preventDefault();document.querySelectorAll('#ed-tabs a').forEach(x=>x.classList.toggle('active',x===a));
+  $('tab-pole').classList.toggle('d-none',a.dataset.tab!='pole');$('tab-nahled').classList.toggle('d-none',a.dataset.tab!='nahled');const f=$('ed-iframe');if(a.dataset.tab=='nahled'&&!f.src)f.src=f.dataset.src+'?t='+Date.now()});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea'))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()=='z'){e.preventDefault();zpet()}
+  else if((e.key=='Delete'||e.key=='Backspace')&&SEL){e.preventDefault();vymaz()}
+  else if(SEL&&e.key.length==1&&!e.ctrlKey&&!e.metaKey&&!e.altKey){const i=$('ed-text');if(!i.disabled){i.focus()}}});
+$('b-vymazat').onclick=vymaz;$('b-sloucit').onclick=sloucit;$('b-rozdelit').onclick=rozdelit;$('b-zpet').onclick=zpet;
+$('b-zahodit').onclick=()=>{if(confirm('Zahodit všechny neuložené změny?')){window.onbeforeunload=null;location.reload()}};
+window.onbeforeunload=e=>{if(zmen()){e.preventDefault();return ''}};
+$('b-ulozit').onclick=async()=>{const b=$('b-ulozit');b.disabled=true;b.textContent='Ukládám…';
+  const zmeny=[];for(const k in ZM){const [list,a]=k.split('|'),l=S.find(x=>x.nazev==list),p=parse(a);if(l&&l.b[p.r+','+p.c])zmeny.push({list,bunka:a,hodnota:ZM[k]})}
+  try{const r=await fetch(URL_ULOZ,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({zmeny,slouceni:SL,rozdeleni:RZ})}),j=await r.json();
+    if(!j.ok)throw new Error(j.chyba||'Chyba');ZM={};SL=[];RZ=[];HIST=[];$('ed-verze').textContent=j.verze;oznac();
+    const inf=$('ed-info');inf.classList.add('d-none');$('ed-stav').textContent='Uloženo ✓';$('ed-stav').className='ms-auto small text-success fw-bold';
+    const f=$('ed-iframe');if(f.src)f.src=f.dataset.src+'?t='+Date.now()}
+  catch(err){alert(err.message);oznac()}b.textContent='Uložit'};
+// ---- start: automaticky rozpoznaná pole převést na značky
+if(D.z_mapovani.length){D.z_mapovani.forEach(z=>{const li=S.findIndex(l=>l.nazev==z.list);if(li<0)return;const p=parse(z.bunka),key=vlastnik(S[li],p.r,p.c);if(!key)return;const x=S[li].b[key];
+  if(!x.f)setText(li,key,z.hodnota);else if(!x.f.includes(z.hodnota))setText(li,key,x.f+' '+z.hodnota)});
+  const inf=$('ed-info');inf.innerHTML='Pole, která aplikace v šabloně rozpoznala automaticky, jsou teď v mřížce jako pole k přesunutí. Zkontrolujte je a <b>uložte</b>.';inf.classList.remove('d-none')}
+listyTaby();kresli();oznac();
+})();</script>{% endblock %}
