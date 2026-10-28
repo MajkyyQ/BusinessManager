@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 import operator
 from functools import reduce
 from decimal import Decimal
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from django.db.models import OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from django.utils.text import capfirst
@@ -24,7 +24,7 @@ from urllib.parse import urlencode
 from django.db import transaction
 from django.urls import reverse
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
-                     KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba)
+                     KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury)
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
 READONLY = {"historiezmen"}
@@ -207,6 +207,9 @@ def edit(request, slug, pk=None):
     if slug == "nabidka" and not pk:  # nabídka se vždy zakládá ze zakázky
         q = {"zakazka": request.GET.get("zakazky") or request.GET.get("zakazka") or "", "next": request.GET.get("next", "")}
         return redirect(reverse("nabidka_nova") + "?" + urlencode({k: x for k, x in q.items() if x}))
+    if slug == "faktura" and not pk and (request.GET.get("zakazky") or request.GET.get("zakazka")):  # faktura ze zakázky -> vyplní se sama
+        q = {"zakazka": request.GET.get("zakazky") or request.GET.get("zakazka"), "next": request.GET.get("next", "")}
+        return redirect(reverse("faktura_nova") + "?" + urlencode({k: x for k, x in q.items() if x}))
     if slug == "zakazka" and not pk:  # nová zakázka = zakázkový list
         return redirect(reverse("zakazka_nova") + ("?" + request.GET.urlencode() if request.GET else ""))
     o = get_object_or_404(M, pk=pk) if pk else None
@@ -314,7 +317,7 @@ def nabidka_nova(request):
     if request.method == "POST" and form.is_valid():
         z = form.cleaned_data["zakazka"]
         with transaction.atomic():
-            n = Nabidka.objects.create(zakaznik=z.zakaznik, datum_vystaveni=form.cleaned_data["datum"], vypracoval=request.user,
+            n = Nabidka.objects.create(cislo_nabidky=Nabidka.cislo_ze_zakazky(z), zakaznik=z.zakaznik, datum_vystaveni=form.cleaned_data["datum"], vypracoval=request.user,
                 identifikacni_cislo=z.identifikacni_cislo, sekundarni_cislo=z.sekundarni_cislo, poznamka=form.cleaned_data["poznamka"])
             n.zakazky.add(z)
             for p in nabidka_polozky(z):
@@ -326,9 +329,43 @@ def nabidka_nova(request):
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "nabidka_nova", sec="dokumenty", form=form, nahled=nahled_ctx(z) if z else None)
 
+# ---------------- Faktura ze zakázky ----------------
+SPLATNOST_DNI = 14
+class FakturaForm(forms.Form):
+    zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— vyberte zakázku —")
+    datum = forms.DateField(label="Datum vystavení", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
+    duzp = forms.DateField(label="DUZP", required=False, help_text="Prázdné = datum vystavení", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
+    splatnost = forms.DateField(label="Datum splatnosti", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
+    poznamka = forms.CharField(label="Poznámka (nepovinné)", required=False, widget=forms.Textarea(attrs={"rows": 2, "class": "form-control"}))
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.fields["zakazka"].widget.attrs.update({"class": "form-select", "hx-get": reverse("nabidka_nahled"), "hx-vals": '{"doklad": "faktura"}', "hx-target": "#nahled", "hx-trigger": "change"})
+    def clean(self):
+        c = super().clean()
+        if c.get("datum") and c.get("splatnost") and c["splatnost"] < c["datum"]: self.add_error("splatnost", "Splatnost nemůže být dřív než datum vystavení.")
+        return c
+
+def faktura_nova(request):
+    z0 = Zakazka.objects.filter(pk=request.GET.get("zakazka") or 0).first(); dnes = timezone.localdate()
+    form = FakturaForm(request.POST or None, initial={"zakazka": z0, "datum": dnes, "splatnost": dnes + timedelta(days=SPLATNOST_DNI)})
+    if request.method == "POST" and form.is_valid():
+        z = form.cleaned_data["zakazka"]; d = form.cleaned_data["datum"]
+        with transaction.atomic():
+            f = Faktura.objects.create(zakaznik=z.zakaznik, datum_vystaveni=d, datum_zdanitelneho_plneni=form.cleaned_data["duzp"] or d,
+                datum_splatnosti=form.cleaned_data["splatnost"], vystavil=request.user,
+                identifikacni_cislo=z.identifikacni_cislo, sekundarni_cislo=z.sekundarni_cislo, poznamka=form.cleaned_data["poznamka"])
+            f.zakazky.add(z)
+            for p in nabidka_polozky(z):
+                PolozkaFaktury.objects.create(faktura=f, zakazka=z, popis=p["popis"], mnozstvi=p["mnozstvi"], jednotka=p["jednotka"], jednotkova_cena=p["cena"], sazba_dph=p["dph"])
+            log(request, f, "Vytvoření", popis_z=z)
+        messages.success(request, f"Faktura {f.cislo_faktury} vytvořena ze zakázky {z.cislo_zakazky}.")
+        nx = safe_next(request); return redirect(reverse("dokument", args=["faktura", f.pk]) + ("?" + urlencode({"next": nx}) if nx else ""))  # rovnou náhled dokumentu
+    z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
+    return R(request, "faktura_nova", sec="dokumenty", form=form, nahled=dict(nahled_ctx(z), doklad="faktura") if z else None)
+
 def nabidka_nahled(request):
     z = Zakazka.objects.filter(pk=request.GET.get("zakazka") or 0).first()
-    return render(request, "core/nabidka_nahled.html", nahled_ctx(z) if z else {})
+    return render(request, "core/nabidka_nahled.html", dict(nahled_ctx(z) if z else {}, doklad=request.GET.get("doklad", "nabidka")))
 
 # ---------------- Zákazníci ----------------
 def zakaznik_detail(request, pk):
