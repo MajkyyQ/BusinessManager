@@ -14,7 +14,7 @@ urlpatterns = [path("", v.plocha_home, name="dashboard"), path("zakazka/nova/", 
     path("nastaveni/sablony/<int:pk>/soubor/", vs.sablona_stahnout, name="sablona_stahnout"),
     path("nastaveni/sablony/<int:pk>/editor/", vs.sablona_editor, name="sablona_editor"),
     path("dokument/<slug:typ>/<int:pk>/", vs.dokument, name="dokument"), path("dokument/<slug:typ>/<int:pk>/obsah/", vs.dokument_obsah, name="dokument_obsah"),
-    path("dokument/<slug:typ>/<int:pk>/pdf/", vs.dokument_pdf, name="dokument_pdf"), path("dokument/<slug:typ>/<int:pk>/sablony/", vs.dokument_sablony, name="dokument_sablony"),
+    path("dokument/<slug:typ>/<int:pk>/pdf/", vs.dokument_pdf, name="dokument_pdf"), path("dokument/<slug:typ>/<int:pk>/isdoc/", vs.dokument_isdoc, name="dokument_isdoc"), path("dokument/<slug:typ>/<int:pk>/sablony/", vs.dokument_sablony, name="dokument_sablony"),
     path("<slug:slug>/", v.lst, name="list"), path("<slug:slug>/novy/", v.edit, name="create"),
     path("<slug:slug>/<int:pk>/", v.detail, name="detail"), path("<slug:slug>/<int:pk>/upravit/", v.edit, name="edit"),
     path("<slug:slug>/<int:pk>/smazat/", v.delete, name="delete")]
