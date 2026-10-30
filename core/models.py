@@ -203,12 +203,40 @@ class Platba(models.Model):
     zpusob = C(30, choices=[(x, x) for x in ("Hotově", "Bankovní převod", "Jiný")])
     castka = DEC(); datum_zaplaceni = models.DateTimeField(null=True, blank=True); poznamka = T()
     def __str__(self): return f"Platba {self.pk} – {self.castka} ({self.stav})"
+class Dodavatel(models.Model):
+    class Meta: verbose_name = "dodavatel"; verbose_name_plural = "Dodavatelé"; ordering = ["nazev"]
+    nazev = models.CharField("název", max_length=255); ico = ICO(); dic = DIC(); adresa = C(); telefon = TEL(); email = models.EmailField(blank=True)
+    cislo_uctu = C(50, verbose_name="číslo účtu"); poznamka = T(); aktivni = A(); datum_vytvoreni = DV()
+    def __str__(self): return self.nazev
+class PrijataFaktura(models.Model):
+    """Faktura, kterou firmě poslal dodavatel (náklad). Částky a údaje se přebírají ručně nebo ze souboru ISDOC."""
+    STAVY = ("Nezaplaceno", "Zaplaceno")
+    class Meta:
+        verbose_name = "přijatá faktura"; verbose_name_plural = "Přijaté faktury"; ordering = ["-datum_doruceni", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["dodavatel", "cislo_faktury"], name="prijata_faktura_unikatni")]
+    dodavatel = models.ForeignKey(Dodavatel, on_delete=models.PROTECT)
+    cislo_faktury = models.CharField("číslo faktury dodavatele", max_length=50); variabilni_symbol = C(20, verbose_name="variabilní symbol")
+    datum_vystaveni = models.DateField("datum vystavení", null=True, blank=True); datum_doruceni = models.DateField("datum doručení", default=timezone.localdate)
+    datum_zdanitelneho_plneni = models.DateField("DUZP", null=True, blank=True); datum_splatnosti = models.DateField("datum splatnosti", null=True, blank=True)
+    cena_bez_dph = models.DecimalField("částka bez DPH", **M2); dph = models.DecimalField("DPH", **M2); cena_s_dph = models.DecimalField("částka k úhradě", **M2)
+    mena = C(3, default="CZK", verbose_name="měna"); cislo_uctu = C(50, verbose_name="účet pro platbu")
+    stav = models.CharField(max_length=20, choices=[(x, x) for x in STAVY], default="Nezaplaceno"); datum_zaplaceni = models.DateField("datum zaplacení", null=True, blank=True)
+    soubor = models.FileField("soubor faktury", upload_to="prijate_faktury/%Y/", max_length=255, blank=True)
+    zakazka = FK(Zakazka, verbose_name="zakázka"); poznamka = T(); vytvoril = FK(User); datum_vytvoreni = DV()
+    def save(self, *a, **k):
+        if self.stav == "Zaplaceno" and not self.datum_zaplaceni: self.datum_zaplaceni = timezone.localdate()
+        if self.stav != "Zaplaceno": self.datum_zaplaceni = None
+        super().save(*a, **k)
+    @property
+    def po_splatnosti(self): return self.stav != "Zaplaceno" and self.datum_splatnosti is not None and self.datum_splatnosti < timezone.localdate()
+    def __str__(self): return f"Přijatá faktura {self.cislo_faktury} ({self.dodavatel})"
 class KalendarUdalost(models.Model):
     class Meta: verbose_name = "událost kalendáře"; verbose_name_plural = "Kalendář"; ordering = ["-datum"]
     nazev = models.CharField(max_length=200); popis = T(); datum = models.DateTimeField(default=timezone.now)
-    typ = C(30, choices=[(x, x) for x in ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Ruční událost")], default="Ruční událost")
+    typ = C(30, choices=[(x, x) for x in ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Přijatá faktura", "Splatnost faktury", "Zaplaceno dodavateli", "Ruční událost")], default="Ruční událost")
     automaticka = models.BooleanField(default=False, editable=False)
     zakazka = FK(Zakazka); faktura = FK(Faktura); platba = FK(Platba); vytvoril = FK(User)
+    prijata_faktura = models.ForeignKey(PrijataFaktura, on_delete=models.CASCADE, null=True, blank=True, verbose_name="přijatá faktura")
     zamestnanci = models.ManyToManyField(Zamestnanec, blank=True)
     def __str__(self): return self.nazev
 class HistorieZmen(models.Model):
@@ -238,6 +266,23 @@ def _ev_f(sender, instance, created, **k):
 def _ev_p(sender, instance, created, **k):
     if instance.stav == "Zaplaceno" and not instance.kalendarudalost_set.exists():
         KalendarUdalost.objects.create(nazev=f"Zaplaceno {instance.castka or ''}", datum=instance.datum_zaplaceni or timezone.now(), typ="Zaplaceno", automaticka=True, platba=instance, faktura=instance.faktura, zakazka=instance.zakazka)
+
+def _ve_dne(d, hodina=8):
+    from datetime import datetime, time
+    return timezone.make_aware(datetime.combine(d, time(hodina)))
+@receiver(post_save, sender=PrijataFaktura)
+def _ev_pf(sender, instance, **k):
+    """Kalendář přijaté faktury: doručení, splatnost (se stavem zaplacení) a zaplacení. Události se při každé změně faktury aktualizují."""
+    f = instance; kc = f" {f.cena_s_dph:,.2f} {f.mena}".replace(",", " ").replace(".", ",") if f.cena_s_dph is not None else ""
+    def nastav(typ, d, nazev):
+        qs = KalendarUdalost.objects.filter(prijata_faktura=f, typ=typ, automaticka=True)
+        if not d: qs.delete(); return
+        u = qs.first() or KalendarUdalost(prijata_faktura=f, typ=typ, automaticka=True, vytvoril=f.vytvoril)
+        u.nazev, u.datum, u.zakazka = nazev[:200], _ve_dne(d), f.zakazka; u.popis = f"Faktura {f.cislo_faktury} od {f.dodavatel}, k úhradě{kc or ' –'}"; u.save()
+    zapl = f.stav == "Zaplaceno"
+    nastav("Přijatá faktura", f.datum_doruceni, f"Přijata faktura {f.cislo_faktury} – {f.dodavatel}")
+    nastav("Splatnost faktury", f.datum_splatnosti, f"Splatnost {f.cislo_faktury} – {f.dodavatel}: " + ("zaplaceno" if zapl else "NEZAPLACENO"))
+    nastav("Zaplaceno dodavateli", f.datum_zaplaceni if zapl else None, f"Zaplaceno {f.cislo_faktury} – {f.dodavatel}{kc}")
 
 # ---------------- Šablony výstupních dokumentů ----------------
 class SablonaDokumentu(models.Model):

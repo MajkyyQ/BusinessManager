@@ -22,9 +22,12 @@ from django.utils.dateparse import parse_datetime
 from django.db.models import Count, Prefetch
 from urllib.parse import urlencode
 from django.db import transaction
+from django.core.files.base import ContentFile
+from django.views.decorators.http import require_POST
 from django.urls import reverse
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
-                     KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury)
+                     KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
+                     Dodavatel, PrijataFaktura)
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
 READONLY = {"historiezmen"}
@@ -35,10 +38,10 @@ SEC = {}   # slug modelu -> (sekce aplikace, skupina nastavení); tabulka NENÍ 
 for _s in ("zakazka", "zakazkakontakt", "provedenyukon", "pouzitymaterial", "fotografie", "priloha"): SEC[_s] = ("zakazky", None)
 for _s in ("zakaznik", "kontaktniosoba", "zakaznikkontakt"): SEC[_s] = ("zakaznici", None)
 SEC["zarizeni"] = ("zarizeni", None)
-for _s in ("nabidka", "polozkanabidky", "objednavka", "faktura", "polozkafaktury", "platba"): SEC[_s] = ("dokumenty", None)
+for _s in ("nabidka", "polozkanabidky", "objednavka", "faktura", "polozkafaktury", "platba", "prijatafaktura"): SEC[_s] = ("dokumenty", None)
 SEC["kalendarudalost"] = ("kalendar", None)
 for _s, _g in (("nastavenifirmy", "Firma"), ("sazbadph", "DPH"), ("zamestnanec", "Uživatelé a oprávnění"), ("role", "Uživatelé a oprávnění"),
-               ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("historiezmen", "Systém"), ("sablonadokumentu", "Dokumenty")): SEC[_s] = ("nastaveni", _g)
+               ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("dodavatel", "Katalogy"), ("historiezmen", "Systém"), ("sablonadokumentu", "Dokumenty")): SEC[_s] = ("nastaveni", _g)
 
 def safe_next(request):
     n = request.GET.get("next", "")
@@ -63,6 +66,7 @@ LOOKUP = {  # slug -> pole pro hledání, závislost (filtr podle zákazníka), 
     "zarizeni": dict(f=["vyrobce", "typ", "seriove_cislo", "popis", "zakaznik__firma", "zakaznik__jmeno"], dep="zakaznik", new=["vyrobce", "typ", "seriove_cislo", "popis"]),
     "material": dict(f=["nazev"], dep=None, new=["nazev", "jednotka", "posledni_cena"]),
     "kontaktniosoba": dict(f=["jmeno", "telefon", "email"], dep="zakaznik", new=["jmeno", "telefon", "email", "poznamka"]),
+    "dodavatel": dict(f=["nazev", "ico", "email"], dep=None, new=["nazev", "ico", "dic", "adresa", "telefon", "email", "cislo_uctu"]),
 }
 def lk_item(slug, o):
     if slug == "zarizeni": return dict(id=o.pk, label=f"{o.vyrobce} {o.typ}".strip() or "Zařízení", sub=f"S/N: {o.seriove_cislo or '–'} · {o.zakaznik} · zakázek: {getattr(o, 'n', 0)}")
@@ -107,6 +111,7 @@ def lookup_new(request, slug):
             cd = form.cleaned_data; dup = None
             if slug == "zarizeni" and cd["seriove_cislo"]: dup = Zarizeni.objects.filter(zakaznik_id=dep, seriove_cislo__iexact=cd["seriove_cislo"]).first()
             elif slug == "material": dup = Material.objects.filter(nazev__iexact=cd["nazev"]).first()
+            elif slug == "dodavatel" and cd["ico"]: dup = Dodavatel.objects.filter(ico=cd["ico"]).first()
             elif slug == "zakaznik":
                 if not (cd["jmeno"] or cd["firma"]): form.add_error(None, "Vyplňte jméno nebo firmu.")
                 elif cd["ico"]: dup = Zakaznik.objects.filter(ico=cd["ico"]).first()
@@ -170,6 +175,10 @@ def lst(request, slug):
     if slug == "zakaznik":
         heads = [dict(l=x) for x in ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]]
         rows = [(o, [o.jmeno or o.firma or str(o), o.firma or "–", o.adresa or "–", o.telefon or "–", o.email or "–", _dt(o.posl)], TYP_ZKR.get(o.typ_zakaznika)) for o in page]
+    elif slug == "prijatafaktura":
+        heads = [dict(l=x) for x in ["Číslo faktury", "Dodavatel", "Doručeno", "Splatnost", "K úhradě", "Stav"]]
+        rows = [(o, [o.cislo_faktury, o.dodavatel, o.datum_doruceni.strftime("%d.%m.%Y"), o.datum_splatnosti.strftime("%d.%m.%Y") if o.datum_splatnosti else "–",
+                     f"{o.cena_s_dph} {o.mena}" if o.cena_s_dph is not None else "–", "Po splatnosti" if o.po_splatnosti else o.stav], None) for o in page]
     elif slug == "zakazka":
         sk = {"Číslo zakázky": "cislo", "Datum přijetí": "prijeti", "Datum vydání": "vydani"}
         heads = [dict(l=x, ord=sk.get(x) and ("" if desc or sk[x] != key else "-") + sk[x], ar=(("▼" if desc else "▲") if sk.get(x) == key else ("↕" if x in sk else "")),
@@ -381,13 +390,16 @@ def dokumenty(request):
     if typ in ("", "nabidka"): rows += [dict(typ="Nabídka", slug="nabidka", pk=n.pk, cislo=n.cislo_nabidky, zakaznik=n.zakaznik, datum=n.datum_vystaveni, castka=n.cena_s_dph) for n in Nabidka.objects.select_related("zakaznik")]
     if typ in ("", "objednavka"): rows += [dict(typ="Objednávka", slug="objednavka", pk=o.pk, cislo=o.cislo_objednavky, zakaznik=o.zakaznik, datum=o.datum_objednavky, castka=None) for o in Objednavka.objects.select_related("zakaznik")]
     if typ in ("", "faktura"): rows += [dict(typ="Faktura", slug="faktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.zakaznik, datum=f.datum_vystaveni, castka=f.cena_s_dph) for f in Faktura.objects.select_related("zakaznik")]
+    if typ in ("", "prijatafaktura"): rows += [dict(typ="Přijatá faktura", slug="prijatafaktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.dodavatel, datum=f.datum_doruceni,
+                                                    castka=f.cena_s_dph, stav="Po splatnosti" if f.po_splatnosti else f.stav) for f in PrijataFaktura.objects.select_related("dodavatel")]
     if q: rows = [r for r in rows if q in (r["cislo"] + " " + str(r["zakaznik"])).lower()]
     rows.sort(key=lambda r: (str(r["datum"] or "")[:10], r["pk"]), reverse=True)
-    return R(request, "dokumenty", sec="dokumenty", rows=rows, typ=typ, q=q, tabs=[("", "Vše"), ("nabidka", "Nabídky"), ("objednavka", "Objednávky"), ("faktura", "Faktury")])
+    return R(request, "dokumenty", sec="dokumenty", rows=rows, typ=typ, q=q, tabs=[("", "Vše"), ("nabidka", "Nabídky"), ("objednavka", "Objednávky"), ("faktura", "Faktury"), ("prijatafaktura", "Přijaté faktury")])
 
 # ---------------- Kalendář ----------------
 MES = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"]
-KCSS = {"Přijetí zakázky": "primary", "Vydání zařízení": "success", "Fakturováno": "warning text-dark", "Zaplaceno": "info text-dark"}
+KCSS = {"Přijetí zakázky": "primary", "Vydání zařízení": "success", "Fakturováno": "warning text-dark", "Zaplaceno": "info text-dark",
+        "Přijatá faktura": "dark", "Splatnost faktury": "danger", "Zaplaceno dodavateli": "info text-dark"}
 def kalendar(request):
     from datetime import date, timedelta
     import calendar as cal
@@ -402,12 +414,14 @@ def kalendar(request):
         start = d - timedelta(d.weekday()); end = start + timedelta(7); prev, nxt = d - timedelta(7), d + timedelta(7); title = f"{start:%d.%m.} – {end - timedelta(1):%d.%m.%Y}"
     else:
         start, end, prev, nxt, title = d, d + timedelta(1), d - timedelta(1), d + timedelta(1), f"{d:%d.%m.%Y}"
-    qs = KalendarUdalost.objects.filter(datum__date__gte=start, datum__date__lt=end).select_related("zakazka", "faktura")
+    qs = KalendarUdalost.objects.filter(datum__date__gte=start, datum__date__lt=end).select_related("zakazka", "faktura", "prijata_faktura")
     if typ: qs = qs.filter(typ=typ)
     if zam: qs = qs.filter(zamestnanci__pk=zam)
     by = {}
     for e in qs.distinct().order_by("datum"):
-        e.css = KCSS.get(e.typ, "secondary"); by.setdefault(timezone.localtime(e.datum).date(), []).append(e)
+        e.css = KCSS.get(e.typ, "secondary")
+        if e.typ == "Splatnost faktury" and e.prijata_faktura and e.prijata_faktura.stav == "Zaplaceno": e.css = "success"
+        by.setdefault(timezone.localtime(e.datum).date(), []).append(e)
     today = timezone.localdate()
     days = [{"d": x, "ev": by.get(x, []), "today": x == today, "out": x.month != d.month} for x in (start + timedelta(i) for i in range((end - start).days))]
     qq = urlencode({k: x for k, x in (("typ", typ), ("zam", zam)) if x})
@@ -422,7 +436,7 @@ def nastaveni(request):
          ("Dokumenty", [("Šablony dokumentů", reverse("sablony")), ("Značky pro vlastní šablony", reverse("sablony_znacky"))], "Vzhled zakázkových listů, nabídek a faktur (Excel, HTML) a výchozí šablona pro každý typ."),
          ("DPH", [("Sazby DPH", L("sazbadph"))], "Výchozí sazba DPH se nastavuje v části Firma."),
          ("Uživatelé a oprávnění", [("Zaměstnanci", L("zamestnanec")), ("Role", L("role")), ("Oprávnění", L("opravneni"))] + ([("Uživatelské účty", "/admin/auth/user/")] if st else []), ""),
-         ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material"))], ""),
+         ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
     return R(request, "nastaveni", sec="nastaveni", groups=g)
 def nastaveni_firma(request):
@@ -560,3 +574,55 @@ def stav_akce(request, pk):
         elif a in FLOW.get(n, ["zahajit", "zrusit"]): set_stav(request, z, ACTIONS[a][1])
         else: messages.error(request, f"Akce není ve stavu „{n}“ dostupná.")
     return redirect(reverse("detail", args=["zakazka", pk]))
+
+# ---------------- Přijaté faktury ----------------
+class ImportISDOCForm(forms.Form):
+    soubor = forms.FileField(label="Soubor faktury ISDOC (.isdoc nebo .isdocx)", widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".isdoc,.isdocx,.xml"}))
+    zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka (nepovinné, např. materiál pro konkrétní opravu)",
+                            required=False, empty_label="— bez zakázky —", widget=forms.Select(attrs={"class": "form-select"}))
+
+def prijata_faktura_import(request):
+    """Nahrání faktury od dodavatele ve formátu ISDOC: dodavatel se najde podle IČO (nebo založí) a faktura se uloží jako nezaplacená."""
+    from .sablony import isdoc
+    form = ImportISDOCForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        f = form.cleaned_data["soubor"]; obsah = f.read()
+        try:
+            d = isdoc.nacti(obsah)
+        except isdoc.ChybaImportu as e:
+            form.add_error("soubor", str(e))
+        else:
+            dd = d["dodavatel"]
+            dod = (Dodavatel.objects.filter(ico=dd["ico"]).first() if dd["ico"] else None) or Dodavatel.objects.filter(nazev__iexact=dd["nazev"]).first()
+            dup = dod and PrijataFaktura.objects.filter(dodavatel=dod, cislo_faktury=d["cislo_faktury"]).first()
+            if dup:
+                messages.warning(request, f"Faktura {dup.cislo_faktury} od dodavatele {dod} už je v evidenci, znovu se nenahrála.")
+                return redirect("detail", slug="prijatafaktura", pk=dup.pk)
+            with transaction.atomic():
+                if not dod:
+                    dod = Dodavatel.objects.create(**dd); log(request, dod, "Vytvoření")
+                else:  # doplnit chybějící údaje dodavatele, vyplněné se nepřepisují
+                    zmeny = [k for k, v in dd.items() if v and not getattr(dod, k)]
+                    for k in zmeny: setattr(dod, k, dd[k])
+                    if zmeny: dod.save(update_fields=zmeny)
+                pozn = "\n".join(x for x in (d["poznamka"], ("Položky: " + "; ".join(d["polozky"])) if d["polozky"] else "") if x)
+                if d["druh"] != "faktura": pozn = f"Druh dokladu: {d['druh']}\n{pozn}".strip()
+                pf = PrijataFaktura(dodavatel=dod, zakazka=form.cleaned_data["zakazka"], vytvoril=request.user, poznamka=pozn[:5000],
+                                    **{k: d[k] for k in ("cislo_faktury", "variabilni_symbol", "datum_vystaveni", "datum_zdanitelneho_plneni", "datum_splatnosti",
+                                                         "cena_bez_dph", "dph", "cena_s_dph", "mena", "cislo_uctu")})
+                pf.soubor.save(f.name, ContentFile(obsah), save=False); pf.save(); log(request, pf, "Vytvoření (import ISDOC)")
+            fi = NastaveniFirmy.objects.first()
+            if fi and fi.ico and d["odberatel_ico"] and d["odberatel_ico"] != fi.ico:
+                messages.warning(request, f"Pozor: faktura je vystavena na IČO {d['odberatel_ico']}, ne na vaši firmu ({fi.ico}).")
+            messages.success(request, f"Faktura {pf.cislo_faktury} od dodavatele {dod} byla nahrána a zapsána do kalendáře. Zkontrolujte prosím údaje.")
+            return redirect("detail", slug="prijatafaktura", pk=pf.pk)
+    return R(request, "prijata_faktura_import", sec="dokumenty", form=form,
+             crumbs=[("📄 Dokumenty", reverse("dokumenty")), ("Přijaté faktury", reverse("list", args=["prijatafaktura"])), ("Import ISDOC", None)])
+
+@require_POST
+def prijata_faktura_zaplaceno(request, pk):
+    pf = get_object_or_404(PrijataFaktura, pk=pk)
+    if pf.stav != "Zaplaceno":
+        pf.stav = "Zaplaceno"; pf.save(); log(request, pf, "Úprava", "stav", "Nezaplaceno", "Zaplaceno")
+        messages.success(request, f"Faktura {pf.cislo_faktury} je označena jako zaplacená.")
+    return redirect(safe_next(request) or reverse("detail", args=["prijatafaktura", pk]))

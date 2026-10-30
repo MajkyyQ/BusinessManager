@@ -72,3 +72,64 @@ class ExportISDOCTest(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn(".isdoc", r["Content-Disposition"])
         self.assertEqual(self.client.get(reverse("dokument_isdoc", args=["nabidka", 1])).status_code, 404)
+
+
+class PrijateFakturyTest(TestCase):
+    """Import faktury od dodavatele z ISDOC, kalendář a označení zaplacení."""
+    def setUp(self):
+        NastaveniFirmy.objects.all().delete()
+        # „dodavatel“ vystaví fakturu naší aplikací, tu pak importujeme jako přijatou
+        NastaveniFirmy.objects.create(nazev_firmy="Velkoobchod Díly s.r.o.", adresa="Skladová 7, 602 00 Brno", ico="25596641", dic="CZ25596641",
+                                      cislo_uctu="2400123456/2010", telefon="+420 777 111 222", email="fakturace@dily.cz", mena="CZK")
+        z = Zakaznik.objects.create(firma="Můj servis s.r.o.", adresa="Dílenská 5, 400 01 Ústí nad Labem", ico="12345679")
+        f = Faktura.objects.create(zakaznik=z, datum_vystaveni=date(2026, 10, 20), datum_splatnosti=date(2026, 11, 3), datum_zdanitelneho_plneni=date(2026, 10, 20))
+        PolozkaFaktury.objects.create(faktura=f, popis="Ložisko 6204", mnozstvi=Decimal("4"), jednotkova_cena=Decimal("120"), sazba_dph=Decimal("21"))
+        f.refresh_from_db(); self.cislo = f.cislo_faktury
+        self.obsah = isdoc.faktura_isdoc(f)
+        NastaveniFirmy.objects.update(nazev_firmy="Můj servis s.r.o.", ico="12345679", dic="", cislo_uctu="")
+        self.client.force_login(User.objects.create_user("u", password="x"))
+
+    def _nahraj(self, obsah, jmeno="faktura.isdoc"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return self.client.post(reverse("prijata_faktura_import"), {"soubor": SimpleUploadedFile(jmeno, obsah)})
+
+    def test_cteni_isdoc(self):
+        d = isdoc.nacti(self.obsah)
+        self.assertEqual(d["cislo_faktury"], self.cislo)
+        self.assertEqual(d["dodavatel"]["ico"], "25596641")
+        self.assertEqual(d["dodavatel"]["adresa"], "Skladová 7, 60200 Brno")
+        self.assertEqual(d["cislo_uctu"], "2400123456/2010")
+        self.assertEqual(d["cena_s_dph"], Decimal("580.80"))
+        self.assertEqual(d["datum_splatnosti"], date(2026, 11, 3))
+        self.assertEqual(d["polozky"], ["Ložisko 6204"])
+
+    def test_import_dodavatel_kalendar_a_zaplaceni(self):
+        from .models import Dodavatel, KalendarUdalost, PrijataFaktura
+        r = self._nahraj(self.obsah)
+        pf = PrijataFaktura.objects.get()
+        self.assertRedirects(r, reverse("detail", args=["prijatafaktura", pf.pk]), fetch_redirect_response=False)
+        self.assertEqual(Dodavatel.objects.get().nazev, "Velkoobchod Díly s.r.o.")
+        self.assertEqual((pf.stav, pf.cena_bez_dph, pf.variabilni_symbol), ("Nezaplaceno", Decimal("480.00"), "".join(c for c in self.cislo if c.isdigit())))
+        self.assertTrue(pf.soubor.name.endswith(".isdoc"))
+        typy = set(KalendarUdalost.objects.filter(prijata_faktura=pf).values_list("typ", flat=True))
+        self.assertEqual(typy, {"Přijatá faktura", "Splatnost faktury"})
+        self.assertIn("NEZAPLACENO", KalendarUdalost.objects.get(prijata_faktura=pf, typ="Splatnost faktury").nazev)
+        # stejná faktura podruhé -> žádná duplicita
+        self._nahraj(self.obsah); self.assertEqual(PrijataFaktura.objects.count(), 1)
+        # označení zaplacení
+        self.client.post(reverse("prijata_faktura_zaplaceno", args=[pf.pk])); pf.refresh_from_db()
+        self.assertEqual(pf.stav, "Zaplaceno"); self.assertIsNotNone(pf.datum_zaplaceni)
+        self.assertIn("zaplaceno", KalendarUdalost.objects.get(prijata_faktura=pf, typ="Splatnost faktury").nazev)
+        self.assertTrue(KalendarUdalost.objects.filter(prijata_faktura=pf, typ="Zaplaceno dodavateli").exists())
+        for u in ("dokumenty", "kalendar"): self.assertEqual(self.client.get(reverse(u)).status_code, 200)
+        self.assertContains(self.client.get(reverse("list", args=["prijatafaktura"])), self.cislo)
+        pf.dodavatel.refresh_from_db(); self.assertContains(self.client.get(reverse("detail", args=["prijatafaktura", pf.pk])), "Zaplaceno")
+
+    def test_isdocx_a_chybny_soubor(self):
+        import io, zipfile
+        from .models import PrijataFaktura
+        b = io.BytesIO()
+        with zipfile.ZipFile(b, "w") as z: z.writestr("faktura.isdoc", self.obsah); z.writestr("faktura.pdf", b"%PDF")
+        self._nahraj(b.getvalue(), "faktura.isdocx"); self.assertEqual(PrijataFaktura.objects.count(), 1)
+        r = self._nahraj(b"<html>nic</html>", "x.isdoc")
+        self.assertEqual(r.status_code, 200); self.assertContains(r, "není faktura ve formátu ISDOC")
