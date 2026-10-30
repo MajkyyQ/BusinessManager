@@ -191,3 +191,97 @@ def faktura_isdoc(faktura):
     root = vytvor(Faktura.data(faktura), uuid_klic=f"faktura:{faktura.pk}:{faktura.cislo_faktury}")
     over(root)
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8", pretty_print=True)
+
+
+# ---------------------------------------------------------------- import (přijaté faktury)
+class ChybaImportu(Exception):
+    """Soubor se nepodařilo přečíst jako fakturu ISDOC."""
+
+
+def _xml_ze_souboru(obsah):
+    """Bajty souboru .isdoc nebo .isdocx (ZIP s .isdoc uvnitř) -> kořenový element XML."""
+    import io
+    import zipfile
+    if obsah[:2] == b"PK":
+        try:
+            with zipfile.ZipFile(io.BytesIO(obsah)) as z:
+                jmeno = next((n for n in z.namelist() if n.lower().endswith(".isdoc")), None)
+                if not jmeno: raise ChybaImportu("Archiv ISDOCX neobsahuje soubor .isdoc.")
+                obsah = z.read(jmeno)
+        except zipfile.BadZipFile:
+            raise ChybaImportu("Soubor není platný archiv ISDOCX.")
+    try:
+        root = etree.fromstring(obsah, etree.XMLParser(resolve_entities=False, no_network=True))
+    except etree.XMLSyntaxError as e:
+        raise ChybaImportu(f"Soubor není platné XML ({e}).")
+    if etree.QName(root).localname != "Invoice" or "isdoc.cz" not in (etree.QName(root).namespace or ""):
+        raise ChybaImportu("Soubor není faktura ve formátu ISDOC.")
+    return root
+
+
+def _najdi(el, cesta):
+    """Text prvku podle cesty názvů (bez ohledu na jmenný prostor, funguje pro ISDOC 5 i 6)."""
+    if el is None: return ""
+    for cast in cesta.split("/"):
+        el = next((c for c in el if isinstance(c.tag, str) and etree.QName(c).localname == cast), None)
+        if el is None: return ""
+    return (el.text or "").strip()
+
+
+def _prvek(el, cesta):
+    for cast in cesta.split("/"):
+        if el is None: return None
+        el = next((c for c in el if isinstance(c.tag, str) and etree.QName(c).localname == cast), None)
+    return el
+
+
+def _datum(t):
+    from datetime import date
+    try: return date.fromisoformat(t[:10]) if t else None
+    except ValueError: return None
+
+
+def _dec(t):
+    try: return Decimal(t) if t else None
+    except Exception: return None
+
+
+def nacti(obsah):
+    """Obsah souboru ISDOC/ISDOCX -> slovník s údaji přijaté faktury a dodavatele."""
+    root = _xml_ze_souboru(obsah)
+    party = _prvek(root, "AccountingSupplierParty/Party")
+    if party is None: raise ChybaImportu("Ve faktuře chybí údaje o dodavateli.")
+    adr = _prvek(party, "PostalAddress")
+    ulice = " ".join(x for x in (_najdi(adr, "StreetName"), _najdi(adr, "BuildingNumber")) if x)
+    mesto = " ".join(x for x in (_najdi(adr, "PostalZone"), _najdi(adr, "CityName")) if x)
+    dic = next((_najdi(t, "CompanyID") for t in party if isinstance(t.tag, str) and etree.QName(t).localname == "PartyTaxScheme"
+                and _najdi(t, "TaxScheme").upper() in ("VAT", "DPH", "")), "")
+    zak = _prvek(root, "AccountingCustomerParty/Party")
+    platba = _prvek(root, "PaymentMeans/Payment")
+    det = _prvek(platba, "Details")
+    ucet = _najdi(det, "ID"); banka = _najdi(det, "BankCode")
+    ucet = f"{ucet}/{banka}" if ucet and banka else (ucet or _najdi(det, "IBAN"))
+    druh = _najdi(root, "DocumentType")
+    soucty = _prvek(root, "LegalMonetaryTotal")
+    bez = _dec(_najdi(soucty, "TaxExclusiveAmount")); s_dph = _dec(_najdi(soucty, "TaxInclusiveAmount"))
+    k_uhrade = _dec(_najdi(soucty, "PayableAmount"))
+    dan = _dec(_najdi(root, "TaxTotal/TaxAmount"))
+    if dan is None and bez is not None and s_dph is not None: dan = s_dph - bez
+    cislo = _najdi(root, "ID")
+    if not cislo: raise ChybaImportu("Ve faktuře chybí číslo dokladu.")
+    return {
+        "dodavatel": {"nazev": _najdi(party, "PartyName/Name") or "Neznámý dodavatel", "ico": _najdi(party, "PartyIdentification/ID")[:8],
+                      "dic": dic.replace(" ", "")[:14], "adresa": ", ".join(x for x in (ulice, mesto) if x)[:200],
+                      "telefon": _najdi(party, "Contact/Telephone")[:20], "email": _najdi(party, "Contact/ElectronicMail")[:254], "cislo_uctu": ucet[:50]},
+        "odberatel_ico": _najdi(zak, "PartyIdentification/ID"),
+        "druh": {"1": "faktura", "2": "dobropis", "3": "vrubopis", "4": "zálohová faktura", "5": "daňový doklad k záloze",
+                 "6": "dobropis daňového dokladu k záloze", "7": "zjednodušený daňový doklad"}.get(druh, "faktura"),
+        "cislo_faktury": cislo[:50], "variabilni_symbol": _najdi(det, "VariableSymbol")[:20],
+        "datum_vystaveni": _datum(_najdi(root, "IssueDate")), "datum_zdanitelneho_plneni": _datum(_najdi(root, "TaxPointDate")),
+        "datum_splatnosti": _datum(_najdi(det, "PaymentDueDate")),
+        "cena_bez_dph": bez, "dph": dan, "cena_s_dph": k_uhrade if k_uhrade is not None else s_dph,
+        "mena": (_najdi(root, "LocalCurrencyCode") or "CZK")[:3],  # částky v ISDOC jsou vždy i v tuzemské měně
+        "cislo_uctu": ucet[:50], "poznamka": _najdi(root, "Note"),
+        "polozky": [_najdi(r, "Item/Description") for r in (_prvek(root, "InvoiceLines") if _prvek(root, "InvoiceLines") is not None else [])
+                    if isinstance(r.tag, str) and _najdi(r, "Item/Description")],
+    }
