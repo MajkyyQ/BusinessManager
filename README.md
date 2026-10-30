@@ -21,6 +21,8 @@ a spustit runserver s DB_ENGINE=postgres DB_HOST=localhost DB_NAME/USER/PASSWORD
 ## Šablony dokumentů (zakázkový list, nabídka, faktura)
 Nastavení → Dokumenty → Šablony dokumentů. Každý typ dokumentu může mít více šablon (Excel .xlsx nebo HTML), jedna je výchozí.
 Náhled dokumentu: v zakázce tlačítko Zakázkový list, u nabídky/faktury Náhled / PDF / tisk. V náhledu lze dočasně zvolit jinou šablonu (výchozí se tím nemění).
+
+Faktura ISDOC: v náhledu faktury tlačítko **Stáhnout ISDOC** (nebo **ISDOC** v detailu faktury) stáhne fakturu jako soubor `.isdoc` (ISDOC 6.0.2) pro import do účetního programu. Soubor se vždy ověří proti oficiálnímu schématu `core/sablony/schemata/isdoc-invoice-6.0.2.xsd`. Testy: `python manage.py test core`.
 Pro PDF a náhledy Excelových šablon je potřeba **LibreOffice**:
 - Docker: je součástí obrazu, nic se neinstaluje.
 - Windows bez Dockeru: nainstalujte LibreOffice z https://www.libreoffice.org/download/ (aplikace ho najde v `C:\Program Files\LibreOffice`),

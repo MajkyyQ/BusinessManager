@@ -15,7 +15,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
 from .models import SablonaDokumentu as S
-from .sablony import prevod, renderery, typy
+from .sablony import isdoc, prevod, renderery, typy
 from .views import R, log, safe_next
 
 CRUMBS = [("⚙ Nastavení", "/nastaveni/"), ("Dokumenty", None)]
@@ -263,6 +263,19 @@ def dokument_pdf(request, typ, pk):
     r = _obsah(s, t, t.data(o), jako_pdf=True)
     if r["Content-Type"] == "application/pdf":
         r["Content-Disposition"] = f'attachment; filename="{t.nazev_souboru(o) or "dokument"}.pdf"'
+    return r
+
+
+def dokument_isdoc(request, typ, pk):
+    """Faktura ve formátu ISDOC (XML pro import do účetního programu); vzhled šablony zde nehraje roli."""
+    if typ != "faktura": raise Http404
+    t, o = _objekt(typ, pk)
+    try:
+        obsah = isdoc.faktura_isdoc(o)
+    except isdoc.NeplatneISDOC as e:
+        return _chyba_html(f"Fakturu se nepodařilo převést do formátu ISDOC: {e}")
+    r = HttpResponse(obsah, content_type="application/xml; charset=utf-8")
+    r["Content-Disposition"] = f'attachment; filename="{t.nazev_souboru(o) or "faktura"}.isdoc"'
     return r
 
 
