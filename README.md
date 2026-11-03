@@ -19,7 +19,7 @@ Vývoj proti Postgresu v Dockeru: `docker compose up -d db`, v compose dočasně
 a spustit runserver s DB_ENGINE=postgres DB_HOST=localhost DB_NAME/USER/PASSWORD z .env.
 
 ## Šablony dokumentů (zakázkový list, nabídka, faktura)
-Nastavení → Dokumenty → Šablony dokumentů. Každý typ dokumentu může mít více šablon (Excel .xlsx nebo HTML), jedna je výchozí.
+Dokumenty → **Šablony dokumentů** (může upravovat každý uživatel). Každý typ dokumentu může mít více šablon (Excel .xlsx nebo HTML), jedna je výchozí.
 Náhled dokumentu: v zakázce tlačítko Zakázkový list, u nabídky/faktury Náhled / PDF / tisk. V náhledu lze dočasně zvolit jinou šablonu (výchozí se tím nemění).
 
 Faktura ISDOC: v náhledu faktury tlačítko **Stáhnout ISDOC** (nebo **ISDOC** v detailu faktury) stáhne fakturu jako soubor `.isdoc` (ISDOC 6.0.2) pro import do účetního programu. Soubor se vždy ověří proti oficiálnímu schématu `core/sablony/schemata/isdoc-invoice-6.0.2.xsd`. Testy: `python manage.py test core`.
@@ -32,3 +32,22 @@ Pro PDF a náhledy Excelových šablon je potřeba **LibreOffice**:
   jinou cestu lze zadat proměnnou prostředí `LIBREOFFICE`.
 Vlastní Excel: do buněk napište značky, např. `{{dokument.cislo}}`, řádek položek `{{polozka.popis}}` … (seznam v aplikaci: Značky pro vlastní šablony).
 Bez značek se pole zkusí rozpoznat podle popisků. Vestavěné vzory se generují příkazem `python manage.py vytvor_vzory_sablon`.
+
+## Oprávnění
+- **Nastavení** (údaje o firmě, DPH, zaměstnanci a role, katalogy, historie změn, zálohování) vidí a mění jen administrátor
+  (uživatel s příznakem *Staff* nebo *Superuser*). Ostatním se položka v menu nezobrazí a přímý odkaz je vrátí na plochu.
+- **Šablony dokumentů** jsou v sekci Dokumenty a upravovat je může každý přihlášený uživatel.
+
+## Provoz bez internetu
+Bootstrap a htmx jsou přibalené v `core/static/vendor/`, aplikace se proto nenačítá z cizích serverů.
+Stačí prohlížeč a přístup k serveru aplikace, např. v místní síti firmy. Internet není potřeba.
+
+## Licence
+Projekt je open source pod licencí **MIT** (soubor [LICENSE](LICENSE)).
+
+Proč MIT: je krátká, srozumitelná a nejrozšířenější open-source licence a je schválená organizací Open Source Initiative.
+Kdokoli může aplikaci zdarma používat, upravovat a šířit, i ve firmě nebo v komerčním produktu.
+Jedinou podmínkou je zachovat text licence a jméno autora. To odpovídá cíli projektu, aby si jednoduchý systém
+pro servisní zakázky mohla nasadit a upravit i malá firma bez licenčních poplatků a bez právních překážek.
+Přísnější licence (např. GPL-3.0) by vyžadovala zveřejnit i všechny úpravy, což pro malé firmy může být překážka.
+Přibalené knihovny Bootstrap (MIT) a htmx (0BSD) jsou s licencí MIT slučitelné.

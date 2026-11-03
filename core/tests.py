@@ -185,3 +185,31 @@ class UdalostiKalendareTest(TestCase):
         f.datum_vystaveni = date(2026, 10, 22); f.save()
         u = KalendarUdalost.objects.get(faktura=f, typ="Fakturováno")
         self.assertEqual(timezone.localtime(u.datum).date(), date(2026, 10, 22))
+
+
+class OpravneniNastaveniTest(TestCase):
+    """Nastavení vidí jen administrátor, šablony dokumentů kdokoli."""
+    STRANKY = [("nastaveni", []), ("nastaveni_firma", []), ("nastaveni_zaloha", []), ("list", ["sazbadph"]), ("create", ["zamestnanec"]), ("list", ["historiezmen"])]
+
+    def test_bezny_uzivatel_nastaveni_neotevre(self):
+        self.client.force_login(User.objects.create_user("u", password="x"))
+        for nazev, args in self.STRANKY:
+            r = self.client.get(reverse(nazev, args=args))
+            self.assertRedirects(r, reverse("dashboard"), fetch_redirect_response=False, msg_prefix=nazev)
+        r = self.client.get(reverse("dashboard"))
+        self.assertNotContains(r, reverse("nastaveni"))
+        self.assertEqual(self.client.get(reverse("sablony")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("list", args=["zakazka"])).status_code, 200)
+
+    def test_admin_nastaveni_otevre(self):
+        self.client.force_login(User.objects.create_user("a", password="x", is_staff=True))
+        self.assertContains(self.client.get(reverse("dashboard")), reverse("nastaveni"))
+        for nazev, args in self.STRANKY:
+            self.assertIn(self.client.get(reverse(nazev, args=args)).status_code, (200, 302), nazev)
+        self.assertEqual(self.client.get(reverse("nastaveni")).status_code, 200)
+
+    def test_styly_jsou_pribalene(self):
+        self.client.force_login(User.objects.create_user("u", password="x"))
+        r = self.client.get(reverse("dashboard"))
+        self.assertNotContains(r, "cdn.jsdelivr.net"); self.assertNotContains(r, "unpkg.com")
+        self.assertContains(r, "vendor/bootstrap.min.css"); self.assertContains(r, "vendor/htmx.min.js")

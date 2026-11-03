@@ -41,7 +41,15 @@ SEC["zarizeni"] = ("zarizeni", None)
 for _s in ("nabidka", "polozkanabidky", "objednavka", "faktura", "polozkafaktury", "platba", "prijatafaktura"): SEC[_s] = ("dokumenty", None)
 SEC["kalendarudalost"] = ("kalendar", None)
 for _s, _g in (("nastavenifirmy", "Firma"), ("sazbadph", "DPH"), ("zamestnanec", "Uživatelé a oprávnění"), ("role", "Uživatelé a oprávnění"),
-               ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("dodavatel", "Katalogy"), ("historiezmen", "Systém"), ("sablonadokumentu", "Dokumenty")): SEC[_s] = ("nastaveni", _g)
+               ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("dodavatel", "Katalogy"), ("historiezmen", "Systém")): SEC[_s] = ("nastaveni", _g)
+SEC["sablonadokumentu"] = ("dokumenty", None)  # šablony smí upravovat každý uživatel, nejsou součástí Nastavení
+
+def je_admin(user): return user.is_staff or user.is_superuser
+def jen_admin_ok(request, slug=None):
+    """Nastavení (údaje firmy, DPH, uživatelé, katalogy, systém) smí otevřít jen administrátor."""
+    if slug is not None and SEC.get(slug, (None,))[0] != "nastaveni": return True
+    if je_admin(request.user): return True
+    messages.error(request, "Nastavení může otevřít jen administrátor."); return False
 
 def safe_next(request):
     n = request.GET.get("next", "")
@@ -51,7 +59,8 @@ def get(slug):
     return MODELS[slug]
 def R(request, tpl, sec=None, crumbs=None, **c):
     if "M" in c: c["vn"], c["vnp"] = c["M"]._meta.verbose_name, c["M"]._meta.verbose_name_plural
-    nav = [(k, l, reverse(u, args=a)) for k, l, u, a in SECT]; sl = {k: (l, u) for k, l, u in nav}; g = None; slug = c.get("slug")
+    sect = SECT if je_admin(request.user) else [x for x in SECT if x[0] != "nastaveni"]  # běžný uživatel Nastavení v menu nevidí
+    nav = [(k, l, reverse(u, args=a)) for k, l, u, a in sect]; sl = {k: (l, reverse(u, args=a)) for k, l, u, a in SECT}; g = None; slug = c.get("slug")
     if slug in SEC and not sec: sec, g = SEC[slug]
     if crumbs is None and slug in SEC:
         crumbs = [(sl[sec][0], sl[sec][1])] + ([(g, reverse("nastaveni"))] if g else []) + [(c["vnp"], None if tpl == "list" else reverse("list", args=[slug]))]
@@ -156,6 +165,7 @@ TYP_ZKR = {"Firma": ("F", "Firma"), "Soukromá osoba": ("SO", "Soukromá osoba")
 ZAK_RAZENI = {"cislo": "cislo_zakazky", "prijeti": "datum_prijeti", "vydani": "datum_vydani"}  # sloupce zakázek, podle kterých jde řadit
 def _dt(v): return timezone.localtime(v).strftime("%d.%m.%Y %H:%M") if v else "–"
 def lst(request, slug):
+    if not jen_admin_ok(request, slug): return redirect("dashboard")
     M = get(slug); q = request.GET.get("q", ""); qs = M.objects.all(); flt = {}; o = ""
     if q:
         f = Q()
@@ -211,6 +221,7 @@ def detail(request, slug, pk):
     return R(request, "detail", slug=slug, M=M, o=o, fields=fields, rel=rel, hist=hist, ro=slug in READONLY)
 
 def edit(request, slug, pk=None):
+    if not jen_admin_ok(request, slug): return redirect("dashboard")
     M = get(slug)
     if slug in READONLY: raise Http404
     if slug == "nabidka" and not pk:  # nabídka se vždy zakládá ze zakázky
@@ -241,6 +252,7 @@ def edit(request, slug, pk=None):
     return R(request, "form", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart())
 
 def delete(request, slug, pk):
+    if not jen_admin_ok(request, slug): return redirect("dashboard")
     M = get(slug); o = get_object_or_404(M, pk=pk)
     if slug in READONLY: raise Http404
     if request.method == "POST":
@@ -431,18 +443,20 @@ def kalendar(request):
 
 # ---------------- Nastavení ----------------
 def nastaveni(request):
+    if not jen_admin_ok(request): return redirect("dashboard")
     L = lambda s: reverse("list", args=[s]); st = request.user.is_staff
     g = [("Firma", [("Údaje o firmě a logo", reverse("nastaveni_firma"))], ""),
-         ("Dokumenty", [("Šablony dokumentů", reverse("sablony")), ("Značky pro vlastní šablony", reverse("sablony_znacky"))], "Vzhled zakázkových listů, nabídek a faktur (Excel, HTML) a výchozí šablona pro každý typ."),
          ("DPH", [("Sazby DPH", L("sazbadph"))], "Výchozí sazba DPH se nastavuje v části Firma."),
          ("Uživatelé a oprávnění", [("Zaměstnanci", L("zamestnanec")), ("Role", L("role")), ("Oprávnění", L("opravneni"))] + ([("Uživatelské účty", "/admin/auth/user/")] if st else []), ""),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
     return R(request, "nastaveni", sec="nastaveni", groups=g)
 def nastaveni_firma(request):
+    if not jen_admin_ok(request): return redirect("dashboard")
     o = NastaveniFirmy.objects.first() or NastaveniFirmy.objects.create(nazev_firmy="Moje firma")
     return redirect(reverse("edit", args=["nastavenifirmy", o.pk]) + "?next=" + reverse("nastaveni"))
 def nastaveni_zaloha(request):
+    if not jen_admin_ok(request): return redirect("dashboard")
     return R(request, "zaloha", sec="nastaveni", crumbs=[("⚙ Nastavení", reverse("nastaveni")), ("Systém", None), ("Zálohování", None)])
 
 # ---------------- Zakázkový list (nová zakázka z jednoho místa) ----------------

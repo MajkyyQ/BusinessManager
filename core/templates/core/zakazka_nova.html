@@ -6,7 +6,7 @@
 <h6 class="mt-3">DATUM PŘIJETÍ</h6><input type="datetime-local" name="datum_prijeti" class="form-control w-auto" value="{{ now }}">
 <h6 class="mt-3">POPIS ZÁVADY</h6><textarea name="popis_zavady" class="form-control" rows="3">{{ p.popis_zavady }}</textarea>
 <h6 class="mt-3">FOTOGRAFIE</h6><input type="file" name="fotky" class="form-control" multiple accept="image/*">
-<h6 class="mt-3">PRÁCE</h6>{% if not typy %}<div class="form-text">Typy úkonů se zakládají v Nastavení → Katalogy.</div>{% endif %}<div id="ukony"></div><button type="button" class="btn btn-sm btn-outline-primary" data-add="tpl-ukon" data-to="ukony">+ Přidat práci</button>
+<h6 class="mt-3">PRÁCE</h6>{% if not typy %}<div class="form-text">Typy úkonů zakládá administrátor v Nastavení → Katalogy.</div>{% endif %}<div id="ukony"></div><button type="button" class="btn btn-sm btn-outline-primary" data-add="tpl-ukon" data-to="ukony">+ Přidat práci</button>
 <h6 class="mt-3">MATERIÁL</h6><div id="mats"></div><button type="button" class="btn btn-sm btn-outline-primary" data-add="tpl-mat" data-to="mats">+ Přidat materiál</button>
 <h6 class="mt-3">PŘIJAL (ZAMĚSTNANEC)</h6><select name="prijal" class="form-select w-auto"><option value="">— vyberte, kdo zařízení převzal —</option>{% for e in zam %}<option value="{{ e.pk }}" {% if e.pk|stringformat:"s" == prijal %}selected{% endif %}>{{ e }}</option>{% endfor %}</select>
 <h6 class="mt-3">POZNÁMKA</h6><textarea name="poznamka" class="form-control" rows="2">{{ p.poznamka }}</textarea>

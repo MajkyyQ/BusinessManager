@@ -18,7 +18,7 @@ from .models import SablonaDokumentu as S
 from .sablony import isdoc, prevod, renderery, typy
 from .views import R, log, safe_next
 
-CRUMBS = [("⚙ Nastavení", "/nastaveni/"), ("Dokumenty", None)]
+CRUMBS = [("📄 Dokumenty", "/dokumenty/")]  # šablony patří k dokumentům a smí je upravovat každý uživatel
 
 
 def _typ(kod):
@@ -66,7 +66,7 @@ def _znovu_analyzovat(s):
     s.nahled = ""
 
 
-# ======================================================== Nastavení → Dokumenty
+# ======================================================== Dokumenty → Šablony dokumentů
 def sablony_seznam(request):
     kod = request.GET.get("typ", "")
     q = S.objects.all()
@@ -77,7 +77,7 @@ def sablony_seznam(request):
         if kod and k != kod: continue
         skupiny.append((t, [s for s in q if s.typ_dokumentu == k]))
     tabs = [("Vše", "?", not kod)] + [(t.nazev_mn, f"?typ={k}", kod == k) for k, t in typy.REGISTR.items()]
-    return R(request, "sablony/seznam", sec="nastaveni", crumbs=CRUMBS + [("Šablony dokumentů", None)], skupiny=skupiny, kod=kod,
+    return R(request, "sablony/seznam", sec="dokumenty", crumbs=CRUMBS + [("Šablony dokumentů", None)], skupiny=skupiny, kod=kod,
              subtabs=[(l, u + ("&vse=1" if request.GET.get("vse") else ""), a) for l, u, a in tabs], vse=request.GET.get("vse"),
              lo=bool(prevod.soffice()))
 
@@ -136,7 +136,7 @@ def sablona_edit(request, pk=None):
         messages.success(request, "Šablona uložena." + (" Zkontrolujte rozpoznaná pole." if novy_soubor else ""))
         return redirect("sablona_detail", pk=o.pk)
     t = "Nová šablona" if not s else f"Upravit: {s}"
-    return R(request, "sablony/form", sec="nastaveni", crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), (t, None)], form=form, s=s, titulek=t)
+    return R(request, "sablony/form", sec="dokumenty", crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), (t, None)], form=form, s=s, titulek=t)
 
 
 def sablona_detail(request, pk):
@@ -146,7 +146,7 @@ def sablona_detail(request, pk):
     znacky = [(z, pd.get(z["pole"])) for z in m.get("znacky", [])]
     pole = [(f, pd.get(f["pole"])) for f in m.get("pole", [])]
     tabulky = [(x, [(c, pd.get(k)) for c, k in sorted(x.get("sloupce", {}).items())]) for x in m.get("tabulky", [])]
-    return R(request, "sablony/detail", sec="nastaveni", crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), (str(s), None)],
+    return R(request, "sablony/detail", sec="dokumenty", crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), (str(s), None)],
              s=s, typ=t, znacky=znacky, pole=pole, tabulky=tabulky, nezname=m.get("nezname_znacky", []), listy=m.get("listy", []),
              renderer=renderery.renderer(s), lo=bool(prevod.soffice()))
 
@@ -209,7 +209,7 @@ def sablony_znacky(request):
     t = _typ(kod); skupiny = {}
     for p in t.pole(): skupiny.setdefault(p.skupina, []).append(p)
     vzory = S.objects.filter(typ_dokumentu=kod, format="excel").exclude(vestavena="")
-    return R(request, "sablony/znacky", sec="nastaveni", crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), ("Značky pro vlastní šablony", None)],
+    return R(request, "sablony/znacky", sec="dokumenty", crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), ("Značky pro vlastní šablony", None)],
              typ=t, skupiny=skupiny.items(), vzory=vzory, subtabs=[(x.nazev, f"?typ={k}", k == kod) for k, x in typy.REGISTR.items()])
 
 
@@ -228,7 +228,7 @@ def _chyba_html(text):
 
 
 def _obsah(s, t, data, jako_pdf=False):
-    if not s: return _chyba_html("Pro tento typ dokumentu není žádná aktivní šablona. Přidejte ji v Nastavení → Dokumenty.")
+    if not s: return _chyba_html("Pro tento typ dokumentu není žádná aktivní šablona. Přidejte ji v Dokumenty → Šablony dokumentů.")
     r = renderery.renderer(s)
     try:
         ct, body = ("application/pdf", r.pdf(s, t, data)) if jako_pdf else r.nahled(s, t, data)
@@ -331,6 +331,6 @@ def sablona_editor(request, pk):
         listy = excel.mrizka(p); tvary = kresby.obrysy(p)
     except Exception as e:
         messages.error(request, f"Šablonu se nepodařilo otevřít: {e}"); return redirect("sablona_detail", pk=s.pk)
-    return R(request, "sablony/editor", sec="nastaveni",
+    return R(request, "sablony/editor", sec="dokumenty",
              crumbs=CRUMBS + [("Šablony dokumentů", reverse("sablony")), (str(s), reverse("sablona_detail", args=[s.pk])), ("Editor", None)],
              s=s, typ=t, data={"listy": listy, "tvary": tvary, "pole": _pole_editoru(t), "z_mapovani": _z_mapovani(s)})
