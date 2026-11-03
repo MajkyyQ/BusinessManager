@@ -244,3 +244,43 @@ class PruvodcePrvnimSpustenimTest(TestCase):
         self.client.force_login(User.objects.create_user("u", password="x"))
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertRedirects(self.client.get(reverse("pruvodce_firma")), reverse("dashboard"), fetch_redirect_response=False)
+
+
+class SQLInjectionTest(TestCase):
+    """Typické útočné řetězce SQL injection nesmí obejít přihlášení ani rozbít vyhledávání.
+    Django ORM předává vstupy databázi jako parametry dotazu, takže je databáze bere jako data, ne jako kód."""
+    UTOKY = ["' OR '1'='1", "' OR 1=1 --", "admin'--", "admin' #", "' OR ''='", "\" OR \"\"=\"",
+             "'; DROP TABLE auth_user; --", "' UNION SELECT username, password FROM auth_user --", "1' AND SLEEP(5) --"]
+
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.admin = User.objects.create_superuser("admin", "a@a.cz", "Spravne-heslo-123")
+        Zakaznik.objects.create(jmeno="Jan Novák")
+
+    def test_prihlaseni_nejde_obejit(self):
+        for utok in self.UTOKY:
+            for udaje in ({"username": utok, "password": utok}, {"username": "admin", "password": utok}, {"username": utok, "password": "cokoli"}):
+                r = self.client.post(reverse("login"), udaje)
+                self.assertEqual(r.status_code, 200, udaje)  # zůstane na přihlášení s chybou, nepřesměruje dál
+                self.assertNotIn("_auth_user_id", self.client.session, udaje)
+        self.assertTrue(User.objects.filter(username="admin").exists())  # tabulka uživatelů nebyla smazána
+        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)  # pořád nepřihlášen
+
+    def test_spravne_heslo_funguje(self):
+        r = self.client.post(reverse("login"), {"username": "admin", "password": "Spravne-heslo-123"})
+        self.assertEqual(r.status_code, 302); self.assertIn("_auth_user_id", self.client.session)
+
+    def test_heslo_smi_obsahovat_jakekoli_znaky(self):
+        # heslo s uvozovkami a pomlčkami je jen text, uloží se jako hash a přihlášení funguje
+        User.objects.create_user("pepa", password="x' OR '1'='1 --")
+        self.assertTrue(self.client.login(username="pepa", password="x' OR '1'='1 --"))
+        self.client.logout()
+        self.assertFalse(self.client.login(username="pepa", password="' OR '1'='1"))
+
+    def test_vyhledavani_nejde_zneuzit(self):
+        self.client.force_login(self.admin)
+        for utok in self.UTOKY:
+            r = self.client.get(reverse("list", args=["zakaznik"]), {"q": utok})
+            self.assertEqual(r.status_code, 200, utok); self.assertNotContains(r, "Jan Novák")
+        self.assertContains(self.client.get(reverse("list", args=["zakaznik"]), {"q": "Novák"}), "Jan Novák")
+        self.assertEqual(Zakaznik.objects.count(), 1)
