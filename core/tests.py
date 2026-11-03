@@ -202,6 +202,7 @@ class OpravneniNastaveniTest(TestCase):
         self.assertEqual(self.client.get(reverse("list", args=["zakazka"])).status_code, 200)
 
     def test_admin_nastaveni_otevre(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
         self.client.force_login(User.objects.create_user("a", password="x", is_staff=True))
         self.assertContains(self.client.get(reverse("dashboard")), reverse("nastaveni"))
         for nazev, args in self.STRANKY:
@@ -213,3 +214,33 @@ class OpravneniNastaveniTest(TestCase):
         r = self.client.get(reverse("dashboard"))
         self.assertNotContains(r, "cdn.jsdelivr.net"); self.assertNotContains(r, "unpkg.com")
         self.assertContains(r, "vendor/bootstrap.min.css"); self.assertContains(r, "vendor/htmx.min.js")
+
+
+class PruvodcePrvnimSpustenimTest(TestCase):
+    """Při prvním spuštění se nejdřív založí účet administrátora, pak firma."""
+    def setUp(self):
+        from .pruvodce import PrvniSpusteniMiddleware
+        PrvniSpusteniMiddleware.hotovo = False
+        NastaveniFirmy.objects.all().delete()
+
+    def test_cely_pruvodce(self):
+        self.assertRedirects(self.client.get("/"), reverse("pruvodce_ucet"))
+        self.assertRedirects(self.client.get(reverse("login")), reverse("pruvodce_ucet"))
+        r = self.client.post(reverse("pruvodce_ucet"), {"username": "sef", "first_name": "Jan", "last_name": "Novák", "email": "",
+                                                        "password1": "Tajne-heslo-123", "password2": "Tajne-heslo-123"})
+        self.assertRedirects(r, reverse("pruvodce_firma"))
+        u = User.objects.get(username="sef"); self.assertTrue(u.is_superuser and u.is_staff)
+        self.assertRedirects(self.client.get("/"), reverse("pruvodce_firma"))
+        r = self.client.post(reverse("pruvodce_firma"), {"nazev_firmy": ""})
+        self.assertEqual(r.status_code, 200); self.assertFalse(NastaveniFirmy.objects.exists())  # název je povinný
+        r = self.client.post(reverse("pruvodce_firma"), {"nazev_firmy": "Servis Novák", "ico": "", "dic": "", "adresa": "", "telefon": "", "email": "", "web": ""})
+        self.assertRedirects(r, reverse("dashboard"))
+        f = NastaveniFirmy.objects.get(); self.assertEqual((f.nazev_firmy, f.vytvoril), ("Servis Novák", u)); self.assertIsNotNone(f.datum_vytvoreni)
+        self.assertEqual(self.client.get("/").status_code, 200)
+        self.assertRedirects(self.client.get(reverse("pruvodce_ucet")), reverse("dashboard"), fetch_redirect_response=False)
+        self.assertContains(self.client.get(reverse("nastaveni")), "Firmu založil Jan Novák")
+
+    def test_bezny_uzivatel_firmu_nezaklada(self):
+        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.assertEqual(self.client.get("/").status_code, 200)
+        self.assertRedirects(self.client.get(reverse("pruvodce_firma")), reverse("dashboard"), fetch_redirect_response=False)
