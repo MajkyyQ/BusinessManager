@@ -284,3 +284,10 @@ class SQLInjectionTest(TestCase):
             self.assertEqual(r.status_code, 200, utok); self.assertNotContains(r, "Jan Novák")
         self.assertContains(self.client.get(reverse("list", args=["zakaznik"]), {"q": "Novák"}), "Jan Novák")
         self.assertEqual(Zakaznik.objects.count(), 1)
+
+    def test_razeni_jen_z_povolenych_sloupcu(self):
+        # sloupec pro řazení z adresy se nepřipojuje do SQL, bere se jen z pevného seznamu (Silberschatz, s. 439)
+        self.client.force_login(self.admin)
+        for utok in self.UTOKY + ["cislo; DROP TABLE auth_user", "-(SELECT 1)"]:
+            self.assertEqual(self.client.get(reverse("list", args=["zakazka"]), {"o": utok}).status_code, 200, utok)
+        self.assertTrue(User.objects.exists())
