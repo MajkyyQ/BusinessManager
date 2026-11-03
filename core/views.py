@@ -445,7 +445,9 @@ def kalendar(request):
 def nastaveni(request):
     if not jen_admin_ok(request): return redirect("dashboard")
     L = lambda s: reverse("list", args=[s]); st = request.user.is_staff
-    g = [("Firma", [("Údaje o firmě a logo", reverse("nastaveni_firma"))], ""),
+    fi = NastaveniFirmy.objects.select_related("vytvoril").first()
+    zal = f"Firmu založil {fi.vytvoril.get_full_name() or fi.vytvoril.username if fi.vytvoril else 'neznámý uživatel'} dne {timezone.localtime(fi.datum_vytvoreni):%d.%m.%Y %H:%M}." if fi and fi.datum_vytvoreni else ""
+    g = [("Firma", [("Údaje o firmě a logo", reverse("nastaveni_firma"))], zal),
          ("DPH", [("Sazby DPH", L("sazbadph"))], "Výchozí sazba DPH se nastavuje v části Firma."),
          ("Uživatelé a oprávnění", [("Zaměstnanci", L("zamestnanec")), ("Role", L("role")), ("Oprávnění", L("opravneni"))] + ([("Uživatelské účty", "/admin/auth/user/")] if st else []), ""),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),

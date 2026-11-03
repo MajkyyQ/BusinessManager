@@ -281,6 +281,9 @@ class NastaveniFirmy(models.Model):
     nazev_firmy = C(255); adresa = C(); ico = ICO(); dic = DIC(); telefon = TEL(); email = models.EmailField(blank=True)
     web = C(200); cislo_uctu = C(50, verbose_name="číslo účtu")
     logo = models.ImageField(upload_to="logo/", blank=True); mena = C(3, default="CZK", choices=[("CZK", "CZK"), ("EUR", "EUR")]); vychozi_dph = DPH(); datum_upravy = models.DateTimeField(auto_now=True)
+    # kdo a kdy firmu založil v průvodci prvním spuštěním (u starších instalací prázdné)
+    vytvoril = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, editable=False, related_name="+", verbose_name="vytvořil")
+    datum_vytvoreni = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="datum vytvoření")
     def __str__(self): return self.nazev_firmy or "Nastavení"
 class SazbaDPH(models.Model):
     class Meta:
