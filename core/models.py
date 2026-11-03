@@ -1,6 +1,7 @@
 import re
 from datetime import date
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -27,10 +28,20 @@ validuj_telefon = RegexValidator(r"^\+?[0-9 ]{6,19}$", "Telefon smí obsahovat j
 def ICO(): return C(8, validators=[validuj_ico], verbose_name="IČO")
 def DIC(): return C(14, validators=[validuj_dic], verbose_name="DIČ")
 def TEL(): return C(20, validators=[validuj_telefon])
+def VYCET(pole, hodnoty, nazev, prazdne=True):
+    """CHECK omezení pro výčtový sloupec (Silberschatz, kap. 4.4.4): hodnota musí být jedna z povolených, případně prázdná."""
+    q = Q(**{f"{pole}__in": list(hodnoty)})
+    if prazdne: q |= Q(**{pole: ""})
+    return models.CheckConstraint(condition=q, name=nazev)
 
 class Zakaznik(models.Model):
-    class Meta: verbose_name = "zákazník"; verbose_name_plural = "Zákazníci"; ordering = ["firma", "jmeno"]
-    typ_zakaznika = C(20, choices=[("Firma", "Firma"), ("Soukromá osoba", "Soukromá osoba")])
+    TYPY = ("Firma", "Soukromá osoba")
+    class Meta:
+        verbose_name = "zákazník"; verbose_name_plural = "Zákazníci"; ordering = ["firma", "jmeno"]
+        constraints = [VYCET("typ_zakaznika", ("Firma", "Soukromá osoba"), "zakaznik_typ_platny"),
+                       models.CheckConstraint(condition=~Q(jmeno="") | ~Q(firma=""), name="zakaznik_jmeno_nebo_firma",
+                                              violation_error_message="Vyplňte jméno nebo firmu.")]
+    typ_zakaznika = C(20, choices=[(x, x) for x in TYPY])
     jmeno = C(150); firma = C(255); adresa = C(); telefon = TEL(); email = models.EmailField(blank=True)
     ico = ICO(); dic = DIC(); aktivni = A(); datum_vytvoreni = DV()
     def __str__(self): return self.firma or self.jmeno or f"Zákazník {self.pk}"
@@ -39,7 +50,10 @@ class KontaktniOsoba(models.Model):
     jmeno = C(150); telefon = TEL(); email = models.EmailField(blank=True); poznamka = T(); aktivni = A()
     def __str__(self): return self.jmeno or f"Kontaktní osoba {self.pk}"
 class ZakaznikKontakt(models.Model):
-    class Meta: verbose_name = "kontakt zákazníka"; verbose_name_plural = "Kontakty zákazníků"
+    class Meta:
+        verbose_name = "kontakt zákazníka"; verbose_name_plural = "Kontakty zákazníků"
+        constraints = [models.UniqueConstraint(fields=["zakaznik", "kontakt"], name="zakaznik_kontakt_unikatni",
+                                               violation_error_message="Tato kontaktní osoba už je u zákazníka uvedena.")]
     zakaznik = models.ForeignKey(Zakaznik, on_delete=models.CASCADE)
     kontakt = models.ForeignKey(KontaktniOsoba, on_delete=models.CASCADE); poznamka = C()
     def __str__(self): return f"{self.zakaznik} – {self.kontakt}"
@@ -83,9 +97,14 @@ class Zakazka(models.Model):
         super().save(*a, **k)
     def __str__(self): return f"Zakázka {self.cislo_zakazky}"
 class ZakazkaKontakt(models.Model):
-    class Meta: verbose_name = "kontakt na zakázce"; verbose_name_plural = "Kontakty na zakázkách"
+    ROLE = ("Přinesl zařízení", "Vyzvedl zařízení", "Kontakt", "Jiné")
+    class Meta:
+        verbose_name = "kontakt na zakázce"; verbose_name_plural = "Kontakty na zakázkách"
+        constraints = [models.UniqueConstraint(fields=["zakazka", "kontakt", "role"], name="zakazka_kontakt_unikatni",
+                                               violation_error_message="Tato kontaktní osoba už má na zakázce stejnou roli."),
+                       VYCET("role", ("Přinesl zařízení", "Vyzvedl zařízení", "Kontakt", "Jiné"), "zakazka_kontakt_role_platna")]
     zakazka = models.ForeignKey(Zakazka, on_delete=models.CASCADE); kontakt = models.ForeignKey(KontaktniOsoba, on_delete=models.CASCADE)
-    role = C(30, choices=[(x, x) for x in ("Přinesl zařízení", "Vyzvedl zařízení", "Kontakt", "Jiné")])
+    role = C(30, choices=[(x, x) for x in ROLE])
     def __str__(self): return f"{self.zakazka} – {self.kontakt} ({self.role})"
 class TypUkonu(models.Model):
     class Meta: verbose_name = "typ úkonu"; verbose_name_plural = "Typy úkonů"
@@ -197,10 +216,14 @@ class PolozkaFaktury(Polozka):
     @property
     def dokument(self): return self.faktura
 class Platba(models.Model):
-    class Meta: verbose_name = "platba"; verbose_name_plural = "Platby"
+    STAVY = ("Čeká na zaplacení", "Zaplaceno"); ZPUSOBY = ("Hotově", "Bankovní převod", "Jiný")
+    class Meta:
+        verbose_name = "platba"; verbose_name_plural = "Platby"
+        constraints = [VYCET("stav", ("Čeká na zaplacení", "Zaplaceno"), "platba_stav_platny"),
+                       VYCET("zpusob", ("Hotově", "Bankovní převod", "Jiný"), "platba_zpusob_platny")]
     faktura = FK(Faktura); zakazka = FK(Zakazka)
-    stav = C(30, choices=[(x, x) for x in ("Čeká na zaplacení", "Zaplaceno")])
-    zpusob = C(30, choices=[(x, x) for x in ("Hotově", "Bankovní převod", "Jiný")])
+    stav = C(30, choices=[(x, x) for x in STAVY])
+    zpusob = C(30, choices=[(x, x) for x in ZPUSOBY])
     castka = DEC(); datum_zaplaceni = models.DateTimeField(null=True, blank=True); poznamka = T()
     def __str__(self): return f"Platba {self.pk} – {self.castka} ({self.stav})"
 class Dodavatel(models.Model):
@@ -213,7 +236,9 @@ class PrijataFaktura(models.Model):
     STAVY = ("Nezaplaceno", "Zaplaceno")
     class Meta:
         verbose_name = "přijatá faktura"; verbose_name_plural = "Přijaté faktury"; ordering = ["-datum_doruceni", "-pk"]
-        constraints = [models.UniqueConstraint(fields=["dodavatel", "cislo_faktury"], name="prijata_faktura_unikatni")]
+        constraints = [models.UniqueConstraint(fields=["dodavatel", "cislo_faktury"], name="prijata_faktura_unikatni"),
+                       VYCET("stav", ("Nezaplaceno", "Zaplaceno"), "prijata_faktura_stav_platny", prazdne=False),
+                       models.CheckConstraint(condition=Q(stav="Zaplaceno") | Q(datum_zaplaceni__isnull=True), name="prijata_faktura_datum_jen_u_zaplacene")]
     dodavatel = models.ForeignKey(Dodavatel, on_delete=models.PROTECT)
     cislo_faktury = models.CharField("číslo faktury dodavatele", max_length=50); variabilni_symbol = C(20, verbose_name="variabilní symbol")
     datum_vystaveni = models.DateField("datum vystavení", null=True, blank=True); datum_doruceni = models.DateField("datum doručení", default=timezone.localdate)
@@ -231,9 +256,13 @@ class PrijataFaktura(models.Model):
     def po_splatnosti(self): return self.stav != "Zaplaceno" and self.datum_splatnosti is not None and self.datum_splatnosti < timezone.localdate()
     def __str__(self): return f"Přijatá faktura {self.cislo_faktury} ({self.dodavatel})"
 class KalendarUdalost(models.Model):
-    class Meta: verbose_name = "událost kalendáře"; verbose_name_plural = "Kalendář"; ordering = ["-datum"]
+    TYPY = ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Přijatá faktura", "Splatnost faktury", "Zaplaceno dodavateli", "Ruční událost")
+    class Meta:
+        verbose_name = "událost kalendáře"; verbose_name_plural = "Kalendář"; ordering = ["-datum"]
+        constraints = [VYCET("typ", ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Přijatá faktura", "Splatnost faktury",
+                                     "Zaplaceno dodavateli", "Ruční událost"), "kalendar_typ_platny", prazdne=False)]
     nazev = models.CharField(max_length=200); popis = T(); datum = models.DateTimeField(default=timezone.now)
-    typ = C(30, choices=[(x, x) for x in ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Přijatá faktura", "Splatnost faktury", "Zaplaceno dodavateli", "Ruční událost")], default="Ruční událost")
+    typ = C(30, choices=[(x, x) for x in TYPY], default="Ruční událost")
     automaticka = models.BooleanField(default=False, editable=False)
     zakazka = FK(Zakazka); faktura = FK(Faktura); platba = FK(Platba); vytvoril = FK(User)
     prijata_faktura = models.ForeignKey(PrijataFaktura, on_delete=models.CASCADE, null=True, blank=True, verbose_name="přijatá faktura")
@@ -241,35 +270,48 @@ class KalendarUdalost(models.Model):
     def __str__(self): return self.nazev
 class HistorieZmen(models.Model):
     class Meta: verbose_name = "změna"; verbose_name_plural = "Historie změn"; ordering = ["-datum"]
-    uzivatel = FK(User); datum = models.DateTimeField(auto_now_add=True); typ_objektu = C(50); id_objektu = models.IntegerField(null=True)
+    uzivatel = FK(User); datum = models.DateTimeField(auto_now_add=True); typ_objektu = C(50); id_objektu = models.BigIntegerField(null=True)  # stejný typ jako primární klíče (BigAutoField)
     akce = C(30); pole = C(100); puvodni_hodnota = T(); nova_hodnota = T(); popis = T()
     def __str__(self): return f"{self.datum:%d.%m.%Y %H:%M} {self.akce} {self.typ_objektu}#{self.id_objektu}"
 class NastaveniFirmy(models.Model):
-    class Meta: verbose_name = "nastavení firmy"; verbose_name_plural = "Nastavení firmy"
+    class Meta:
+        verbose_name = "nastavení firmy"; verbose_name_plural = "Nastavení firmy"
+        constraints = [VYCET("mena", ("CZK", "EUR"), "nastaveni_mena_platna"),
+                       models.CheckConstraint(condition=Q(vychozi_dph__isnull=True) | Q(vychozi_dph__gte=0, vychozi_dph__lte=100), name="nastaveni_dph_rozsah")]
     nazev_firmy = C(255); adresa = C(); ico = ICO(); dic = DIC(); telefon = TEL(); email = models.EmailField(blank=True)
     web = C(200); cislo_uctu = C(50, verbose_name="číslo účtu")
     logo = models.ImageField(upload_to="logo/", blank=True); mena = C(3, default="CZK", choices=[("CZK", "CZK"), ("EUR", "EUR")]); vychozi_dph = DPH(); datum_upravy = models.DateTimeField(auto_now=True)
     def __str__(self): return self.nazev_firmy or "Nastavení"
 class SazbaDPH(models.Model):
-    class Meta: verbose_name = "sazba DPH"; verbose_name_plural = "Sazby DPH"
+    class Meta:
+        verbose_name = "sazba DPH"; verbose_name_plural = "Sazby DPH"
+        constraints = [models.CheckConstraint(condition=Q(sazba__gte=0, sazba__lte=100), name="sazba_dph_rozsah",
+                                              violation_error_message="Sazba DPH musí být mezi 0 a 100 %.")]
     sazba = models.DecimalField(max_digits=5, decimal_places=2); aktivni = A()
     def __str__(self): return f"{self.sazba} %"
 
 # Automatické události kalendáře
+def _ve_dne(d, hodina=8):
+    from datetime import datetime, time
+    return timezone.make_aware(datetime.combine(d, time(hodina)))
+# Událost je odvozená kopie údaje z dokladu, proto se při každém uložení dokladu srovná s ním (Silberschatz, kap. 7.9.3).
+def _srovnej_udalost(typ, nazev, datum, created, **odkaz):
+    if created: KalendarUdalost.objects.create(nazev=nazev[:200], datum=datum, typ=typ, automaticka=True, **odkaz)
+    else: KalendarUdalost.objects.filter(typ=typ, automaticka=True, **odkaz).update(nazev=nazev[:200], datum=datum)
 @receiver(post_save, sender=Zakazka)
 def _ev_z(sender, instance, created, **k):
-    if created: KalendarUdalost.objects.create(nazev=f"Přijetí {instance}", datum=instance.datum_prijeti or timezone.now(), typ="Přijetí zakázky", automaticka=True, zakazka=instance)
+    if created or instance.datum_prijeti:
+        _srovnej_udalost("Přijetí zakázky", f"Přijetí {instance}", instance.datum_prijeti or timezone.now(), created, zakazka=instance)
 @receiver(post_save, sender=Faktura)
 def _ev_f(sender, instance, created, **k):
-    if created: KalendarUdalost.objects.create(nazev=f"Vystavena {instance}", typ="Fakturováno", automaticka=True, faktura=instance)
+    d = instance.datum_vystaveni
+    if isinstance(d, str): d = date.fromisoformat(d)
+    _srovnej_udalost("Fakturováno", f"Vystavena {instance}", _ve_dne(d) if d else timezone.now(), created, faktura=instance)
 @receiver(post_save, sender=Platba)
 def _ev_p(sender, instance, created, **k):
     if instance.stav == "Zaplaceno" and not instance.kalendarudalost_set.exists():
         KalendarUdalost.objects.create(nazev=f"Zaplaceno {instance.castka or ''}", datum=instance.datum_zaplaceni or timezone.now(), typ="Zaplaceno", automaticka=True, platba=instance, faktura=instance.faktura, zakazka=instance.zakazka)
 
-def _ve_dne(d, hodina=8):
-    from datetime import datetime, time
-    return timezone.make_aware(datetime.combine(d, time(hodina)))
 @receiver(post_save, sender=PrijataFaktura)
 def _ev_pf(sender, instance, **k):
     """Kalendář přijaté faktury: doručení, splatnost (se stavem zaplacení) a zaplacení. Události se při každé změně faktury aktualizují."""
