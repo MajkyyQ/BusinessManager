@@ -133,3 +133,55 @@ class PrijateFakturyTest(TestCase):
         self._nahraj(b.getvalue(), "faktura.isdocx"); self.assertEqual(PrijataFaktura.objects.count(), 1)
         r = self._nahraj(b"<html>nic</html>", "x.isdoc")
         self.assertEqual(r.status_code, 200); self.assertContains(r, "není faktura ve formátu ISDOC")
+
+
+class IntegritniOmezeniTest(TestCase):
+    """Omezení přidaná podle Silberschatz et al., Database System Concepts, kap. 4.4 a 6.5.2."""
+    def setUp(self):
+        self.zak = Zakaznik.objects.create(firma="Firma s.r.o.")
+
+    def test_zakaznik_musi_mit_jmeno_nebo_firmu(self):
+        from django.db import IntegrityError, transaction
+        with transaction.atomic(), self.assertRaises(IntegrityError):
+            Zakaznik.objects.create()
+
+    def test_kontakt_u_zakaznika_jen_jednou(self):
+        from django.db import IntegrityError, transaction
+        from .models import KontaktniOsoba, ZakaznikKontakt
+        k = KontaktniOsoba.objects.create(jmeno="Petr")
+        ZakaznikKontakt.objects.create(zakaznik=self.zak, kontakt=k)
+        with transaction.atomic(), self.assertRaises(IntegrityError):
+            ZakaznikKontakt.objects.create(zakaznik=self.zak, kontakt=k)
+
+    def test_vyctova_hodnota_mimo_seznam(self):
+        from django.db import IntegrityError, transaction
+        from .models import Platba
+        Platba.objects.create(stav="Zaplaceno", zpusob="Hotově")
+        with transaction.atomic(), self.assertRaises(IntegrityError):
+            Platba.objects.create(stav="Možná")
+
+    def test_formular_hlasi_porusene_omezeni(self):
+        from django.forms import modelform_factory
+        F = modelform_factory(Zakaznik, fields=["jmeno", "firma"])
+        f = F({"jmeno": "", "firma": ""})
+        self.assertFalse(f.is_valid())
+        self.assertIn("Vyplňte jméno nebo firmu.", str(f.errors))
+
+
+class UdalostiKalendareTest(TestCase):
+    def test_zmena_data_prijeti_posune_udalost(self):
+        from datetime import datetime
+        from django.utils import timezone
+        from .models import KalendarUdalost, Zakazka
+        z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), datum_prijeti=timezone.make_aware(datetime(2026, 10, 1, 9)))
+        z.datum_prijeti = timezone.make_aware(datetime(2026, 10, 5, 9)); z.save()
+        u = KalendarUdalost.objects.get(zakazka=z, typ="Přijetí zakázky")
+        self.assertEqual(timezone.localtime(u.datum).day, 5)
+
+    def test_udalost_faktury_ma_datum_vystaveni(self):
+        from django.utils import timezone
+        from .models import KalendarUdalost
+        f = Faktura.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), datum_vystaveni=date(2026, 10, 20))
+        f.datum_vystaveni = date(2026, 10, 22); f.save()
+        u = KalendarUdalost.objects.get(faktura=f, typ="Fakturováno")
+        self.assertEqual(timezone.localtime(u.datum).date(), date(2026, 10, 22))
