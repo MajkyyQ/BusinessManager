@@ -344,7 +344,7 @@ class JednotneSeznamyTest(TestCase):
     def test_kanban_se_pamatuje(self):
         url = reverse("list", args=["zakazka"])
         r = self.client.get(url, {"v": "kan"})
-        sloupce = {s: len(items) for s, css, items in r.context["sloupce"] if items}
+        sloupce = {c["s"]: len(c["items"]) for c in r.context["sloupce"] if c["items"]}
         self.assertEqual(sloupce, {"Nová": 2, "Diagnostika": 1})
         self.assertContains(r, "bm-board")
         self.assertEqual(self.client.get(url).context["pohled"], "kan")  # volba zůstane i bez parametru

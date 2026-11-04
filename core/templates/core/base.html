@@ -31,8 +31,9 @@
 .bm-card{display:block;border:1px solid #dee2e6;border-radius:.5rem;padding:.6rem .75rem;background:#fff;color:#212529;text-decoration:none;min-width:0}
 .bm-card:hover,.bm-card:focus-visible{border-color:#0a58ca;box-shadow:0 2px 6px rgba(0,0,0,.08);color:#212529}
 .bm-card .t{font-weight:600;color:#0a58ca;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bm-card .s{font-size:.85rem;color:#5c636a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bm-board{display:flex;gap:.75rem;overflow-x:auto;align-items:flex-start;padding-bottom:.5rem;margin-bottom:1rem}
-.bm-col{flex:0 0 250px;background:#f1f3f5;border-radius:.5rem;padding:.5rem}.bm-col>h6{display:flex;justify-content:space-between;align-items:center;margin:0 0 .5rem}.bm-col .bm-card{margin-bottom:.5rem}
+/* kanban: sloupce se zalomí na další řádek, takže se vejdou na šířku obrazovky bez vodorovného posouvání */
+.bm-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.75rem;align-items:start;margin-bottom:1rem}
+.bm-col{min-width:0;background:#f1f3f5;border-radius:.5rem;padding:.5rem}.bm-col>h6{display:flex;justify-content:space-between;align-items:center;margin:0 0 .5rem}.bm-col .bm-card{margin-bottom:.5rem}
 @media(max-width:575px){.bm-search{flex:1 1 100%;width:100%}.bm-views{margin-left:0}}</style><style>.lk-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}.lk-modal>div{background:#fff;padding:1rem;border-radius:.5rem;width:min(520px,95vw);max-height:90vh;overflow:auto}</style></head>
 <body hx-boost="{% block boost %}false{% endblock %}"><nav class="navbar navbar-dark bg-dark mb-3"><div class="container-fluid">
 <div class="d-flex align-items-center">{% if navx %}<button type="button" class="bm-tg" id="bm-tg" aria-label="Zasunout nebo roztáhnout menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>{% endif %}<a class="navbar-brand" href="/">BusinessManager</a></div>
