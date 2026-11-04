@@ -443,3 +443,74 @@ class PrijataFakturaRucneTest(TestCase):
         self.client.post(reverse("prijata_faktura_rucne"), d)
         self.assertEqual(self.client.post(reverse("prijata_faktura_rucne"), d).status_code, 200)
         self.assertEqual(PrijataFaktura.objects.filter(cislo_faktury="FV-2").count(), 1)
+
+
+class NovyVzhledFormularuTest(TestCase):
+    """Nový zákazník a nová událost používají formulář se sekcemi; uložení funguje dál."""
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("u", password="x"))
+
+    def test_novy_zakaznik(self):
+        r = self.client.get(reverse("create", args=["zakaznik"]))
+        self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertContains(r, "Firemní údaje")
+        r = self.client.post(reverse("create", args=["zakaznik"]) + "?next=/", {"typ_zakaznika": "Firma", "firma": "Nová s.r.o.", "aktivni": "on"})
+        self.assertRedirects(r, "/", fetch_redirect_response=False); self.assertTrue(Zakaznik.objects.filter(firma="Nová s.r.o.").exists())
+        z = Zakaznik.objects.get(firma="Nová s.r.o.")
+        self.assertContains(self.client.get(reverse("edit", args=["zakaznik", z.pk])), "Úprava: Nová s.r.o.")
+
+    def test_nova_udalost(self):
+        from .models import KalendarUdalost
+        r = self.client.get(reverse("create", args=["kalendarudalost"]), {"datum": "2026-11-05T09:00"})
+        self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertContains(r, "Nová událost kalendáře")
+        self.client.post(reverse("create", args=["kalendarudalost"]), {"nazev": "Výjezd", "datum": "2026-11-05T09:00", "typ": "Ruční událost"})
+        self.assertTrue(KalendarUdalost.objects.filter(nazev="Výjezd").exists())
+
+    def test_nova_zakazka_se_zobrazi(self):
+        self.assertContains(self.client.get(reverse("zakazka_nova")), "Zákazník a převzetí")
+
+
+class UcetZamestnanceTest(TestCase):
+    """Administrátor zakládá a spravuje přihlašovací účet zaměstnance přímo v jeho kartě."""
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.admin = User.objects.create_user("admin", password="x", is_staff=True); self.client.force_login(self.admin)
+
+    def test_zalozeni_uctu(self):
+        from .models import HistorieZmen, Zamestnanec
+        r = self.client.post(reverse("create", args=["zamestnanec"]), {"jmeno": "Petr", "prijmeni": "Novák", "aktivni": "on", "ucet_aktivni": "on",
+                                                                      "ucet_jmeno": "petr", "ucet_heslo": "Tajne-heslo-42", "ucet_heslo2": "Tajne-heslo-42"})
+        z = Zamestnanec.objects.get(prijmeni="Novák")
+        self.assertRedirects(r, reverse("detail", args=["zamestnanec", z.pk]), fetch_redirect_response=False)
+        self.assertEqual(z.uzivatel.username, "petr"); self.assertFalse(z.uzivatel.is_staff)
+        self.assertTrue(self.client.login(username="petr", password="Tajne-heslo-42"))
+        self.assertFalse(HistorieZmen.objects.filter(nova_hodnota__contains="Tajne").exists())
+
+    def test_spatne_heslo_a_duplicitni_jmeno(self):
+        from .models import Zamestnanec
+        d = {"jmeno": "Jana", "prijmeni": "Malá", "ucet_aktivni": "on", "ucet_jmeno": "ADMIN", "ucet_heslo": "Tajne-heslo-42", "ucet_heslo2": "jine"}
+        r = self.client.post(reverse("create", args=["zamestnanec"]), d)
+        self.assertContains(r, "Toto jméno už používá jiný účet."); self.assertContains(r, "Hesla se neshodují."); self.assertFalse(Zamestnanec.objects.exists())
+
+    def test_vypnuti_uctu_a_zachovani_hesla(self):
+        from .models import Zamestnanec
+        u = User.objects.create_user("eva", password="Puvodni-heslo-1"); z = Zamestnanec.objects.create(jmeno="Eva", uzivatel=u)
+        self.assertContains(self.client.get(reverse("edit", args=["zamestnanec", z.pk])), 'value="eva"')
+        self.client.post(reverse("edit", args=["zamestnanec", z.pk]), {"jmeno": "Eva", "ucet_aktivni": "on", "ucet_jmeno": "eva", "ucet_admin": "on"})
+        u.refresh_from_db(); self.assertTrue(u.is_staff); self.assertTrue(u.check_password("Puvodni-heslo-1"))
+        self.client.post(reverse("edit", args=["zamestnanec", z.pk]), {"jmeno": "Eva"})
+        u.refresh_from_db(); self.assertFalse(u.is_active)
+
+    def test_vlastni_ucet_nelze_vypnout(self):
+        from .models import Zamestnanec
+        z = Zamestnanec.objects.create(jmeno="Já", uzivatel=self.admin)
+        r = self.client.post(reverse("edit", args=["zamestnanec", z.pk]), {"jmeno": "Já"})
+        self.assertContains(r, "Vlastní účet nelze vypnout."); self.admin.refresh_from_db(); self.assertTrue(self.admin.is_active)
+
+    def test_nastaveni_bez_odkazu_do_databaze(self):
+        self.assertNotContains(self.client.get(reverse("nastaveni")), "/admin/auth/user/")
+
+    def test_vsechny_formulare_v_novem_vzhledu(self):
+        for slug in ("zarizeni", "stavzakazky", "typukonu", "material", "dodavatel", "zamestnanec", "role", "opravneni", "sazbadph"):
+            r = self.client.get(reverse("create", args=[slug]))
+            self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertEqual(r.status_code, 200, slug)
