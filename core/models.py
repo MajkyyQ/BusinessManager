@@ -8,6 +8,8 @@ from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from . import cislovani
 M2 = dict(max_digits=12, decimal_places=2, null=True, blank=True)
 def C(n=200, **k): return models.CharField(max_length=n, blank=True, **k)
 def T(): return models.TextField(blank=True)
@@ -89,12 +91,14 @@ class Zakazka(models.Model):
     identifikacni_cislo = C(50, db_index=True); sekundarni_cislo = C(50, db_index=True); popis_zavady = T(); poznamka = T()
     zarizeni = models.ManyToManyField(Zarizeni, blank=True); zamestnanci = models.ManyToManyField(Zamestnanec, blank=True)
     datum_vytvoreni = DV(); datum_upravy = models.DateTimeField(auto_now=True)
+    poradi = models.PositiveIntegerField("pořadové číslo", null=True, blank=True, editable=False, help_text="Pořadí z čísla zakázky; přebírá ho nabídka.")
     def save(self, *a, **k):
-        if not self.cislo_zakazky:
-            y = timezone.now().year; n = Zakazka.objects.filter(cislo_zakazky__startswith=f"{y}-").count() + 1
-            while Zakazka.objects.filter(cislo_zakazky=f"{y}-{n:03d}").exists(): n += 1
-            self.cislo_zakazky = f"{y}-{n:03d}"
+        r = CiselnaRada.pro("zakazka")
+        if not self.cislo_zakazky: self.cislo_zakazky, self.poradi = r.dalsi_cislo(Zakazka, "cislo_zakazky", timezone.localdate(), self.pk)
+        elif self.poradi is None: self.poradi = cislovani.poradi_z_cisla(r.format, self.cislo_zakazky)
         super().save(*a, **k)
+    def poradove_cislo(self):
+        return self.poradi or cislovani.poradi_z_cisla(CiselnaRada.pro("zakazka").format, self.cislo_zakazky) or self.pk
     def __str__(self): return f"Zakázka {self.cislo_zakazky}"
 class ZakazkaKontakt(models.Model):
     ROLE = ("Přinesl zařízení", "Vyzvedl zařízení", "Kontakt", "Jiné")
@@ -171,16 +175,15 @@ class Nabidka(Dokument):
     class Meta(Dokument.Meta): verbose_name = "nabídka"; verbose_name_plural = "Nabídky"
     cislo_nabidky = models.CharField(max_length=50, unique=True, blank=True, help_text="Prázdné = vygeneruje se automaticky"); datum_vystaveni = models.DateTimeField(default=timezone.now); vypracoval = FK(User)
     def save(self, *a, **k):
-        if not self.cislo_nabidky:
-            y = timezone.now().year; n = Nabidka.objects.filter(cislo_nabidky__startswith=f"NAB-{y}-").count() + 1
-            while Nabidka.objects.filter(cislo_nabidky=f"NAB-{y}-{n:03d}").exists(): n += 1
-            self.cislo_nabidky = f"NAB-{y}-{n:03d}"
+        if not self.cislo_nabidky:  # nabídka bez zakázky: vlastní pořadí ve formátu nabídek
+            self.cislo_nabidky = CiselnaRada.pro("nabidka").dalsi_cislo(Nabidka, "cislo_nabidky", _den(self.datum_vystaveni), self.pk)[0]
         super().save(*a, **k)
     @staticmethod
     def cislo_ze_zakazky(z):
-        """Nabídka má stejné číslo jako zakázka (2026-048); další nabídka ke stejné zakázce dostane -2, -3 …"""
-        c = z.cislo_zakazky; n = 1
-        while Nabidka.objects.filter(cislo_nabidky=c if n == 1 else f"{z.cislo_zakazky}-{n}").exists(): n += 1
+        """Nabídka přebírá pořadové číslo zakázky do svého formátu (zakázka ZL260048 → nabídka NAB260048, rok podle
+        zakázky); další nabídka ke stejné zakázce dostane -2, -3 …"""
+        c = cislovani.vyrob(CiselnaRada.pro("nabidka").format, _den(z.datum_vytvoreni), z.poradove_cislo()); n = 1
+        while Nabidka.objects.filter(cislo_nabidky=c if n == 1 else f"{c}-{n}").exists(): n += 1
         return c if n == 1 else f"{c}-{n}"
     def __str__(self): return f"Nabídka {self.cislo_nabidky}"
 class PolozkaNabidky(Polozka):
@@ -199,18 +202,12 @@ class Objednavka(models.Model):
     def __str__(self): return f"Objednávka {self.cislo_objednavky}"
 class Faktura(Dokument):
     class Meta(Dokument.Meta): verbose_name = "faktura"; verbose_name_plural = "Faktury"
-    cislo_faktury = models.CharField(max_length=50, unique=True, blank=True, help_text="Prázdné = vygeneruje se automaticky ve tvaru 001-den-měsíc/rok")
+    cislo_faktury = models.CharField(max_length=50, unique=True, blank=True, help_text="Prázdné = vygeneruje se automaticky podle Nastavení → Dokumenty")
     datum_vystaveni = models.DateField(default=timezone.localdate)
     datum_splatnosti = models.DateField(null=True, blank=True); datum_zdanitelneho_plneni = models.DateField(null=True, blank=True); vystavil = FK(User)
-    @staticmethod
-    def poradi_z_cisla(c):
-        m = re.match(r"^(\d+)-\d{1,2}-\d{1,2}/(\d{4})$", c or ""); return (int(m.group(1)), int(m.group(2))) if m else (None, None)
     def save(self, *a, **k):
-        if not self.cislo_faktury:  # pořadí se počítá v rámci roku vystavení: 001-27-10/2026
-            d = self.datum_vystaveni or timezone.localdate()
-            if isinstance(d, str): d = date.fromisoformat(d)
-            n = max([p for p, r in map(Faktura.poradi_z_cisla, Faktura.objects.values_list("cislo_faktury", flat=True)) if r == d.year] or [0]) + 1
-            self.cislo_faktury = f"{n:03d}-{d.day:02d}-{d.month:02d}/{d.year}"
+        if not self.cislo_faktury:  # podle data vystavení (rok, měsíc a den ve formátu i nulování pořadí)
+            self.cislo_faktury = CiselnaRada.pro("faktura").dalsi_cislo(Faktura, "cislo_faktury", _den(self.datum_vystaveni), self.pk)[0]
         super().save(*a, **k)
     def __str__(self): return f"Faktura {self.cislo_faktury}"
 class PolozkaFaktury(Polozka):
@@ -288,6 +285,39 @@ class NastaveniFirmy(models.Model):
     vytvoril = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, editable=False, related_name="+", verbose_name="vytvořil")
     datum_vytvoreni = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="datum vytvoření")
     def __str__(self): return self.nazev_firmy or "Nastavení"
+def _den(d):
+    """Datum dokladu jako date (pole může být datetime, text z formuláře nebo prázdné)."""
+    if not d: return timezone.localdate()
+    if isinstance(d, str): d = parse_datetime(d) or date.fromisoformat(d[:10])
+    if hasattr(d, "hour"): return timezone.localtime(d).date() if timezone.is_aware(d) else d.date()
+    return d
+class CiselnaRada(models.Model):
+    """Formát čísel jednoho druhu dokladu (Nastavení → Dokumenty → Číslování dokladů)."""
+    TYPY = (("zakazka", "Zakázkový list"), ("nabidka", "Nabídka"), ("faktura", "Faktura"))
+    class Meta:
+        verbose_name = "číselná řada"; verbose_name_plural = "Číselné řady"
+        constraints = [VYCET("typ", ("zakazka", "nabidka", "faktura"), "ciselna_rada_typ_platny", prazdne=False),
+                       VYCET("nulovat", ("rok", "mesic", "nikdy"), "ciselna_rada_nulovani_platne", prazdne=False)]
+    typ = models.CharField(max_length=20, unique=True, choices=TYPY)
+    vzor = models.CharField("vzor čísla", max_length=50, help_text="Ukázkové číslo tak, jak ho uživatel zadal, např. DMN260001.")
+    format = models.CharField(max_length=100, help_text="Vzor rozložený na části, např. DMN{YY}{N4}.")
+    nulovat = models.CharField("pořadí od 1", max_length=10, default="rok", choices=cislovani.NULOVANI)
+    zacit_od = models.PositiveIntegerField("další pořadové číslo", default=1)
+    zacit_od_obdobi = models.CharField(max_length=10, blank=True, help_text="Období (rok/měsíc), pro které platí „další pořadové číslo“.")
+    datum_upravy = models.DateTimeField(auto_now=True)
+    def __str__(self): return f"{self.get_typ_display()}: {self.vzor}"
+    @classmethod
+    def pro(cls, typ):
+        """Uložená řada, nebo výchozí (neuložená), dokud ji nikdo nezměnil."""
+        return cls.objects.filter(typ=typ).first() or cls(typ=typ, **cislovani.VYCHOZI[typ])
+    def dalsi_poradi(self, model, pole, d, bez_pk=None):
+        cisla = model.objects.exclude(pk=bez_pk).values_list(pole, flat=True) if bez_pk else model.objects.values_list(pole, flat=True)
+        return cislovani.dalsi_poradi(self.format, self.nulovat, d, cisla, self.zacit_od, self.zacit_od_obdobi)
+    def dalsi_cislo(self, model, pole, d, bez_pk=None):
+        """(číslo, pořadí) pro nový doklad s datem d; přeskočí čísla, která už existují."""
+        n = self.dalsi_poradi(model, pole, d, bez_pk)
+        while model.objects.filter(**{pole: cislovani.vyrob(self.format, d, n)}).exists(): n += 1
+        return cislovani.vyrob(self.format, d, n), n
 class SazbaDPH(models.Model):
     class Meta:
         verbose_name = "sazba DPH"; verbose_name_plural = "Sazby DPH"

@@ -514,3 +514,75 @@ class UcetZamestnanceTest(TestCase):
         for slug in ("zarizeni", "stavzakazky", "typukonu", "material", "dodavatel", "zamestnanec", "role", "opravneni", "sazbadph"):
             r = self.client.get(reverse("create", args=[slug]))
             self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertEqual(r.status_code, 200, slug)
+
+
+class CislovaniDokladuTest(TestCase):
+    """Vlastní číslování zakázkových listů, nabídek a faktur (Nastavení → Dokumenty)."""
+    def setUp(self):
+        from .models import Zakaznik
+        self.zak = Zakaznik.objects.create(firma="Test s.r.o."); NastaveniFirmy.objects.create(nazev_firmy="Můj servis")
+        self.client.force_login(User.objects.create_user("a", password="x", is_staff=True))
+
+    def nastav(self, typ, vzor, fmt, nulovat="rok", zacit=1):
+        from .models import CiselnaRada
+        CiselnaRada.objects.update_or_create(typ=typ, defaults=dict(vzor=vzor, format=fmt, nulovat=nulovat, zacit_od=zacit, zacit_od_obdobi=""))
+
+    def test_funkce_formatu(self):
+        from . import cislovani as c
+        self.assertEqual(c.vyrob("DMN{YY}{N4}", date(2026, 11, 4), 7), "DMN260007")
+        self.assertEqual(c.vyrob("{N3}-{DD}-{MM}/{YYYY}", date(2026, 1, 5), 12), "012-05-01/2026")
+        self.assertEqual(c.dalsi_poradi("DMN{YY}{N4}", "rok", date(2026, 3, 1), ["DMN260004", "DMN250009", "X"]), 5)
+        self.assertEqual(c.dalsi_poradi("DMN{YY}{N4}", "rok", date(2027, 1, 1), ["DMN260004"]), 1)
+        self.assertEqual(c.dalsi_poradi("Fa{N4}", "nikdy", date(2027, 1, 1), ["Fa0041"]), 42)
+        self.assertEqual(c.dalsi_poradi("FA{YY}{MM}{N3}", "mesic", date(2026, 12, 1), ["FA2611005"]), 1)
+        self.assertEqual(c.dalsi_poradi("Fa{N4}", "nikdy", date(2026, 1, 1), [], zacit_od=150), 150)
+        self.assertEqual(c.poradi_z_cisla("ZL{YY}{N4}", "ZL260046"), 46)
+        self.assertIsNotNone(c.over_format("Fa"))
+        self.assertIsNotNone(c.over_format("{N2}{N3}"))
+        self.assertIsNone(c.over_format("Fa{N4}"))
+        self.assertIsNotNone(c.over_nulovani("Fa{N4}", "rok"))
+
+    def test_vychozi_cisla_beze_zmeny(self):
+        from .models import Zakazka
+        z = Zakazka.objects.create(zakaznik=self.zak)
+        self.assertRegex(z.cislo_zakazky, r"^\d{4}-001$"); self.assertEqual(z.poradi, 1)
+
+    def test_zakazka_faktura_a_nabidka_podle_nastaveni(self):
+        from .models import Zakazka, Faktura, Nabidka
+        self.nastav("zakazka", "ZL260001", "ZL{YY}{N4}")
+        self.nastav("nabidka", "NAB260001", "NAB{YY}{N4}")
+        self.nastav("faktura", "Fa0001", "Fa{N4}", "nikdy", zacit=41)
+        z1 = Zakazka.objects.create(zakaznik=self.zak); z2 = Zakazka.objects.create(zakaznik=self.zak)
+        rr = f"{z1.datum_vytvoreni.year % 100:02d}"
+        self.assertEqual((z1.cislo_zakazky, z2.cislo_zakazky), (f"ZL{rr}0001", f"ZL{rr}0002"))
+        self.assertEqual(Nabidka.cislo_ze_zakazky(z2), f"NAB{rr}0002")
+        Nabidka.objects.create(zakaznik=self.zak, cislo_nabidky=Nabidka.cislo_ze_zakazky(z2))
+        self.assertEqual(Nabidka.cislo_ze_zakazky(z2), f"NAB{rr}0002-2")
+        f1 = Faktura.objects.create(zakaznik=self.zak); f2 = Faktura.objects.create(zakaznik=self.zak)
+        self.assertEqual((f1.cislo_faktury, f2.cislo_faktury), ("Fa0041", "Fa0042"))
+
+    def test_rucni_cislo_zakazky_a_preskoceni_obsazeneho(self):
+        from .models import Zakazka
+        self.nastav("zakazka", "ZAK0001", "ZAK{N4}", "nikdy")
+        Zakazka.objects.create(zakaznik=self.zak, cislo_zakazky="ZAK0005")
+        self.assertEqual(Zakazka.objects.create(zakaznik=self.zak).cislo_zakazky, "ZAK0006")
+        self.assertEqual(Zakazka.objects.get(cislo_zakazky="ZAK0005").poradi, 5)
+
+    def test_stranka_nastaveni(self):
+        from .models import CiselnaRada, Zakazka
+        self.assertContains(self.client.get(reverse("nastaveni")), reverse("nastaveni_cislovani"))
+        r = self.client.get(reverse("nastaveni_cislovani")); self.assertContains(r, "Vzor čísla")
+        d = {"vzor_zakazka": "ZL260001", "format_zakazka": "ZL{YY}{N4}", "nulovat_zakazka": "rok", "zacit_zakazka": "1",
+             "vzor_nabidka": "NAB260001", "format_nabidka": "NAB{YY}{N4}",
+             "vzor_faktura": "Fa0001", "format_faktura": "Fa{N4}", "nulovat_faktura": "nikdy", "zacit_faktura": "100"}
+        self.assertRedirects(self.client.post(reverse("nastaveni_cislovani"), d), reverse("nastaveni"))
+        self.assertEqual(CiselnaRada.objects.get(typ="faktura").zacit_od, 100)
+        self.assertEqual(CiselnaRada.objects.get(typ="nabidka").nulovat, "rok")
+        self.assertTrue(Zakazka.objects.create(zakaznik=self.zak).cislo_zakazky.startswith("ZL"))
+        r = self.client.post(reverse("nastaveni_cislovani"), dict(d, format_faktura="Fa", nulovat_faktura="rok"))
+        self.assertContains(r, "Ve vzoru musí být právě jedno pořadové číslo.")
+        self.assertEqual(CiselnaRada.objects.get(typ="faktura").format, "Fa{N4}")
+
+    def test_bezny_uzivatel_nastaveni_neotevre(self):
+        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.assertRedirects(self.client.get(reverse("nastaveni_cislovani")), reverse("dashboard"), fetch_redirect_response=False)
