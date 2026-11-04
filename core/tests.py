@@ -187,6 +187,35 @@ class UdalostiKalendareTest(TestCase):
         self.assertEqual(timezone.localtime(u.datum).date(), date(2026, 10, 22))
 
 
+class HlavniAkceZakazkyTest(TestCase):
+    """Na stránce zakázky je zvýrazněn jeden doporučený další krok podle stavu zakázky."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Nová"))
+
+    def zvyraznene(self):
+        import re
+        html = self.client.get(reverse("plocha", args=[self.z.pk])).content.decode()
+        return re.findall(r'class="btn btn-(?:primary|success)" href="[^"]*">([^<]+)</a>', html)
+
+    def nastav(self, nazev):
+        from .models import StavZakazky
+        self.z.stav = StavZakazky.objects.get_or_create(nazev=nazev)[0]; self.z.save()
+
+    def test_hlavni_akce_podle_stavu(self):
+        from .models import Nabidka
+        self.assertEqual(self.zvyraznene(), ["Zakázkový list"])
+        self.nastav("Rozpracováno"); self.assertEqual(self.zvyraznene(), ["Přidat práci"])
+        self.nastav("Opraveno"); self.assertEqual(self.zvyraznene(), ["Vytvořit nabídku"])
+        Nabidka.objects.create(zakaznik=self.z.zakaznik).zakazky.add(self.z)
+        self.assertEqual(self.zvyraznene(), ["Vytvořit fakturu"])
+        Faktura.objects.create(zakaznik=self.z.zakaznik).zakazky.add(self.z)
+        self.assertEqual(self.zvyraznene(), [])
+        self.nastav("Vydáno"); self.assertEqual(self.zvyraznene(), [])
+
+
 class OpravneniNastaveniTest(TestCase):
     """Nastavení vidí jen administrátor, šablony dokumentů kdokoli."""
     STRANKY = [("nastaveni", []), ("nastaveni_firma", []), ("nastaveni_zaloha", []), ("list", ["sazbadph"]), ("create", ["zamestnanec"]), ("list", ["historiezmen"])]
