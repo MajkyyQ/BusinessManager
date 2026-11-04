@@ -388,24 +388,54 @@ class TvorbaDokladuZeZakazkyTest(TestCase):
         from django.core.files.uploadedfile import SimpleUploadedFile
         from .models import Objednavka
         self.assertEqual(self.client.get(reverse("objednavka_nova"), {"zakazka": self.z.pk}).status_code, 200)
-        r = self.client.post(reverse("objednavka_nova"), {"zakaznik": self.z.zakaznik.pk, "zakazka": self.z.pk, "cislo": "OBJ-7", "datum": "2026-11-04",
+        r = self.client.post(reverse("objednavka_nova"), {"zakaznik": self.z.zakaznik.pk, "zakazka": self.z.pk, "cislo": "OBJ-7", "predmet": "Oprava zařízení", "stredisko": "Údržba",
+                                                          "text": "Objednáváme opravu elektronického zařízení.", "datum": "2026-11-04",
                                                           "soubor": SimpleUploadedFile("obj.pdf", b"%PDF-1.4")})
         self.assertRedirects(r, reverse("detail", args=["zakazka", self.z.pk]), fetch_redirect_response=False)
         o = Objednavka.objects.get(cislo_objednavky="OBJ-7")
         self.assertEqual(o.zakaznik, self.z.zakaznik); self.assertEqual(list(o.zakazky.all()), [self.z])
+        self.assertEqual((o.predmet, o.stredisko, o.text), ("Oprava zařízení", "Údržba", "Objednáváme opravu elektronického zařízení."))
         self.assertEqual(list(o.priloha.zakazky.all()), [self.z])
         self.assertContains(self.client.get(reverse("plocha", args=[self.z.pk])), "Objednávka OBJ-7")
 
-    def test_objednavka_bez_zakazky(self):
+    def test_objednavka_bez_zakazky_neprojde(self):
         from .models import Objednavka
-        r = self.client.post(reverse("objednavka_nova"), {"zakaznik": self.z.zakaznik.pk, "cislo": "OBJ-9"})
-        o = Objednavka.objects.get(cislo_objednavky="OBJ-9")
-        self.assertRedirects(r, reverse("detail", args=["objednavka", o.pk]), fetch_redirect_response=False)
-        self.assertEqual(o.zakaznik, self.z.zakaznik); self.assertFalse(o.zakazky.exists())
+        r = self.client.post(reverse("objednavka_nova"), {"zakaznik": self.z.zakaznik.pk, "cislo": "OBJ-9", "predmet": "Oprava"})
+        self.assertEqual(r.status_code, 200); self.assertFalse(Objednavka.objects.exists())
 
     def test_objednavka_bez_zakaznika_nebo_s_cizi_zakazkou_neprojde(self):
         from .models import Objednavka
         self.assertEqual(self.client.post(reverse("objednavka_nova"), {"cislo": "OBJ-8"}).status_code, 200)
         cizi = Zakaznik.objects.create(jmeno="Petr")
-        r = self.client.post(reverse("objednavka_nova"), {"zakaznik": cizi.pk, "zakazka": self.z.pk, "cislo": "OBJ-8"})
+        r = self.client.post(reverse("objednavka_nova"), {"zakaznik": cizi.pk, "zakazka": self.z.pk, "cislo": "OBJ-8", "predmet": "Oprava"})
         self.assertContains(r, "Zakázka patří jinému zákazníkovi."); self.assertFalse(Objednavka.objects.exists())
+
+
+class PrijataFakturaRucneTest(TestCase):
+    """Přijatá faktura zadaná ručně má vlastní formulář; starý obecný formulář na něj přesměruje."""
+    def setUp(self):
+        from .models import Dodavatel
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.dod = Dodavatel.objects.create(nazev="Elektro Díly s.r.o.", ico="11223344")
+
+    def test_tlacitko_a_presmerovani(self):
+        self.assertContains(self.client.get(reverse("dokumenty")), f'href="{reverse("prijata_faktura_rucne")}"')
+        self.assertRedirects(self.client.get(reverse("create", args=["prijatafaktura"])), reverse("prijata_faktura_rucne"), fetch_redirect_response=False)
+        self.assertEqual(self.client.get(reverse("prijata_faktura_rucne")).status_code, 200)
+
+    def test_ulozeni_dopocita_castku(self):
+        from .models import KalendarUdalost, PrijataFaktura
+        r = self.client.post(reverse("prijata_faktura_rucne"), {"dodavatel": self.dod.pk, "cislo_faktury": "FV-1", "datum_doruceni": "2026-11-04",
+                                                                "datum_splatnosti": "2026-11-18", "cena_bez_dph": "100", "dph": "21", "mena": "CZK"})
+        pf = PrijataFaktura.objects.get(cislo_faktury="FV-1")
+        self.assertRedirects(r, reverse("detail", args=["prijatafaktura", pf.pk]), fetch_redirect_response=False)
+        self.assertEqual(pf.cena_s_dph, Decimal("121")); self.assertEqual(pf.stav, "Nezaplaceno"); self.assertEqual(pf.vytvoril.username, "u")
+        self.assertTrue(KalendarUdalost.objects.filter(prijata_faktura=pf, typ="Splatnost faktury").exists())
+
+    def test_duplicita_neprojde(self):
+        from .models import PrijataFaktura
+        d = {"dodavatel": self.dod.pk, "cislo_faktury": "FV-2", "datum_doruceni": "2026-11-04", "mena": "CZK"}
+        self.client.post(reverse("prijata_faktura_rucne"), d)
+        self.assertEqual(self.client.post(reverse("prijata_faktura_rucne"), d).status_code, 200)
+        self.assertEqual(PrijataFaktura.objects.filter(cislo_faktury="FV-2").count(), 1)

@@ -264,6 +264,8 @@ def edit(request, slug, pk=None):
     if slug in ("faktura", "objednavka") and not pk:  # faktura i objednávka se vždy zakládají ze zakázky (starý obecný formulář se už nepoužívá)
         q = {"zakazka": request.GET.get("zakazky") or request.GET.get("zakazka") or "", "next": request.GET.get("next", "")}
         return redirect(reverse(f"{slug}_nova") + "?" + urlencode({k: x for k, x in q.items() if x}))
+    if slug == "prijatafaktura" and not pk:  # přijatá faktura ručně má vlastní přehledný formulář
+        return redirect(reverse("prijata_faktura_rucne") + ("?" + request.GET.urlencode() if request.GET else ""))
     if slug == "zakazka" and not pk:  # nová zakázka = zakázkový list
         return redirect(reverse("zakazka_nova") + ("?" + request.GET.urlencode() if request.GET else ""))
     o = get_object_or_404(M, pk=pk) if pk else None
@@ -432,11 +434,15 @@ def faktura_nova(request):
 class ObjednavkaForm(forms.Form):
     zakaznik = forms.ModelChoiceField(Zakaznik.objects.filter(aktivni=True), label="Zákazník", empty_label="— od koho objednávka přišla —",
                                       widget=forms.Select(attrs={"class": "form-select"}))
-    zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka (nepovinné)", required=False,
-                            empty_label="— bez zakázky —", widget=forms.Select(attrs={"class": "form-select"}))
+    zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— ke které zakázce patří —",
+                            widget=forms.Select(attrs={"class": "form-select"}))
     cislo = forms.CharField(label="Číslo objednávky", max_length=50, help_text="Číslo, pod kterým zákazník objednávku vystavil.", widget=forms.TextInput(attrs={"class": "form-control"}))
-    datum = forms.DateField(label="Datum objednávky", required=False, widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
-    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Je-li vybraná zakázka, uloží se i do jejích příloh.",
+    datum = forms.DateField(label="Datum vystavení", required=False, help_text="Datum uvedené na objednávce.", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
+    stredisko = forms.CharField(label="Středisko", max_length=100, required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+    predmet = forms.CharField(label="Předmět objednávky", max_length=200, help_text="Stručně, o co se jedná, např. „Oprava elektronického zařízení“.", widget=forms.TextInput(attrs={"class": "form-control"}))
+    text = forms.CharField(label="Text objednávky", required=False, help_text="Co zákazník objednává, opsané z objednávky, např. „Objednáváme opravu elektronického zařízení v hodnotě …“.",
+                           widget=forms.Textarea(attrs={"rows": 4, "class": "form-control"}))
+    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Uloží se i do příloh zakázky.",
                              widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
     poznamka = forms.CharField(label="Poznámka (nepovinné)", required=False, widget=forms.Textarea(attrs={"rows": 2, "class": "form-control"}))
     def clean(self):
@@ -453,13 +459,13 @@ def objednavka_nova(request):
         with transaction.atomic():
             pr = None
             if c["soubor"]:
-                pr = Priloha.objects.create(nazev=f"Objednávka {c['cislo']}"[:200], soubor=c["soubor"], nahral=request.user)
-                if z: pr.zakazky.add(z)
-            o = Objednavka.objects.create(cislo_objednavky=c["cislo"], zakaznik=c["zakaznik"], datum_objednavky=c["datum"], priloha=pr, poznamka=c["poznamka"])
-            if z: o.zakazky.add(z)
+                pr = Priloha.objects.create(nazev=f"Objednávka {c['cislo']}"[:200], soubor=c["soubor"], nahral=request.user); pr.zakazky.add(z)
+            o = Objednavka.objects.create(cislo_objednavky=c["cislo"], zakaznik=c["zakaznik"], datum_objednavky=c["datum"], stredisko=c["stredisko"], predmet=c["predmet"],
+                                          text=c["text"], priloha=pr, poznamka=c["poznamka"])
+            o.zakazky.add(z)
             log(request, o, "Vytvoření", popis_z=z)
-        messages.success(request, f"Přijatá objednávka {o.cislo_objednavky} zapsána" + (f" k zakázce {z.cislo_zakazky}." if z else "."))
-        return redirect(safe_next(request) or (reverse("detail", args=["zakazka", z.pk]) if z else reverse("detail", args=["objednavka", o.pk])))
+        messages.success(request, f"Přijatá objednávka {o.cislo_objednavky} zapsána k zakázce {z.cislo_zakazky}.")
+        return redirect(safe_next(request) or reverse("detail", args=["zakazka", z.pk]))
     return R(request, "objednavka_nova", sec="dokumenty", form=form)
 
 def nabidka_nahled(request):
@@ -728,6 +734,23 @@ def prijata_faktura_import(request):
             return redirect("detail", slug="prijatafaktura", pk=pf.pk)
     return R(request, "prijata_faktura_import", sec="dokumenty", form=form,
              crumbs=[("📄 Dokumenty", reverse("dokumenty")), ("Přijaté faktury", reverse("list", args=["prijatafaktura"])), ("Import ISDOC", None)])
+
+PF_POLE = ["dodavatel", "cislo_faktury", "variabilni_symbol", "datum_vystaveni", "datum_doruceni", "datum_zdanitelneho_plneni", "datum_splatnosti",
+           "cena_bez_dph", "dph", "cena_s_dph", "mena", "cislo_uctu", "zakazka", "soubor", "poznamka"]
+def prijata_faktura_rucne(request):
+    """Ruční zápis faktury od dodavatele (když není k dispozici ISDOC). Nová faktura je vždy nezaplacená."""
+    Form = modelform_factory(PrijataFaktura, form=BaseForm, fields=PF_POLE, formfield_callback=cb)
+    Form.base_fields["zakazka"].queryset = Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni")
+    Form.base_fields["zakazka"].label_from_instance = lambda z: f"{z.cislo_zakazky} – {z.zakaznik}"
+    form = Form(request.POST or None, request.FILES or None, initial={"zakazka": request.GET.get("zakazka"), "dodavatel": request.GET.get("dodavatel")})
+    if request.method == "POST" and form.is_valid():
+        pf = form.save(commit=False); pf.vytvoril = request.user
+        if pf.cena_s_dph is None and pf.cena_bez_dph is not None and pf.dph is not None: pf.cena_s_dph = pf.cena_bez_dph + pf.dph
+        pf.save(); log(request, pf, "Vytvoření")
+        messages.success(request, f"Faktura {pf.cislo_faktury} od dodavatele {pf.dodavatel} byla zapsána do evidence i do kalendáře.")
+        return redirect(safe_next(request) or reverse("detail", args=["prijatafaktura", pf.pk]))
+    return R(request, "prijata_faktura_rucne", sec="dokumenty", form=form,
+             crumbs=[("📄 Dokumenty", reverse("dokumenty")), ("Přijaté faktury", reverse("list", args=["prijatafaktura"])), ("Zadat ručně", None)])
 
 @require_POST
 def prijata_faktura_zaplaceno(request, pk):

@@ -1,0 +1,19 @@
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Přijatá faktura – zadat ručně</h3></div>
+<p class="text-muted">Opište údaje z faktury, kterou vám poslal dodavatel. Máte-li fakturu ve formátu ISDOC, je rychlejší ji <a href="{% url 'prijata_faktura_import' %}">nahrát ze souboru</a>. Nová faktura se uloží jako nezaplacená a zapíše se do kalendáře.</p>
+<form method="post" enctype="multipart/form-data" hx-boost="false" class="col-lg-9">{% csrf_token %}{{ form.non_field_errors }}
+<h6 class="text-muted mt-2">Dodavatel a doklad</h6>
+<div class="row g-2 mb-3"><div class="col-md-6">{% include "core/_pole.html" with f=form.dodavatel %}</div>
+<div class="col-md-3">{% include "core/_pole.html" with f=form.cislo_faktury %}</div><div class="col-md-3">{% include "core/_pole.html" with f=form.variabilni_symbol %}</div></div>
+<h6 class="text-muted">Data</h6>
+<div class="row g-2 mb-3"><div class="col-md-3">{% include "core/_pole.html" with f=form.datum_vystaveni %}</div><div class="col-md-3">{% include "core/_pole.html" with f=form.datum_doruceni %}</div>
+<div class="col-md-3">{% include "core/_pole.html" with f=form.datum_zdanitelneho_plneni %}</div><div class="col-md-3">{% include "core/_pole.html" with f=form.datum_splatnosti %}</div></div>
+<h6 class="text-muted">Částky a platba</h6>
+<div class="row g-2 mb-1"><div class="col-md-3">{% include "core/_pole.html" with f=form.cena_bez_dph %}</div><div class="col-md-3">{% include "core/_pole.html" with f=form.dph %}</div>
+<div class="col-md-3">{% include "core/_pole.html" with f=form.cena_s_dph %}</div><div class="col-md-3">{% include "core/_pole.html" with f=form.mena %}</div></div>
+<div class="form-text mt-0 mb-2">Necháte-li „Částka k úhradě“ prázdnou, dopočítá se jako částka bez DPH + DPH.</div>
+<div class="row g-2 mb-3"><div class="col-md-6">{% include "core/_pole.html" with f=form.cislo_uctu %}</div></div>
+<h6 class="text-muted">Zařazení a soubor</h6>
+<div class="row g-2 mb-3"><div class="col-md-6">{% include "core/_pole.html" with f=form.zakazka %}<div class="form-text mt-0">Nepovinné – zakázka, pro kterou byl materiál nebo služba nakoupena.</div></div>
+<div class="col-md-6">{% include "core/_pole.html" with f=form.soubor %}</div></div>
+<div>{% include "core/_pole.html" with f=form.poznamka %}</div>
+<button class="btn btn-primary mt-3">Uložit fakturu</button> <a class="btn btn-secondary mt-3" href="{% url 'dokumenty' %}">Zrušit</a></form>{% endblock %}
