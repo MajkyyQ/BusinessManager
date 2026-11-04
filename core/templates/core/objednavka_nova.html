@@ -1,0 +1,10 @@
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Přijatá objednávka od zákazníka</h3></div>
+<p class="text-muted">Zapište objednávku, kterou vám poslal zákazník (aplikace objednávky nevystavuje). Vyberte zákazníka, od kterého přišla, případně i zakázku, ke které patří. Ostatní údaje přepište z objednávky ručně.</p>
+<form method="post" enctype="multipart/form-data" hx-boost="false" class="col-lg-9">{% csrf_token %}{{ form.non_field_errors }}
+<div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold">{{ form.zakaznik.label }}</label>{{ form.zakaznik }}<div class="text-danger small">{{ form.zakaznik.errors }}</div></div>
+<div class="col-md-6"><label class="form-label mb-0">{{ form.zakazka.label }}</label>{{ form.zakazka }}<div class="form-text mt-0">Zakázka, ke které objednávka patří. Lze doplnit i později úpravou objednávky.</div><div class="text-danger small">{{ form.zakazka.errors }}</div></div></div>
+<div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold">{{ form.cislo.label }}</label>{{ form.cislo }}<div class="form-text mt-0">{{ form.cislo.help_text }}</div><div class="text-danger small">{{ form.cislo.errors }}</div></div>
+<div class="col-md-3"><label class="form-label mb-0 fw-bold">{{ form.datum.label }}</label>{{ form.datum }}<div class="text-danger small">{{ form.datum.errors }}</div></div></div>
+<div class="mb-3"><label class="form-label mb-0">{{ form.soubor.label }}</label>{{ form.soubor }}<div class="form-text mt-0">{{ form.soubor.help_text }}</div><div class="text-danger small">{{ form.soubor.errors }}</div></div>
+<div><label class="form-label mb-0">{{ form.poznamka.label }}</label>{{ form.poznamka }}</div>
+<button class="btn btn-primary mt-3">Uložit objednávku</button> <a class="btn btn-secondary mt-3" href="{% url 'list' 'objednavka' %}">Zrušit</a></form>{% endblock %}
