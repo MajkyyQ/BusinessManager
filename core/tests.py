@@ -363,3 +363,40 @@ class JednotneSeznamyTest(TestCase):
         r = self.client.get(reverse("dokumenty"), {"typ": "faktura"})
         self.assertEqual(r.context["soucet"], [("120,50", "CZK")])
         self.assertContains(r, "Celkem 2 doklady")
+
+
+class TvorbaDokladuZeZakazkyTest(TestCase):
+    """Objednávka a faktura se zakládají jen přes formulář „ze zakázky“, ne přes starý obecný formulář."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Nová"))
+
+    def test_tlacitka_v_dokumentech(self):
+        r = self.client.get(reverse("dokumenty"))
+        self.assertContains(r, f'href="{reverse("objednavka_nova")}"'); self.assertContains(r, f'href="{reverse("faktura_nova")}"')
+        self.assertNotContains(r, f'href="{reverse("create", args=["objednavka"])}"'); self.assertNotContains(r, f'href="{reverse("create", args=["faktura"])}"')
+
+    def test_stary_formular_presmeruje(self):
+        self.assertRedirects(self.client.get(reverse("create", args=["faktura"])), reverse("faktura_nova") + "?", fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("create", args=["objednavka"])), reverse("objednavka_nova") + "?", fetch_redirect_response=False)
+        r = self.client.get(reverse("create", args=["objednavka"]), {"zakazky": self.z.pk})
+        self.assertRedirects(r, reverse("objednavka_nova") + f"?zakazka={self.z.pk}", fetch_redirect_response=False)
+
+    def test_nova_objednavka(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import Objednavka
+        self.assertEqual(self.client.get(reverse("objednavka_nova"), {"zakazka": self.z.pk}).status_code, 200)
+        r = self.client.post(reverse("objednavka_nova"), {"zakazka": self.z.pk, "cislo": "OBJ-7", "datum": "2026-11-04",
+                                                          "soubor": SimpleUploadedFile("obj.pdf", b"%PDF-1.4")})
+        self.assertRedirects(r, reverse("detail", args=["zakazka", self.z.pk]), fetch_redirect_response=False)
+        o = Objednavka.objects.get(cislo_objednavky="OBJ-7")
+        self.assertEqual(o.zakaznik, self.z.zakaznik); self.assertEqual(list(o.zakazky.all()), [self.z])
+        self.assertEqual(list(o.priloha.zakazky.all()), [self.z])
+        self.assertContains(self.client.get(reverse("plocha", args=[self.z.pk])), "Objednávka OBJ-7")
+
+    def test_nova_objednavka_bez_zakazky_neprojde(self):
+        from .models import Objednavka
+        r = self.client.post(reverse("objednavka_nova"), {"cislo": "OBJ-8"})
+        self.assertEqual(r.status_code, 200); self.assertFalse(Objednavka.objects.exists())
