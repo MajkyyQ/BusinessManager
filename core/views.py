@@ -22,6 +22,7 @@ from django.utils.dateparse import parse_datetime
 from django.db.models import Count, Prefetch
 from urllib.parse import urlencode
 from django.db import transaction
+from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.views.decorators.http import require_POST
 from django.urls import reverse
@@ -113,7 +114,7 @@ def lookup_new(request, slug):
     if not c: raise Http404
     M = MODELS[slug]; dep = request.GET.get("dep") or request.POST.get("dep") or ""
     form = modelform_factory(M, form=BaseForm, fields=c["new"], formfield_callback=cb)(request.POST or None)
-    ctx = {"form": form, "slug": slug, "dep": dep, "title": "Nový záznam: " + M._meta.verbose_name}
+    ctx = {"form": form, "slug": slug, "dep": dep, "title": nadpis_novy(slug, M)}
     if request.method == "POST":
         if slug == "zarizeni" and not dep.isdigit(): form.add_error(None, "Nejdřív vyberte zákazníka.")
         elif form.is_valid():
@@ -137,15 +138,18 @@ def lookup_new(request, slug):
 POPISKY = {"jmeno": "Jméno", "typ_zakaznika": "Typ zákazníka", "nazev": "Název", "zakazka": "Zakázka", "zakazky": "Zakázky", "zakaznik": "Zákazník",
            "zamestnanci": "Zaměstnanci", "vytvoril": "Vytvořil", "nahral": "Nahrál", "vystavil": "Vystavil", "vypracoval": "Vypracoval", "poznamka": "Poznámka",
            "zarizeni": "Zařízení", "vyrobce": "Výrobce", "seriove_cislo": "Sériové číslo", "posledni_cena": "Poslední cena", "cislo_uctu": "Číslo účtu",
-           "datum_vytvoreni": "Datum vytvoření", "priloha": "Příloha", "stredisko": "Středisko"}
+           "datum_vytvoreni": "Datum vytvoření", "priloha": "Příloha", "stredisko": "Středisko",
+           "prijmeni": "Příjmení", "pracovni_pozice": "Pracovní pozice", "poradi": "Pořadí", "kod": "Kód", "je_administrator": "Je administrátor",
+           "opravneni": "Oprávnění", "material": "Materiál", "typ_ukonu": "Typ úkonu", "mnozstvi": "Množství", "jednotkova_cena": "Jednotková cena",
+           "zakaznik_kontakt": "Kontakt", "datum_prijeti": "Datum přijetí", "popis_zavady": "Popis závady"}
 class BaseForm(forms.ModelForm):
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
         for n, f in self.fields.items():
             t = getattr(getattr(f, "queryset", None), "model", None); s = t and t._meta.model_name
+            if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]  # pole bez verbose_name -> čeština s diakritikou
             if s in LOOKUP:
                 d = LOOKUP[s]["dep"]; f.widget = LookupWidget(s, t, isinstance(f, forms.ModelMultipleChoiceField), d if d in self.fields else ""); continue
-            if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]  # pole bez verbose_name -> čeština s diakritikou
             w = f.widget; c = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
             w.attrs["class"] = c
             if isinstance(w, forms.Textarea): w.attrs["rows"] = 3
@@ -274,30 +278,100 @@ def edit(request, slug, pk=None):
     if slug == "zakazka" and not pk:  # nová zakázka = zakázkový list
         return redirect(reverse("zakazka_nova") + ("?" + request.GET.urlencode() if request.GET else ""))
     o = get_object_or_404(M, pk=pk) if pk else None
-    Form = modelform_factory(M, form=BaseForm, fields="__all__", formfield_callback=cb, exclude=("stav", "datum_vydani") if slug == "zakazka" else None)  # stav se mění jen akcemi workflow
+    exclude = ("stav", "datum_vydani") if slug == "zakazka" else ("uzivatel",) if slug == "zamestnanec" else None  # stav se mění jen akcemi workflow, účet zaměstnance má vlastní sekci
+    Form = modelform_factory(M, form=ZamestnanecForm if slug == "zamestnanec" else BaseForm, fields="__all__", formfield_callback=cb, exclude=exclude)
     init = {}
     if not o:
         init = request.GET.dict()
         for n in ("vypracoval", "vystavil", "nahral", "vytvoril"):
             if n in Form.base_fields: init.setdefault(n, request.user.pk)
     form = Form(request.POST or None, request.FILES or None, instance=o, initial=init or None)
+    if slug == "zamestnanec": form.prihlaseny = request.user
     if request.method == "POST" and form.is_valid():
-        changed = form.changed_data if o else []; old = {n: form.initial.get(n) for n in changed}
-        o = form.save()
+        changed = [n for n in (form.changed_data if o else []) if n not in getattr(form, "UCET", ())]  # údaje účtu (heslo!) se do historie nepíší
+        old = {n: form.initial.get(n) for n in changed}
+        with transaction.atomic():
+            o = form.save()
+            if hasattr(form, "uloz_ucet"):
+                zprava = form.uloz_ucet(o)
+                if zprava: log(request, o, "Účet", "uzivatel", "", zprava)
         if changed:
             for n in changed: log(request, o, "Úprava", n, old[n], form.cleaned_data[n])
         else: log(request, o, "Vytvoření" if not pk else "Úprava")
         messages.success(request, "Uloženo."); nx = safe_next(request)
         return redirect(nx) if nx else redirect("detail", slug=slug, pk=o.pk)
-    if slug in ROZVRH:  # formuláře v novém vzhledu (sekce, pole vedle sebe)
-        uvod, rozvrh = ROZVRH[slug]; umistena = {n for _, pp in rozvrh for n, _ in pp}
-        sekce = [(t, [(form[n], w) for n, w in pp if n in form.fields]) for t, pp in rozvrh]
-        zbyle = [(form[n], 6) for n in form.fields if n not in umistena]
-        if zbyle: sekce.append(("Další údaje", zbyle))
-        nx = safe_next(request); zrusit = nx or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
-        return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit,
-                 nadpis=f"Úprava: {o}" if o else f"Nový {M._meta.verbose_name}" if slug == "zakaznik" else f"Nová {M._meta.verbose_name}", uvod=None if o else uvod)
-    return R(request, "form", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart())
+    # všechny obecné formuláře mají nový vzhled: sekce a pole vedle sebe; rozvržení podle ROZVRH, jinak automaticky
+    sirka = lambda n: 12 if form[n].widget_type in ("textarea", "checkbox", "selectmultiple", "clearablefile", "file") else 6
+    uvod, rozvrh = ROZVRH.get(slug, (None, [("Údaje", [])]))
+    umistena = {n for _, pp in rozvrh for n, _ in pp}
+    sekce = [(t, [(form[n], w) for n, w in pp if n in form.fields]) for t, pp in rozvrh]
+    zbyle = [(form[n], sirka(n)) for n in form.fields if n not in umistena]
+    if zbyle:
+        if slug in ROZVRH: sekce.append(("Další údaje", zbyle))
+        else: sekce[0][1].extend(zbyle)
+    sekce = [x for x in sekce if x[1]]
+    nx = safe_next(request); zrusit = nx or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
+    return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit,
+             nadpis=f"Úprava: {o}" if o else nadpis_novy(slug, M), uvod=None if o else uvod)
+
+ROD = {"zakaznik": "Nový", "stavzakazky": "Nový", "typukonu": "Nový", "material": "Nový", "dodavatel": "Nový", "zamestnanec": "Nový", "kontaktniosoba": "Nová",
+       "zarizeni": "Nové", "opravneni": "Nové", "kalendarudalost": "Nová", "role": "Nová", "sazbadph": "Nová", "platba": "Nová", "priloha": "Nová",
+       "fotografie": "Nová", "provedenyukon": "Nová", "pouzitymaterial": "Nový", "faktura": "Nová", "nabidka": "Nová", "objednavka": "Nová"}
+def nadpis_novy(slug, M):
+    n = {"provedenyukon": "práce", "kalendarudalost": "událost kalendáře"}.get(slug, M._meta.verbose_name)
+    return f"{ROD[slug]} {n}" if slug in ROD else f"Nový záznam: {n}"
+
+class ZamestnanecForm(forms.ModelForm):
+    """Zaměstnanec + jeho přihlašovací účet (uživatelské jméno, heslo, administrátor) – bez Django adminu."""
+    UCET = ("ucet_aktivni", "ucet_jmeno", "ucet_heslo", "ucet_heslo2", "ucet_admin")
+    ucet_aktivni = forms.BooleanField(label="Může se přihlásit do aplikace", required=False)
+    ucet_jmeno = forms.CharField(label="Přihlašovací jméno", required=False, max_length=150)
+    ucet_heslo = forms.CharField(label="Heslo", required=False, strip=False, widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+                                 help_text="U existujícího účtu nechte prázdné, pokud heslo neměníte.")
+    ucet_heslo2 = forms.CharField(label="Heslo znovu", required=False, strip=False, widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}))
+    ucet_admin = forms.BooleanField(label="Administrátor (vidí Nastavení a může spravovat účty)", required=False)
+    prihlaseny = None
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        for n, f in self.fields.items():
+            if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]
+            w = f.widget; w.attrs["class"] = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
+        u = self.instance.uzivatel if self.instance.pk else None
+        if u: self.initial.update(ucet_aktivni=u.is_active, ucet_jmeno=u.username, ucet_admin=u.is_staff or u.is_superuser)
+    def clean(self):
+        c = super().clean(); u = self.instance.uzivatel if self.instance.pk else None
+        if not c.get("ucet_aktivni"):
+            if u and self.prihlaseny and u.pk == self.prihlaseny.pk: self.add_error("ucet_aktivni", "Vlastní účet nelze vypnout.")
+            return c
+        jm = (c.get("ucet_jmeno") or "").strip(); c["ucet_jmeno"] = jm
+        if not jm: self.add_error("ucet_jmeno", "Zadejte přihlašovací jméno.")
+        elif User.objects.filter(username__iexact=jm).exclude(pk=u.pk if u else None).exists(): self.add_error("ucet_jmeno", "Toto jméno už používá jiný účet.")
+        h, h2 = c.get("ucet_heslo") or "", c.get("ucet_heslo2") or ""
+        if not u and not h: self.add_error("ucet_heslo", "Zadejte heslo pro nový účet.")
+        if h or h2:
+            if h != h2: self.add_error("ucet_heslo2", "Hesla se neshodují.")
+            else:
+                from django.contrib.auth.password_validation import validate_password
+                try: validate_password(h, user=u)
+                except forms.ValidationError as e: self.add_error("ucet_heslo", e)
+        if u and self.prihlaseny and u.pk == self.prihlaseny.pk and not c.get("ucet_admin") and (u.is_staff or u.is_superuser):
+            self.add_error("ucet_admin", "Sami sobě administrátora odebrat nelze.")
+        return c
+    def uloz_ucet(self, z):
+        """Vytvoří / upraví / vypne účet zaměstnance; vrátí popis změny pro historii (bez hesla)."""
+        c = self.cleaned_data; u = z.uzivatel
+        if not c.get("ucet_aktivni"):
+            if u and u.is_active: u.is_active = False; u.save(update_fields=["is_active"]); return f"účet {u.username} vypnut"
+            return ""
+        nov = u is None; u = u or User(); zm = []
+        if u.username != c["ucet_jmeno"]: u.username = c["ucet_jmeno"]; zm.append("jméno")
+        if not u.is_active: u.is_active = True; zm.append("zapnut")
+        if not u.is_superuser and u.is_staff != bool(c.get("ucet_admin")): u.is_staff = bool(c.get("ucet_admin")); zm.append("administrátor" if u.is_staff else "bez administrátora")
+        if c.get("ucet_heslo"): u.set_password(c["ucet_heslo"]); zm.append("heslo")
+        u.first_name, u.last_name, u.email = z.jmeno[:150], z.prijmeni[:150], z.email
+        u.save()
+        if nov: z.uzivatel = u; z.save(update_fields=["uzivatel"]); return f"účet {u.username} vytvořen"
+        return f"účet {u.username}: " + ", ".join(zm) if zm else ""
 
 ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])]); pole, která tu chybí, se ukážou v sekci „Další údaje“
     "zakaznik": ("U soukromé osoby vyplňte jméno, u firmy název firmy (a případně jméno kontaktní osoby). Kontaktní osoby a zařízení přidáte na stránce zákazníka.",
@@ -305,6 +379,25 @@ ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])
                   ("Kontakt", [("telefon", 4), ("email", 8), ("adresa", 12)]),
                   ("Firemní údaje", [("ico", 4), ("dic", 4)]),
                   ("Stav", [("aktivni", 12)])]),
+    "zarizeni": ("Zařízení vždy patří zákazníkovi. Když zákazník ještě není v evidenci, založte ho přes „+ Nový“.",
+                 [("Zařízení", [("zakaznik", 12), ("vyrobce", 4), ("typ", 4), ("seriove_cislo", 4), ("popis", 12)]), ("Stav", [("aktivni", 12)])]),
+    "zamestnanec": ("Zaměstnanec, který se má přihlašovat do aplikace, potřebuje účet – nastavíte ho níže v sekci Přihlašovací účet.",
+                 [("Zaměstnanec", [("jmeno", 4), ("prijmeni", 4), ("pracovni_pozice", 4)]), ("Kontakt", [("telefon", 4), ("email", 8)]),
+                  ("Role", [("role", 12), ("aktivni", 12)]),
+                  ("Přihlašovací účet", [("ucet_aktivni", 12), ("ucet_jmeno", 4), ("ucet_heslo", 4), ("ucet_heslo2", 4), ("ucet_admin", 12)])]),
+    "role": ("Role sdružuje oprávnění. Zaměstnancům role přiřadíte v jejich kartě.",
+                 [("Role", [("nazev", 6), ("popis", 12), ("opravneni", 12)]), ("Nastavení", [("je_administrator", 12), ("aktivni", 12)])]),
+    "opravneni": ("Oprávnění je konkrétní akce, kterou může role povolit (např. změna stavu zakázky). Kód používá aplikace, proto ho po založení neměňte.",
+                 [("Oprávnění", [("kod", 6), ("nazev", 6), ("popis", 12)])]),
+    "stavzakazky": ("Stavy, kterými zakázka prochází. Pořadí určuje, jak jdou stavy za sebou v přehledech.",
+                 [("Stav zakázky", [("nazev", 6), ("poradi", 3), ("popis", 12), ("aktivni", 12)])]),
+    "typukonu": ("Typy prací, ze kterých se vybírá při zápisu práce na zakázce.", [("Typ úkonu", [("nazev", 6), ("popis", 12), ("aktivni", 12)])]),
+    "material": ("Katalog materiálu. Poslední cena se nabídne při přidání materiálu na zakázku.",
+                 [("Materiál", [("nazev", 6), ("jednotka", 3), ("posledni_cena", 3), ("aktivni", 12)])]),
+    "dodavatel": ("Dodavatelé, od kterých přijímáte faktury. Při importu ISDOC se dodavatel najde podle IČO nebo založí sám.",
+                 [("Dodavatel", [("nazev", 6), ("ico", 3), ("dic", 3), ("adresa", 12)]), ("Kontakt a platba", [("telefon", 4), ("email", 4), ("cislo_uctu", 4), ("poznamka", 12)]),
+                  ("Stav", [("aktivni", 12)])]),
+    "sazbadph": ("Sazby DPH, ze kterých se vybírá u prací a materiálu. Výchozí sazba se nastavuje v Nastavení → Firma.", [("Sazba DPH", [("sazba", 3), ("aktivni", 12)])]),
     "kalendarudalost": ("Ruční záznam do kalendáře, např. schůzka, výjezd nebo připomínka. Události zakázek a faktur se do kalendáře zapisují samy.",
                  [("Událost", [("nazev", 6), ("datum", 3), ("typ", 3), ("popis", 12)]),
                   ("Zařazení", [("zakazka", 6), ("zamestnanci", 6)]),
@@ -575,7 +668,7 @@ def nastaveni(request):
     zal = f"Firmu založil {fi.vytvoril.get_full_name() or fi.vytvoril.username if fi.vytvoril else 'neznámý uživatel'} dne {timezone.localtime(fi.datum_vytvoreni):%d.%m.%Y %H:%M}." if fi and fi.datum_vytvoreni else ""
     g = [("Firma", [("Údaje o firmě a logo", reverse("nastaveni_firma"))], zal),
          ("DPH", [("Sazby DPH", L("sazbadph"))], "Výchozí sazba DPH se nastavuje v části Firma."),
-         ("Uživatelé a oprávnění", [("Zaměstnanci", L("zamestnanec")), ("Role", L("role")), ("Oprávnění", L("opravneni"))] + ([("Uživatelské účty", "/admin/auth/user/")] if st else []), ""),
+         ("Uživatelé a oprávnění", [("Zaměstnanci", L("zamestnanec")), ("Role", L("role")), ("Oprávnění", L("opravneni"))], "Přihlašovací účet zaměstnance (jméno, heslo, administrátor) nastavíte přímo v kartě zaměstnance."),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
     return R(request, "nastaveni", sec="nastaveni", groups=g)
