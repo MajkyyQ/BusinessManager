@@ -430,12 +430,19 @@ def faktura_nova(request):
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "faktura_nova", sec="dokumenty", form=form, nahled=dict(nahled_ctx(z), doklad="faktura") if z else None)
 
+class ZakazkaSelect(forms.Select):
+    """Výběr zakázky, kde každá volba nese id zákazníka (data-zakaznik) – formulář pak nabízí jen zakázky vybraného zákazníka."""
+    def create_option(self, name, value, *a, **k):
+        o = super().create_option(name, value, *a, **k); inst = getattr(value, "instance", None)
+        if inst is not None: o["attrs"]["data-zakaznik"] = inst.zakaznik_id
+        return o
+
 # ---------------- Přijatá objednávka od zákazníka (aplikace objednávky nevystavuje) ----------------
 class ObjednavkaForm(forms.Form):
     zakaznik = forms.ModelChoiceField(Zakaznik.objects.filter(aktivni=True), label="Zákazník", empty_label="— od koho objednávka přišla —",
                                       widget=forms.Select(attrs={"class": "form-select"}))
     zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— ke které zakázce patří —",
-                            widget=forms.Select(attrs={"class": "form-select"}))
+                            widget=ZakazkaSelect(attrs={"class": "form-select"}))
     cislo = forms.CharField(label="Číslo objednávky", max_length=50, help_text="Číslo, pod kterým zákazník objednávku vystavil.", widget=forms.TextInput(attrs={"class": "form-control"}))
     datum = forms.DateField(label="Datum vystavení", required=False, help_text="Datum uvedené na objednávce.", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
     stredisko = forms.CharField(label="Středisko", max_length=100, required=False, widget=forms.TextInput(attrs={"class": "form-control"}))

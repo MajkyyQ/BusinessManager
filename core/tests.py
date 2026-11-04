@@ -398,6 +398,10 @@ class TvorbaDokladuZeZakazkyTest(TestCase):
         self.assertEqual(list(o.priloha.zakazky.all()), [self.z])
         self.assertContains(self.client.get(reverse("plocha", args=[self.z.pk])), "Objednávka OBJ-7")
 
+    def test_zakazky_nesou_zakaznika(self):
+        html = self.client.get(reverse("objednavka_nova")).content.decode()
+        self.assertIn(f'value="{self.z.pk}" data-zakaznik="{self.z.zakaznik_id}"', html)
+
     def test_objednavka_bez_zakazky_neprojde(self):
         from .models import Objednavka
         r = self.client.post(reverse("objednavka_nova"), {"zakaznik": self.z.zakaznik.pk, "cislo": "OBJ-9", "predmet": "Oprava"})
