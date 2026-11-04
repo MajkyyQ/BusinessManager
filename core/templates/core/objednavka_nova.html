@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Přijatá objednávka od zákazníka</h3></div>
-<p class="text-muted">Zapište objednávku, kterou vám poslal zákazník (aplikace objednávky nevystavuje). Vyberte zákazníka, od kterého přišla, a zakázku, ke které patří. Ostatní údaje přepište z objednávky ručně.</p>
+<p class="text-muted">Zapište objednávku, kterou vám poslal zákazník (aplikace objednávky nevystavuje). Vyberte zákazníka, od kterého přišla, a zakázku, ke které patří (nabídnou se jen zakázky vybraného zákazníka). Ostatní údaje přepište z objednávky ručně.</p>
 <form method="post" enctype="multipart/form-data" hx-boost="false" class="col-lg-9">{% csrf_token %}{{ form.non_field_errors }}
 <div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold">{{ form.zakaznik.label }}</label>{{ form.zakaznik }}<div class="text-danger small">{{ form.zakaznik.errors }}</div></div>
 <div class="col-md-6"><label class="form-label mb-0 fw-bold">{{ form.zakazka.label }}</label>{{ form.zakazka }}<div class="text-danger small">{{ form.zakazka.errors }}</div></div></div>
@@ -10,4 +10,12 @@
 <div class="mb-3"><label class="form-label mb-0">{{ form.text.label }}</label>{{ form.text }}<div class="form-text mt-0">{{ form.text.help_text }}</div><div class="text-danger small">{{ form.text.errors }}</div></div>
 <div class="mb-3"><label class="form-label mb-0">{{ form.soubor.label }}</label>{{ form.soubor }}<div class="form-text mt-0">{{ form.soubor.help_text }}</div><div class="text-danger small">{{ form.soubor.errors }}</div></div>
 <div><label class="form-label mb-0">{{ form.poznamka.label }}</label>{{ form.poznamka }}</div>
+<script>
+(()=>{const k=document.getElementById('id_zakaznik'),z=document.getElementById('id_zakazka');if(!k||!z)return;
+ const filtr=()=>{for(const o of z.options){if(!o.value)continue;const ok=!k.value||o.dataset.zakaznik==k.value;o.hidden=o.disabled=!ok}
+  const s=z.options[z.selectedIndex];if(s&&s.disabled)z.value=''};
+ k.addEventListener('change',filtr);
+ z.addEventListener('change',()=>{const s=z.options[z.selectedIndex];if(s&&s.value&&!k.value){k.value=s.dataset.zakaznik;filtr()}});
+ filtr()})();
+</script>
 <button class="btn btn-primary mt-3">Uložit objednávku</button> <a class="btn btn-secondary mt-3" href="{% url 'dokumenty' %}">Zrušit</a></form>{% endblock %}
