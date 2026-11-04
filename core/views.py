@@ -211,8 +211,9 @@ def lst(request, slug):
             qs = qs.annotate(n_zar=Coalesce(Subquery(nzar), 0), n_zak=Coalesce(Subquery(nzak), 0))
     if slug == "zakazka" and pohled == "kan":  # kanban zakázek: sloupec = stav, karty bez stránkování
         zz = list(qs.prefetch_related("zarizeni")[:KANBAN_MAX]); sl = [st] if st else stavy
-        sloupce = [(s, STAV_CSS.get(s, "light"), [z for z in zz if z.stav and z.stav.nazev == s]) for s in sl]
-        if not st and any(not z.stav for z in zz): sloupce.append(("Bez stavu", "light", [z for z in zz if not z.stav]))
+        # uzavřené stavy (Vydáno, Zrušeno) jsou ve výchozím kanbanu sbalené jen na počet; rozbalí se kliknutím na stav
+        sloupce = [dict(s=s, css=STAV_CSS.get(s, "light"), items=[z for z in zz if z.stav and z.stav.nazev == s], sbaleno=not st and s in CLOSED, url=_url(request, st=s)) for s in sl]
+        if not st and any(not z.stav for z in zz): sloupce.append(dict(s="Bez stavu", css="light", items=[z for z in zz if not z.stav], sbaleno=False, url=""))
     page = Paginator(qs if qs.ordered else qs.order_by("pk"), 50).get_page(request.GET.get("page"))
     if slug == "zakaznik":
         heads = [dict(l=x) for x in ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]]
