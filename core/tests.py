@@ -463,8 +463,19 @@ class NovyVzhledFormularuTest(TestCase):
         from .models import KalendarUdalost
         r = self.client.get(reverse("create", args=["kalendarudalost"]), {"datum": "2026-11-05T09:00"})
         self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertContains(r, "Nová událost kalendáře")
-        self.client.post(reverse("create", args=["kalendarudalost"]), {"nazev": "Výjezd", "datum": "2026-11-05T09:00", "typ": "Ruční událost"})
+        self.client.post(reverse("create", args=["kalendarudalost"]), {"nazev": "Výjezd", "datum": "2026-11-05T09:00", "typ": "Vlastní událost"})
         self.assertTrue(KalendarUdalost.objects.filter(nazev="Výjezd").exists())
+
+    def test_rychla_udalost_v_kalendari(self):
+        """„+“ u dne v kalendáři otevře pop-up se základními poli; rozšířené možnosti obsahují zbytek formuláře."""
+        from .models import KalendarUdalost
+        r = self.client.get(reverse("kalendar"), {"d": "2026-11-05"})
+        self.assertContains(r, 'id="ud"'); self.assertContains(r, "Rozšířené možnosti"); self.assertContains(r, 'class="ud-ext"')
+        self.assertContains(r, 'data-d="2026-11-05"'); self.assertContains(r, 'value="2026-11-05T09:00"')
+        self.assertContains(r, '<option value="Vlastní událost" selected>'); self.assertNotContains(r, "Ruční událost")
+        r = self.client.post(reverse("create", args=["kalendarudalost"]) + "?next=/kalendar/", {"nazev": "Schůzka", "datum": "2026-11-12T09:00", "typ": "Vlastní událost", "popis": "x"})
+        self.assertRedirects(r, "/kalendar/", fetch_redirect_response=False)
+        self.assertEqual(KalendarUdalost.objects.get(nazev="Schůzka").datum.date().isoformat(), "2026-11-12")
 
     def test_nova_zakazka_se_zobrazi(self):
         self.assertContains(self.client.get(reverse("zakazka_nova")), "Zákazník a převzetí")

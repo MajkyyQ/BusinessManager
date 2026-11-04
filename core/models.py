@@ -256,13 +256,13 @@ class PrijataFaktura(models.Model):
     def po_splatnosti(self): return self.stav != "Zaplaceno" and self.datum_splatnosti is not None and self.datum_splatnosti < timezone.localdate()
     def __str__(self): return f"Přijatá faktura {self.cislo_faktury} ({self.dodavatel})"
 class KalendarUdalost(models.Model):
-    TYPY = ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Přijatá faktura", "Splatnost faktury", "Zaplaceno dodavateli", "Ruční událost")
+    TYPY = ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Přijatá faktura", "Splatnost faktury", "Zaplaceno dodavateli", "Vlastní událost")
     class Meta:
         verbose_name = "událost kalendáře"; verbose_name_plural = "Kalendář"; ordering = ["-datum"]
         constraints = [VYCET("typ", ("Přijetí zakázky", "Vydání zařízení", "Fakturováno", "Zaplaceno", "Přijatá faktura", "Splatnost faktury",
-                                     "Zaplaceno dodavateli", "Ruční událost"), "kalendar_typ_platny", prazdne=False)]
+                                     "Zaplaceno dodavateli", "Vlastní událost"), "kalendar_typ_platny", prazdne=False)]
     nazev = models.CharField(max_length=200); popis = T(); datum = models.DateTimeField(default=timezone.now)
-    typ = C(30, choices=[(x, x) for x in TYPY], default="Ruční událost")
+    typ = C(30, choices=[(x, x) for x in TYPY], default="Vlastní událost")
     automaticka = models.BooleanField(default=False, editable=False)
     zakazka = FK(Zakazka); faktura = FK(Faktura); platba = FK(Platba); vytvoril = FK(User)
     prijata_faktura = models.ForeignKey(PrijataFaktura, on_delete=models.CASCADE, null=True, blank=True, verbose_name="přijatá faktura")

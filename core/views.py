@@ -302,7 +302,13 @@ def edit(request, slug, pk=None):
         else: log(request, o, "Vytvoření" if not pk else "Úprava")
         messages.success(request, "Uloženo."); nx = safe_next(request)
         return redirect(nx) if nx else redirect("detail", slug=slug, pk=o.pk)
-    # všechny obecné formuláře mají nový vzhled: sekce a pole vedle sebe; rozvržení podle ROZVRH, jinak automaticky
+    uvod, sekce = sekce_formulare(slug, form)
+    nx = safe_next(request); zrusit = nx or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
+    return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit,
+             nadpis=f"Úprava: {o}" if o else nadpis_novy(slug, M), uvod=None if o else uvod)
+
+def sekce_formulare(slug, form):
+    """Všechny obecné formuláře mají nový vzhled: sekce a pole vedle sebe; rozvržení podle ROZVRH, jinak automaticky. Vrátí (úvod, sekce)."""
     sirka = lambda n: 12 if form[n].widget_type in ("textarea", "checkbox", "selectmultiple", "clearablefile", "file") else 6
     uvod, rozvrh = ROZVRH.get(slug, (None, [("Údaje", [])]))
     umistena = {n for _, pp in rozvrh for n, _ in pp}
@@ -311,10 +317,7 @@ def edit(request, slug, pk=None):
     if zbyle:
         if slug in ROZVRH: sekce.append(("Další údaje", zbyle))
         else: sekce[0][1].extend(zbyle)
-    sekce = [x for x in sekce if x[1]]
-    nx = safe_next(request); zrusit = nx or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
-    return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit,
-             nadpis=f"Úprava: {o}" if o else nadpis_novy(slug, M), uvod=None if o else uvod)
+    return uvod, [x for x in sekce if x[1]]
 
 ROD = {"zakaznik": "Nový", "stavzakazky": "Nový", "typukonu": "Nový", "material": "Nový", "dodavatel": "Nový", "zamestnanec": "Nový", "kontaktniosoba": "Nová",
        "zarizeni": "Nové", "opravneni": "Nové", "kalendarudalost": "Nová", "role": "Nová", "sazbadph": "Nová", "platba": "Nová", "priloha": "Nová",
@@ -400,7 +403,7 @@ ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])
                  [("Dodavatel", [("nazev", 6), ("ico", 3), ("dic", 3), ("adresa", 12)]), ("Kontakt a platba", [("telefon", 4), ("email", 4), ("cislo_uctu", 4), ("poznamka", 12)]),
                   ("Stav", [("aktivni", 12)])]),
     "sazbadph": ("Sazby DPH, ze kterých se vybírá u prací a materiálu. Výchozí sazba se nastavuje v Nastavení → Firma.", [("Sazba DPH", [("sazba", 3), ("aktivni", 12)])]),
-    "kalendarudalost": ("Ruční záznam do kalendáře, např. schůzka, výjezd nebo připomínka. Události zakázek a faktur se do kalendáře zapisují samy.",
+    "kalendarudalost": ("Vlastní záznam do kalendáře, např. schůzka, výjezd nebo připomínka. Události zakázek a faktur se do kalendáře zapisují samy.",
                  [("Událost", [("nazev", 6), ("datum", 3), ("typ", 3), ("popis", 12)]),
                   ("Zařazení", [("zakazka", 6), ("zamestnanci", 6)]),
                   ("Další vazby (nepovinné)", [("faktura", 4), ("platba", 4), ("prijata_faktura", 4), ("vytvoril", 4)])]),
@@ -660,7 +663,18 @@ def kalendar(request):
     qq = urlencode({k: x for k, x in (("typ", typ), ("zam", zam)) if x})
     return R(request, "kalendar", sec="kalendar", v=v, d=d, days=days, rows=[days[i:i + 7] for i in range(0, len(days), 7)] if v == "month" else None, title=title, prev=prev, nxt=nxt,
         today=today, typ=typ, zam=zam, qq=("&" + qq) if qq else "", modes=[("month", "Měsíc"), ("week", "Týden"), ("day", "Den")], wd=["Po", "Út", "St", "Čt", "Pá", "So", "Ne"],
-        typy=[x[0] for x in KalendarUdalost._meta.get_field("typ").choices], zamestnanci=Zamestnanec.objects.filter(aktivni=True), nxtpath=request.get_full_path())
+        typy=[x[0] for x in KalendarUdalost._meta.get_field("typ").choices], zamestnanci=Zamestnanec.objects.filter(aktivni=True), nxtpath=request.get_full_path(),
+        rychla=rychla_udalost(request, d))
+
+RYCHLA_POLE = ("nazev", "datum", "typ", "popis")  # pole rychlého pop-upu; zbytek formuláře je pod „Rozšířené možnosti“
+def rychla_udalost(request, d):
+    """Pop-up „Nová událost“ v kalendáři: stejný formulář jako stránka + Událost, jen se nejdřív ukážou základní pole."""
+    Form = modelform_factory(KalendarUdalost, form=BaseForm, fields="__all__", formfield_callback=cb)
+    form = Form(initial={"datum": f"{d:%Y-%m-%d}T09:00", "vytvoril": request.user.pk})
+    _, sekce = sekce_formulare("kalendarudalost", form)
+    zaklad = [(form[n], {"nazev": 12, "datum": 6, "typ": 6, "popis": 12}[n]) for n in RYCHLA_POLE]
+    rozsirene = [(t, [(f, w) for f, w in pp if f.name not in RYCHLA_POLE]) for t, pp in sekce]
+    return {"form": form, "zaklad": zaklad, "rozsirene": [x for x in rozsirene if x[1]], "url": reverse("create", args=["kalendarudalost"])}
 
 # ---------------- Nastavení ----------------
 def nastaveni(request):
