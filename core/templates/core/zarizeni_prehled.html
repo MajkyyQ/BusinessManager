@@ -3,9 +3,9 @@
 <a class="btn btn-sm btn-primary" href="{% url 'create' 'zarizeni' %}?next={{ request.path }}">+ Nové zařízení</a></div>
 <form method="get" id="zf" class="d-flex flex-wrap gap-2 mb-3"><input type="hidden" name="o" value="{{ o }}">
 <select name="f" class="form-select w-auto" onchange="this.form.submit()">{% for k,n in filtry %}<option value="{{ k }}" {% if k == f %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
-<input class="form-control w-auto flex-grow-1" style="max-width:420px" name="q" value="{{ q }}" placeholder="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…">
-<button class="btn btn-outline-secondary">Hledat</button>{% if q or f or fs or fi %}<a class="btn btn-link" href="{% url 'zarizeni_prehled' %}">Zrušit filtr</a>{% endif %}</form>
-<div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr>
+<input class="form-control w-auto flex-grow-1" style="max-width:420px" name="q" value="{{ q }}" placeholder="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…" hx-get="" hx-include="closest form" hx-trigger="input changed delay:300ms" hx-target="#vysledky" hx-select="#vysledky" hx-swap="outerHTML" hx-push-url="true" autocomplete="off">
+{% if q or f or fs or fi %}<a class="btn btn-link" href="{% url 'zarizeni_prehled' %}">Zrušit filtr</a>{% endif %}</form>
+<div id="vysledky"><div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr>
 {% for k,l,ord,ar in heads %}<th class="text-nowrap"><a class="text-decoration-none text-dark" href="?{% if keep %}{{ keep }}&{% endif %}o={{ ord }}">{{ l }} <span class="text-primary">{{ ar }}</span></a>{% if k == "stav" %}
 <div class="d-flex gap-1 mt-1 fw-normal"><select name="st" form="zf" class="form-select form-select-sm w-auto" onchange="this.form.submit()" title="Filtr stavu"><option value="">Vše</option>{% for s in stavy %}<option {% if s == fs %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
 <select name="fi" form="zf" class="form-select form-select-sm w-auto" onchange="this.form.submit()" title="Je zařízení na firmě?"><option value="">Na firmě i mimo</option><option value="ano" {% if fi == "ano" %}selected{% endif %}>Na firmě</option><option value="ne" {% if fi == "ne" %}selected{% endif %}>Mimo firmu</option></select></div>{% endif %}</th>{% endfor %}<th class="text-end">Zakázek</th></tr></thead><tbody>
@@ -16,5 +16,5 @@
 <td><span class="badge bg-{{ r.css }}">{{ r.stav }}</span>{% if r.firma %} <span class="badge bg-warning text-dark">na firmě</span>{% endif %}{% if r.z %}<br><small><a href="{% url 'detail' 'zakazka' r.z.pk %}">#{{ r.z.cislo_zakazky }}</a></small>{% endif %}</td>
 <td class="text-nowrap">{{ r.prijeti|date:"j. n. Y"|default:"–" }}</td>
 <td class="text-nowrap">{{ r.akce|date:"j. n. Y H:i"|default:"–" }}</td>
-<td class="text-end">{{ r.n }}</td></tr>{% empty %}<tr><td colspan="7" class="text-muted">Žádná zařízení neodpovídají filtru.</td></tr>{% endfor %}</tbody></table></div>
+<td class="text-end">{{ r.n }}</td></tr>{% empty %}<tr><td colspan="7" class="text-muted">Žádná zařízení neodpovídají filtru.</td></tr>{% endfor %}</tbody></table></div></div>
 <p class="small text-muted">Poslední akce = poslední změna zařízení nebo kterékoli jeho zakázky.</p>{% endblock %}
