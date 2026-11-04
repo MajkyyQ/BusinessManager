@@ -134,6 +134,10 @@ def lookup_new(request, slug):
         return render(request, "core/lookup_form.html", ctx, status=400)
     return render(request, "core/lookup_form.html", ctx)
 
+POPISKY = {"jmeno": "Jméno", "typ_zakaznika": "Typ zákazníka", "nazev": "Název", "zakazka": "Zakázka", "zakazky": "Zakázky", "zakaznik": "Zákazník",
+           "zamestnanci": "Zaměstnanci", "vytvoril": "Vytvořil", "nahral": "Nahrál", "vystavil": "Vystavil", "vypracoval": "Vypracoval", "poznamka": "Poznámka",
+           "zarizeni": "Zařízení", "vyrobce": "Výrobce", "seriove_cislo": "Sériové číslo", "posledni_cena": "Poslední cena", "cislo_uctu": "Číslo účtu",
+           "datum_vytvoreni": "Datum vytvoření", "priloha": "Příloha", "stredisko": "Středisko"}
 class BaseForm(forms.ModelForm):
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -141,6 +145,7 @@ class BaseForm(forms.ModelForm):
             t = getattr(getattr(f, "queryset", None), "model", None); s = t and t._meta.model_name
             if s in LOOKUP:
                 d = LOOKUP[s]["dep"]; f.widget = LookupWidget(s, t, isinstance(f, forms.ModelMultipleChoiceField), d if d in self.fields else ""); continue
+            if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]  # pole bez verbose_name -> čeština s diakritikou
             w = f.widget; c = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
             w.attrs["class"] = c
             if isinstance(w, forms.Textarea): w.attrs["rows"] = 3
@@ -284,7 +289,27 @@ def edit(request, slug, pk=None):
         else: log(request, o, "Vytvoření" if not pk else "Úprava")
         messages.success(request, "Uloženo."); nx = safe_next(request)
         return redirect(nx) if nx else redirect("detail", slug=slug, pk=o.pk)
+    if slug in ROZVRH:  # formuláře v novém vzhledu (sekce, pole vedle sebe)
+        uvod, rozvrh = ROZVRH[slug]; umistena = {n for _, pp in rozvrh for n, _ in pp}
+        sekce = [(t, [(form[n], w) for n, w in pp if n in form.fields]) for t, pp in rozvrh]
+        zbyle = [(form[n], 6) for n in form.fields if n not in umistena]
+        if zbyle: sekce.append(("Další údaje", zbyle))
+        nx = safe_next(request); zrusit = nx or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
+        return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit,
+                 nadpis=f"Úprava: {o}" if o else f"Nový {M._meta.verbose_name}" if slug == "zakaznik" else f"Nová {M._meta.verbose_name}", uvod=None if o else uvod)
     return R(request, "form", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart())
+
+ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])]); pole, která tu chybí, se ukážou v sekci „Další údaje“
+    "zakaznik": ("U soukromé osoby vyplňte jméno, u firmy název firmy (a případně jméno kontaktní osoby). Kontaktní osoby a zařízení přidáte na stránce zákazníka.",
+                 [("Zákazník", [("typ_zakaznika", 4), ("jmeno", 4), ("firma", 4)]),
+                  ("Kontakt", [("telefon", 4), ("email", 8), ("adresa", 12)]),
+                  ("Firemní údaje", [("ico", 4), ("dic", 4)]),
+                  ("Stav", [("aktivni", 12)])]),
+    "kalendarudalost": ("Ruční záznam do kalendáře, např. schůzka, výjezd nebo připomínka. Události zakázek a faktur se do kalendáře zapisují samy.",
+                 [("Událost", [("nazev", 6), ("datum", 3), ("typ", 3), ("popis", 12)]),
+                  ("Zařazení", [("zakazka", 6), ("zamestnanci", 6)]),
+                  ("Další vazby (nepovinné)", [("faktura", 4), ("platba", 4), ("prijata_faktura", 4), ("vytvoril", 4)])]),
+}
 
 def delete(request, slug, pk):
     if not jen_admin_ok(request, slug): return redirect("dashboard")

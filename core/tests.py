@@ -443,3 +443,28 @@ class PrijataFakturaRucneTest(TestCase):
         self.client.post(reverse("prijata_faktura_rucne"), d)
         self.assertEqual(self.client.post(reverse("prijata_faktura_rucne"), d).status_code, 200)
         self.assertEqual(PrijataFaktura.objects.filter(cislo_faktury="FV-2").count(), 1)
+
+
+class NovyVzhledFormularuTest(TestCase):
+    """Nový zákazník a nová událost používají formulář se sekcemi; uložení funguje dál."""
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("u", password="x"))
+
+    def test_novy_zakaznik(self):
+        r = self.client.get(reverse("create", args=["zakaznik"]))
+        self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertContains(r, "Firemní údaje")
+        r = self.client.post(reverse("create", args=["zakaznik"]) + "?next=/", {"typ_zakaznika": "Firma", "firma": "Nová s.r.o.", "aktivni": "on"})
+        self.assertRedirects(r, "/", fetch_redirect_response=False); self.assertTrue(Zakaznik.objects.filter(firma="Nová s.r.o.").exists())
+        z = Zakaznik.objects.get(firma="Nová s.r.o.")
+        self.assertContains(self.client.get(reverse("edit", args=["zakaznik", z.pk])), "Úprava: Nová s.r.o.")
+
+    def test_nova_udalost(self):
+        from .models import KalendarUdalost
+        r = self.client.get(reverse("create", args=["kalendarudalost"]), {"datum": "2026-11-05T09:00"})
+        self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertContains(r, "Nová událost kalendáře")
+        self.client.post(reverse("create", args=["kalendarudalost"]), {"nazev": "Výjezd", "datum": "2026-11-05T09:00", "typ": "Ruční událost"})
+        self.assertTrue(KalendarUdalost.objects.filter(nazev="Výjezd").exists())
+
+    def test_nova_zakazka_se_zobrazi(self):
+        self.assertContains(self.client.get(reverse("zakazka_nova")), "Zákazník a převzetí")
