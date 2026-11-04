@@ -430,28 +430,36 @@ def faktura_nova(request):
 
 # ---------------- Přijatá objednávka od zákazníka (aplikace objednávky nevystavuje) ----------------
 class ObjednavkaForm(forms.Form):
-    zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— vyberte zakázku —",
-                            widget=forms.Select(attrs={"class": "form-select"}))
+    zakaznik = forms.ModelChoiceField(Zakaznik.objects.filter(aktivni=True), label="Zákazník", empty_label="— od koho objednávka přišla —",
+                                      widget=forms.Select(attrs={"class": "form-select"}))
+    zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka (nepovinné)", required=False,
+                            empty_label="— bez zakázky —", widget=forms.Select(attrs={"class": "form-select"}))
     cislo = forms.CharField(label="Číslo objednávky", max_length=50, help_text="Číslo, pod kterým zákazník objednávku vystavil.", widget=forms.TextInput(attrs={"class": "form-control"}))
     datum = forms.DateField(label="Datum objednávky", required=False, widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
-    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Uloží se i do příloh zakázky.",
+    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Je-li vybraná zakázka, uloží se i do jejích příloh.",
                              widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
     poznamka = forms.CharField(label="Poznámka (nepovinné)", required=False, widget=forms.Textarea(attrs={"rows": 2, "class": "form-control"}))
+    def clean(self):
+        c = super().clean()
+        if c.get("zakazka") and c.get("zakaznik") and c["zakazka"].zakaznik_id != c["zakaznik"].pk: self.add_error("zakazka", "Zakázka patří jinému zákazníkovi.")
+        return c
 
 def objednavka_nova(request):
     z0 = Zakazka.objects.filter(pk=request.GET.get("zakazka") or 0).first()
-    form = ObjednavkaForm(request.POST or None, request.FILES or None, initial={"zakazka": z0, "datum": timezone.localdate()})
+    k0 = z0.zakaznik if z0 else Zakaznik.objects.filter(pk=request.GET.get("zakaznik") or 0).first()
+    form = ObjednavkaForm(request.POST or None, request.FILES or None, initial={"zakaznik": k0, "zakazka": z0, "datum": timezone.localdate()})
     if request.method == "POST" and form.is_valid():
-        z = form.cleaned_data["zakazka"]; c = form.cleaned_data
+        c = form.cleaned_data; z = c["zakazka"]
         with transaction.atomic():
             pr = None
             if c["soubor"]:
-                pr = Priloha.objects.create(nazev=f"Objednávka {c['cislo']}"[:200], soubor=c["soubor"], nahral=request.user); pr.zakazky.add(z)
-            o = Objednavka.objects.create(cislo_objednavky=c["cislo"], zakaznik=z.zakaznik, datum_objednavky=c["datum"], priloha=pr, poznamka=c["poznamka"])
-            o.zakazky.add(z)
+                pr = Priloha.objects.create(nazev=f"Objednávka {c['cislo']}"[:200], soubor=c["soubor"], nahral=request.user)
+                if z: pr.zakazky.add(z)
+            o = Objednavka.objects.create(cislo_objednavky=c["cislo"], zakaznik=c["zakaznik"], datum_objednavky=c["datum"], priloha=pr, poznamka=c["poznamka"])
+            if z: o.zakazky.add(z)
             log(request, o, "Vytvoření", popis_z=z)
-        messages.success(request, f"Přijatá objednávka {o.cislo_objednavky} zapsána k zakázce {z.cislo_zakazky}.")
-        return redirect(safe_next(request) or reverse("detail", args=["zakazka", z.pk]))
+        messages.success(request, f"Přijatá objednávka {o.cislo_objednavky} zapsána" + (f" k zakázce {z.cislo_zakazky}." if z else "."))
+        return redirect(safe_next(request) or (reverse("detail", args=["zakazka", z.pk]) if z else reverse("detail", args=["objednavka", o.pk])))
     return R(request, "objednavka_nova", sec="dokumenty", form=form)
 
 def nabidka_nahled(request):
