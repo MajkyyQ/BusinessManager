@@ -173,7 +173,7 @@ def _pohled(request, klic):
     else: v = request.session.get("pohled_" + klic, "tab")
     return v, [("tab", "☰ Tabulka", _url(request, v="tab"), v == "tab"), ("kan", "▦ Kanban", _url(request, v="kan"), v == "kan")]
 def _chips(request, param, polozky, aktivni, celkem, vse="Vše"):
-    """Rychlý filtr podle stavu s počty (inspirace ABRA Flexi): [(popisek, url, počet, aktivní, barva)]."""
+    """Rychlý filtr podle stavu s počty: [(popisek, url, počet, aktivní, barva)]."""
     return [(vse, _url(request, **{param: ""}), celkem, not aktivni, "")] + [(l, _url(request, **{param: k}), n, k == aktivni, css) for k, l, n, css in polozky]
 
 def dashboard(request):

@@ -323,7 +323,7 @@ class SQLInjectionTest(TestCase):
 
 
 class JednotneSeznamyTest(TestCase):
-    """Seznamy: rychlý filtr stavu s počty (ABRA), přepínač tabulka / kanban (Odoo), stejné rozložení stránky."""
+    """Seznamy: rychlý filtr stavu s počty, přepínač tabulka / kanban (Odoo), stejné rozložení stránky."""
     def setUp(self):
         from .models import StavZakazky, Zakazka, Zarizeni
         NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
