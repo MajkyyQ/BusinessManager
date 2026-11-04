@@ -8,7 +8,7 @@ urlpatterns = [path("pruvodce/ucet/", pruvodce.ucet, name="pruvodce_ucet"), path
     path("nastaveni/", v.nastaveni, name="nastaveni"), path("nastaveni/firma/", v.nastaveni_firma, name="nastaveni_firma"), path("nastaveni/zaloha/", v.nastaveni_zaloha, name="nastaveni_zaloha"),
     path("nabidka/z-zakazky/", v.nabidka_nova, name="nabidka_nova"), path("nabidka/nahled/", v.nabidka_nahled, name="nabidka_nahled"),
     path("faktura/z-zakazky/", v.faktura_nova, name="faktura_nova"), path("objednavka/z-zakazky/", v.objednavka_nova, name="objednavka_nova"),
-    path("prijatafaktura/import/", v.prijata_faktura_import, name="prijata_faktura_import"), path("prijatafaktura/<int:pk>/zaplaceno/", v.prijata_faktura_zaplaceno, name="prijata_faktura_zaplaceno"),
+    path("prijatafaktura/import/", v.prijata_faktura_import, name="prijata_faktura_import"), path("prijatafaktura/rucne/", v.prijata_faktura_rucne, name="prijata_faktura_rucne"), path("prijatafaktura/<int:pk>/zaplaceno/", v.prijata_faktura_zaplaceno, name="prijata_faktura_zaplaceno"),
     path("plocha/", v.plocha_home, name="plocha_hledat"), path("plocha/<int:pk>/", v.plocha, name="plocha"),
     path("dokumenty/sablony/", vs.sablony_seznam, name="sablony"), path("dokumenty/sablony/nova/", vs.sablona_edit, name="sablona_nova"),
     path("dokumenty/sablony/znacky/", vs.sablony_znacky, name="sablony_znacky"), path("dokumenty/sablony/<int:pk>/", vs.sablona_detail, name="sablona_detail"),

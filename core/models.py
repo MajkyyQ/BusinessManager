@@ -191,7 +191,10 @@ class PolozkaNabidky(Polozka):
 class Objednavka(models.Model):
     class Meta: verbose_name = "objednávka"; verbose_name_plural = "Objednávky"
     cislo_objednavky = models.CharField(max_length=50); zakaznik = models.ForeignKey(Zakaznik, on_delete=models.PROTECT)
-    datum_objednavky = models.DateField(null=True, blank=True); priloha = FK(Priloha); poznamka = T()
+    datum_objednavky = models.DateField("datum vystavení", null=True, blank=True, help_text="Datum uvedené na objednávce zákazníka.")
+    stredisko = C(100, verbose_name="středisko"); predmet = C(200, verbose_name="předmět objednávky", help_text="Stručně, o co se jedná.")
+    text = models.TextField("text objednávky", blank=True, help_text="Co zákazník objednává, opsané z objednávky.")
+    priloha = FK(Priloha); poznamka = T()
     zakazky = models.ManyToManyField(Zakazka, blank=True); datum_vytvoreni = DV()
     def __str__(self): return f"Objednávka {self.cislo_objednavky}"
 class Faktura(Dokument):
