@@ -28,7 +28,8 @@ from django.views.decorators.http import require_POST
 from django.urls import reverse
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
-                     Dodavatel, PrijataFaktura, Priloha)
+                     Dodavatel, PrijataFaktura, Priloha, CiselnaRada)
+from . import cislovani
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
 READONLY = {"historiezmen"}
@@ -43,6 +44,7 @@ for _s in ("nabidka", "polozkanabidky", "objednavka", "faktura", "polozkafaktury
 SEC["kalendarudalost"] = ("kalendar", None)
 for _s, _g in (("nastavenifirmy", "Firma"), ("sazbadph", "DPH"), ("zamestnanec", "Uživatelé a oprávnění"), ("role", "Uživatelé a oprávnění"),
                ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("dodavatel", "Katalogy"), ("historiezmen", "Systém")): SEC[_s] = ("nastaveni", _g)
+SEC["ciselnarada"] = ("nastaveni", "Dokumenty")
 SEC["sablonadokumentu"] = ("dokumenty", None)  # šablony smí upravovat každý uživatel, nejsou součástí Nastavení
 
 def je_admin(user): return user.is_staff or user.is_superuser
@@ -669,6 +671,8 @@ def nastaveni(request):
     g = [("Firma", [("Údaje o firmě a logo", reverse("nastaveni_firma"))], zal),
          ("DPH", [("Sazby DPH", L("sazbadph"))], "Výchozí sazba DPH se nastavuje v části Firma."),
          ("Uživatelé a oprávnění", [("Zaměstnanci", L("zamestnanec")), ("Role", L("role")), ("Oprávnění", L("opravneni"))], "Přihlašovací účet zaměstnance (jméno, heslo, administrátor) nastavíte přímo v kartě zaměstnance."),
+         ("Dokumenty", [("Číslování dokladů", reverse("nastaveni_cislovani")), ("Šablony dokumentů", reverse("sablony"))],
+          "Jak vypadají čísla zakázkových listů, nabídek a faktur. Změnit je můžete kdykoli, vystavené doklady si čísla nechají."),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
     return R(request, "nastaveni", sec="nastaveni", groups=g)
@@ -676,6 +680,42 @@ def nastaveni_firma(request):
     if not jen_admin_ok(request): return redirect("dashboard")
     o = NastaveniFirmy.objects.first() or NastaveniFirmy.objects.create(nazev_firmy="Moje firma")
     return redirect(reverse("edit", args=["nastavenifirmy", o.pk]) + "?next=" + reverse("nastaveni"))
+CISLOVANI = {  # model a pole s číslem pro každou řadu
+    "zakazka": (Zakazka, "cislo_zakazky", "Napište, jak má vypadat číslo zakázkového listu, např. ZL260001 nebo ZAK0001."),
+    "nabidka": (Nabidka, "cislo_nabidky", "Nabídka přebírá pořadové číslo zakázky, ze které vznikla. Nastavte předponu a rok, např. NAB260001 – místo 0001 se doplní pořadí zakázky."),
+    "faktura": (Faktura, "cislo_faktury", "Napište, jak má vypadat číslo faktury, např. Fa0001 nebo FV2026001. Rok, měsíc a den se berou z data vystavení."),
+}
+def nastaveni_cislovani(request):
+    """Nastavení → Dokumenty → Číslování dokladů: vzor čísla, jeho rozložení na části a náhled dalších čísel."""
+    if not jen_admin_ok(request): return redirect("dashboard")
+    dnes = timezone.localdate(); rady = []; chyby = 0
+    for typ, nazev in CiselnaRada.TYPY:
+        M, pole, uvod = CISLOVANI[typ]; r = CiselnaRada.pro(typ); e = {}
+        if request.method == "POST":
+            p = lambda k, d="": request.POST.get(f"{k}_{typ}", d).strip()
+            vzor, fmt, nul = p("vzor"), p("format"), p("nulovat", "rok")
+            if typ == "nabidka": nul = "rok" if "{YY" in fmt else "nikdy"  # pořadí určuje zakázka
+            e["vzor"] = cislovani.over_format(fmt) or ("Vzor je příliš dlouhý." if len(vzor) > 50 else None)
+            e["nulovat"] = None if e["vzor"] else cislovani.over_nulovani(fmt, nul)
+            try: zac = int(p("zacit", "1") or 1); assert 1 <= zac < 10 ** 9
+            except (ValueError, AssertionError): zac = r.zacit_od; e["zacit"] = "Zadejte celé kladné číslo."
+            r.vzor, r.format, r.nulovat, r.zacit_od, r.zacit_od_obdobi = vzor, fmt, nul, zac, cislovani.obdobi(nul, dnes)
+            chyby += sum(1 for x in e.values() if x)
+        z = Zakazka.objects.order_by("-datum_vytvoreni").first()
+        rady.append(dict(typ=typ, nazev=nazev, uvod=uvod, r=r, e=e,
+                         dalsi=r.zacit_od if request.method == "POST" else r.dalsi_poradi(M, pole, dnes),
+                         zak=dict(cislo=z.cislo_zakazky, poradi=z.poradove_cislo(), rok=_den_zakazky(z).year) if z else None))
+    if request.method == "POST" and not chyby:
+        with transaction.atomic():
+            for x in rady:
+                stara = CiselnaRada.objects.filter(typ=x["typ"]).first(); r = x["r"]
+                if stara: r.pk = stara.pk
+                r.save()
+                if not stara or stara.vzor != r.vzor: log(request, r, "Úprava" if stara else "Vytvoření", "vzor", stara.vzor if stara else "", r.vzor)
+        messages.success(request, "Číslování dokladů uloženo. Nová čísla se budou přidělovat podle nových vzorů."); return redirect("nastaveni")
+    return R(request, "nastaveni_cislovani", sec="nastaveni", rady=rady, nulovani=cislovani.NULOVANI,
+             dnes=dnes.isoformat(), crumbs=[("⚙ Nastavení", reverse("nastaveni")), ("Dokumenty", None), ("Číslování dokladů", None)])
+def _den_zakazky(z): return timezone.localtime(z.datum_vytvoreni).date() if z.datum_vytvoreni else timezone.localdate()
 def nastaveni_zaloha(request):
     if not jen_admin_ok(request): return redirect("dashboard")
     return R(request, "zaloha", sec="nastaveni", crumbs=[("⚙ Nastavení", reverse("nastaveni")), ("Systém", None), ("Zálohování", None)])
