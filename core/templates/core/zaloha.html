@@ -1,3 +1,3 @@
-{% extends "core/base.html" %}{% block content %}<h3>Zálohování</h3><p class="text-muted">Automatické zálohování zatím není součástí aplikace. Zálohu databáze a souborů je třeba dělat ručně (Docker):</p>
+{% extends "core/base.html" %}{% block content %}<h3>Zálohování</h3><p class="text-muted">Automatické zálohování zatím není součástí aplikace. Na serverovém PC zálohu databáze i souborů (fotky, přílohy, logo) vytvoří skript <code>zaloha.bat</code> ve složce aplikace. Lze ho spouštět i denně z Plánovače úloh Windows. Ručně v příkazovém řádku (cmd):</p>
 <pre class="bg-light p-3">docker compose exec -T db pg_dump -U businessmanager businessmanager &gt; zaloha.sql
-docker run --rm -v businessmanager_media:/m -v "%cd%":/b alpine tar czf /b/media.tgz -C /m .</pre><p>Obnova a další postupy jsou v README.</p>{% endblock %}
+docker compose cp web:/app/media zaloha-media</pre><p>Zálohy kopírujte i mimo tento počítač. Obnova ze zálohy je popsaná v souboru INSTALACE.md.</p>{% endblock %}
