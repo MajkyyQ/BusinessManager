@@ -158,11 +158,31 @@ def val(o, f):
     v = getattr(o, f.name)
     return "–" if v in (None, "") else "✓" if v is True else "✗" if v is False else v
 
+# ---------- Společné části seznamů (jednotné rozložení) ----------
+def _url(request, **zmena):
+    """Aktuální parametry adresy se změnou (prázdná hodnota parametr odebere); stránkování se vždy vrací na začátek."""
+    p = request.GET.copy(); p.pop("page", None)
+    for k, x in zmena.items():
+        if x in ("", None): p.pop(k, None)
+        else: p[k] = x
+    return "?" + p.urlencode() if p else "?"
+def _pohled(request, klic):
+    """Přepínač tabulka / kanban (inspirace Odoo). Volba se pamatuje v relaci zvlášť pro každý seznam."""
+    v = request.GET.get("v")
+    if v in ("tab", "kan"): request.session["pohled_" + klic] = v
+    else: v = request.session.get("pohled_" + klic, "tab")
+    return v, [("tab", "☰ Tabulka", _url(request, v="tab"), v == "tab"), ("kan", "▦ Kanban", _url(request, v="kan"), v == "kan")]
+def _chips(request, param, polozky, aktivni, celkem, vse="Vše"):
+    """Rychlý filtr podle stavu s počty: [(popisek, url, počet, aktivní, barva)]."""
+    return [(vse, _url(request, **{param: ""}), celkem, not aktivni, "")] + [(l, _url(request, **{param: k}), n, k == aktivni, css) for k, l, n, css in polozky]
+
 def dashboard(request):
     return R(request, "dashboard", groups=[(g, [(s, MODELS[s]._meta.verbose_name_plural, MODELS[s].objects.count()) for s in ss]) for g, ss in GROUPS])
 
 TYP_ZKR = {"Firma": ("F", "Firma"), "Soukromá osoba": ("SO", "Soukromá osoba")}
 ZAK_RAZENI = {"cislo": "cislo_zakazky", "prijeti": "datum_prijeti", "vydani": "datum_vydani"}  # sloupce zakázek, podle kterých jde řadit
+KANBAN = {"zakazka", "zakaznik"}  # seznamy s přepínačem tabulka / kanban (zařízení má vlastní přehled)
+KANBAN_MAX = 300  # kanban zakázek se nestránkuje; při větším počtu stačí zúžit vyhledáním nebo stavem
 def _dt(v): return timezone.localtime(v).strftime("%d.%m.%Y %H:%M") if v else "–"
 def lst(request, slug):
     if not jen_admin_ok(request, slug): return redirect("dashboard")
@@ -173,14 +193,26 @@ def lst(request, slug):
             if isinstance(x, (models.CharField, models.TextField)): f |= Q(**{x.name + "__icontains": q})
         if slug == "zakazka": f |= Q(zakaznik__firma__icontains=q) | Q(zakaznik__jmeno__icontains=q)
         qs = qs.filter(f)
+    chips = None; pohled, pohledy = _pohled(request, slug) if slug in KANBAN else ("tab", None); sloupce = None
     if slug == "zakazka":
         st = request.GET.get("st", "")
+        stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True))
+        cnt = dict(qs.order_by().values("stav__nazev").annotate(n=Count("pk")).values_list("stav__nazev", "n"))
+        chips = _chips(request, "st", [(s, s, cnt.get(s, 0), STAV_CSS.get(s, "light")) for s in stavy], st, sum(cnt.values()))
         if st: flt["st"] = st; qs = qs.filter(stav__nazev=st)
         o = request.GET.get("o", "-cislo"); key = o.lstrip("-") if o.lstrip("-") in ZAK_RAZENI else "cislo"; desc = o.startswith("-"); o = ("-" if desc else "") + key
         pole = models.F(ZAK_RAZENI[key]); qs = qs.select_related("zakaznik", "stav").order_by(pole.desc(nulls_last=True) if desc else pole.asc(nulls_last=True), "-pk")
     if slug == "zakaznik":
         h = HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=OuterRef("pk")).order_by("-datum").values("datum")[:1]
         qs = qs.annotate(posl=Coalesce(Subquery(h), "datum_vytvoreni"))
+        if pohled == "kan":
+            nzar = Zarizeni.objects.filter(zakaznik=OuterRef("pk")).order_by().values("zakaznik").annotate(n=Count("pk")).values("n")
+            nzak = Zakazka.objects.filter(zakaznik=OuterRef("pk")).order_by().values("zakaznik").annotate(n=Count("pk")).values("n")
+            qs = qs.annotate(n_zar=Coalesce(Subquery(nzar), 0), n_zak=Coalesce(Subquery(nzak), 0))
+    if slug == "zakazka" and pohled == "kan":  # kanban zakázek: sloupec = stav, karty bez stránkování
+        zz = list(qs.prefetch_related("zarizeni")[:KANBAN_MAX]); sl = [st] if st else stavy
+        sloupce = [(s, STAV_CSS.get(s, "light"), [z for z in zz if z.stav and z.stav.nazev == s]) for s in sl]
+        if not st and any(not z.stav for z in zz): sloupce.append(("Bez stavu", "light", [z for z in zz if not z.stav]))
     page = Paginator(qs if qs.ordered else qs.order_by("pk"), 50).get_page(request.GET.get("page"))
     if slug == "zakaznik":
         heads = [dict(l=x) for x in ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]]
@@ -191,16 +223,17 @@ def lst(request, slug):
                      f"{o.cena_s_dph} {o.mena}" if o.cena_s_dph is not None else "–", "Po splatnosti" if o.po_splatnosti else o.stav], None) for o in page]
     elif slug == "zakazka":
         sk = {"Číslo zakázky": "cislo", "Datum přijetí": "prijeti", "Datum vydání": "vydani"}
-        heads = [dict(l=x, ord=sk.get(x) and ("" if desc or sk[x] != key else "-") + sk[x], ar=(("▼" if desc else "▲") if sk.get(x) == key else ("↕" if x in sk else "")),
-                      stav=x == "Stav") for x in ["Číslo zakázky", "Zákazník", "Stav", "Datum přijetí", "Datum vydání", "Identifikační číslo"]]
+        sirka = {"Číslo zakázky": 13, "Zákazník": 23, "Stav": 18, "Datum přijetí": 15, "Datum vydání": 15, "Identifikační číslo": 16}  # pevné šířky: tabulka se po filtru nepřeskupí
+        heads = [dict(l=x, w=sirka[x], ord=sk.get(x) and ("" if desc or sk[x] != key else "-") + sk[x], ar=(("▼" if desc else "▲") if sk.get(x) == key else ("↕" if x in sk else "")))
+                 for x in sirka]
         rows = [(o, [o.cislo_zakazky, o.zakaznik, o.stav or "–", _dt(o.datum_prijeti), _dt(o.datum_vydani), o.identifikacni_cislo or "–"], None) for o in page]
     else:
         cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
         heads = [dict(l=capfirst(c.verbose_name)) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
     keep = urlencode({k: x for k, x in {"q": q, **flt}.items() if x})
-    stavy = StavZakazky.objects.filter(aktivni=True).values_list("nazev", flat=True) if slug == "zakazka" else []
     return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, flt=flt, keep=keep, o=o,
-             keep_o=urlencode({k: x for k, x in {"q": q, **flt, "o": o}.items() if x}), stavy=stavy)
+             keep_o=urlencode({k: x for k, x in {"q": q, **flt, "o": o}.items() if x}), chips=chips, pohled=pohled, pohledy=pohledy, sloupce=sloupce,
+             kanban_max=KANBAN_MAX, ph={"zakazka": "Číslo zakázky, zákazník, závada…", "zakaznik": "Jméno, firma, telefon, e-mail…"}.get(slug, "Hledat…"))
 
 def detail(request, slug, pk):
     if slug == "zakazka": return plocha(request, pk)       # detail zakázky = pracovní prostor zakázky
@@ -408,16 +441,26 @@ def zakaznik_detail(request, pk):
         nabidky=z.nabidka_set.all(), objednavky=z.objednavka_set.all(), faktury=z.faktura_set.all(), hist=HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=pk)[:60])
 
 # ---------------- Dokumenty ----------------
+DOK_TYPY = [("nabidka", "Nabídky"), ("objednavka", "Objednávky"), ("faktura", "Faktury"), ("prijatafaktura", "Přijaté faktury")]
 def dokumenty(request):
-    typ = request.GET.get("typ", ""); q = request.GET.get("q", "").lower(); rows = []
-    if typ in ("", "nabidka"): rows += [dict(typ="Nabídka", slug="nabidka", pk=n.pk, cislo=n.cislo_nabidky, zakaznik=n.zakaznik, datum=n.datum_vystaveni, castka=n.cena_s_dph) for n in Nabidka.objects.select_related("zakaznik")]
-    if typ in ("", "objednavka"): rows += [dict(typ="Objednávka", slug="objednavka", pk=o.pk, cislo=o.cislo_objednavky, zakaznik=o.zakaznik, datum=o.datum_objednavky, castka=None) for o in Objednavka.objects.select_related("zakaznik")]
-    if typ in ("", "faktura"): rows += [dict(typ="Faktura", slug="faktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.zakaznik, datum=f.datum_vystaveni, castka=f.cena_s_dph) for f in Faktura.objects.select_related("zakaznik")]
-    if typ in ("", "prijatafaktura"): rows += [dict(typ="Přijatá faktura", slug="prijatafaktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.dodavatel, datum=f.datum_doruceni,
-                                                    castka=f.cena_s_dph, stav="Po splatnosti" if f.po_splatnosti else f.stav) for f in PrijataFaktura.objects.select_related("dodavatel")]
-    if q: rows = [r for r in rows if q in (r["cislo"] + " " + str(r["zakaznik"])).lower()]
+    typ = request.GET.get("typ", ""); q = request.GET.get("q", "").strip(); ql = q.lower()
+    rows = [dict(typ="Nabídka", slug="nabidka", pk=n.pk, cislo=n.cislo_nabidky, zakaznik=n.zakaznik, datum=n.datum_vystaveni, castka=n.cena_s_dph) for n in Nabidka.objects.select_related("zakaznik")]
+    rows += [dict(typ="Objednávka", slug="objednavka", pk=o.pk, cislo=o.cislo_objednavky, zakaznik=o.zakaznik, datum=o.datum_objednavky, castka=None) for o in Objednavka.objects.select_related("zakaznik")]
+    rows += [dict(typ="Faktura", slug="faktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.zakaznik, datum=f.datum_vystaveni, castka=f.cena_s_dph) for f in Faktura.objects.select_related("zakaznik")]
+    rows += [dict(typ="Přijatá faktura", slug="prijatafaktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.dodavatel, datum=f.datum_doruceni, castka=f.cena_s_dph, mena=f.mena,
+                  stav="Po splatnosti" if f.po_splatnosti else f.stav) for f in PrijataFaktura.objects.select_related("dodavatel")]
+    if ql: rows = [r for r in rows if ql in (r["cislo"] + " " + str(r["zakaznik"])).lower()]
+    pocty = {}
+    for r in rows: pocty[r["slug"]] = pocty.get(r["slug"], 0) + 1
+    chips = _chips(request, "typ", [(k, l, pocty.get(k, 0), "") for k, l in DOK_TYPY], typ, len(rows))
+    if typ: rows = [r for r in rows if r["slug"] == typ]
     rows.sort(key=lambda r: (str(r["datum"] or "")[:10], r["pk"]), reverse=True)
-    return R(request, "dokumenty", sec="dokumenty", rows=rows, typ=typ, q=q, tabs=[("", "Vše"), ("nabidka", "Nabídky"), ("objednavka", "Objednávky"), ("faktura", "Faktury"), ("prijatafaktura", "Přijaté faktury")])
+    # souhrn pod tabulkou (inspirace ABRA Flexi): počet a součet částek, zvlášť podle měny
+    soucty = {}; nf = NastaveniFirmy.objects.first(); mf = nf.mena if nf and nf.mena else "CZK"  # vydané doklady jsou v měně firmy
+    for r in rows:
+        if r["castka"] is not None: m = r.get("mena") or mf; soucty[m] = soucty.get(m, 0) + r["castka"]
+    soucet = [(f"{x:,.2f}".replace(",", "\u00a0").replace(".", ","), m) for m, x in sorted(soucty.items())] if typ and typ != "objednavka" else []
+    return R(request, "dokumenty", sec="dokumenty", rows=rows, typ=typ, q=q, chips=chips, chips_label="Filtr podle typu dokumentu", soucet=soucet, ph="Číslo dokumentu nebo zákazník…")
 
 # ---------------- Kalendář ----------------
 MES = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"]
@@ -527,22 +570,28 @@ def zarizeni_prehled(request):
                            | Q(zakaznik__jmeno__icontains=w) | Q(zakaznik__telefon__icontains=w) | Q(zakazka__cislo_zakazky__icontains=w))
         qs = qs.distinct()
     hist = dict(HistorieZmen.objects.filter(typ_objektu="zarizeni").values_list("id_objektu").annotate(m=models.Max("datum")).values_list("id_objektu", "m"))
-    rows = []
+    rows = []; pocty = {}; celkem = 0
     for d in qs:
         z = d.zz[0] if d.zz else None; st = z.stav.nazev if z and z.stav else ""; otevrena = bool(z) and st not in CLOSED
         if not {"firma": otevrena, "oprava": st in ("Rozpracováno", "Opraveno"), "dil": st == "Čeká na díl", "zakaznik": bool(z) and not otevrena, "bez": not z}.get(f, True): continue
         stav = st or ("Bez zakázky" if not z else "–")
-        if (fs and stav != fs) or (fi == "ano" and not otevrena) or (fi == "ne" and otevrena): continue
+        if (fi == "ano" and not otevrena) or (fi == "ne" and otevrena): continue
+        pocty[stav] = pocty.get(stav, 0) + 1; celkem += 1  # počty pro rychlý filtr stavu se berou před filtrem stavu
+        if fs and stav != fs: continue
         rows.append(dict(d=d, z=z, stav=stav, css=STAV_CSS.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
                          prijeti=z.datum_prijeti if z else None, akce=_zar_posledni_akce(d, hist)))
     far = timezone.make_aware(datetime(1900, 1, 1))
     sk = {"zarizeni": lambda r: f"{r['d'].vyrobce} {r['d'].typ}".lower(), "zakaznik": lambda r: str(r["d"].zakaznik).lower(), "telefon": lambda r: r["d"].zakaznik.telefon or "",
           "stav": lambda r: r["stav"].lower(), "prijeti": lambda r: r["prijeti"] or far, "akce": lambda r: r["akce"] or far}[key]
     rows.sort(key=sk, reverse=desc)
-    heads = [(k, l, ("" if desc or k != key else "-") + k, ("▼" if desc else "▲") if k == key else "") for k, l in ZAR_RAZENI.items()]
-    stavy = list(StavZakazky.objects.filter(aktivni=True).values_list("nazev", flat=True)) + ["Bez zakázky"]
+    sirka = {"zarizeni": 22, "zakaznik": 17, "telefon": 11, "stav": 20, "prijeti": 11, "akce": 12}  # pevné šířky sloupců (zbytek: Zakázek)
+    heads = [(k, l, ("" if desc or k != key else "-") + k, ("▼" if desc else "▲") if k == key else "", sirka[k]) for k, l in ZAR_RAZENI.items()]
+    stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True)) + ["Bez zakázky"]
+    chips = _chips(request, "st", [(s, s, pocty.get(s, 0), STAV_CSS.get(s, "light")) for s in stavy], fs, celkem)
     keep = urlencode({k: x for k, x in (("q", q), ("f", f), ("st", fs), ("fi", fi)) if x})
-    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtry=ZAR_FILTRY, stavy=stavy, fs=fs, fi=fi, keep=keep)
+    pohled, pohledy = _pohled(request, "zarizeni")
+    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtry=ZAR_FILTRY, fs=fs, fi=fi, keep=keep,
+             chips=chips, pohled=pohled, pohledy=pohledy, celkem=celkem, ph="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…")
 def zarizeni_detail(request, pk):
     d = get_object_or_404(Zarizeni.objects.select_related("zakaznik"), pk=pk)
     zak = list(d.zakazka_set.select_related("stav").prefetch_related("zamestnanci", Prefetch("provedenyukon_set", queryset=ProvedenyUkon.objects.select_related("typ_ukonu").prefetch_related("zamestnanci")),

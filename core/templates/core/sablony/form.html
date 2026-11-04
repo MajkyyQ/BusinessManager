@@ -1,4 +1,4 @@
-{% extends "core/base.html" %}{% block content %}<h3>{{ titulek }}</h3>
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>{{ titulek }}</h3></div>
 <form method="post" enctype="multipart/form-data" class="mt-3" style="max-width:640px">{% csrf_token %}{{ form.non_field_errors }}
 {% for f in form %}<div class="mb-3{% if f.field.widget.input_type == 'checkbox' %} form-check{% endif %}">{% if f.field.widget.input_type == 'checkbox' %}{{ f }} <label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{% else %}<label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% endif %}
 {% if f.help_text %}<div class="form-text">{{ f.help_text }}</div>{% endif %}{% for e in f.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>{% endfor %}
