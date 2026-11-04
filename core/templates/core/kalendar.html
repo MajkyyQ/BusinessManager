@@ -12,9 +12,27 @@
 <select name="typ" class="form-select form-select-sm w-auto"><option value="">Všechny typy</option>{% for t in typy %}<option {% if t == typ %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
 <select name="zam" class="form-select form-select-sm w-auto"><option value="">Všichni zaměstnanci</option>{% for e in zamestnanci %}<option value="{{ e.pk }}" {% if e.pk|stringformat:"s" == zam %}selected{% endif %}>{{ e }}</option>{% endfor %}</select><button class="btn btn-sm btn-outline-secondary">Filtrovat</button></form>
 {% if v == "month" %}<table class="table table-bordered" style="table-layout:fixed"><tr>{% for w in wd %}<th>{{ w }}</th>{% endfor %}</tr>{% for r in rows %}<tr>{% for c in r %}<td class="{% if c.out %}bg-light text-muted{% endif %} {% if c.today %}border-primary border-2{% endif %}" style="height:110px;vertical-align:top;overflow:hidden">
-<div class="d-flex justify-content-between"><a class="text-decoration-none fw-bold bm-cil" href="?v=day&d={{ c.d|date:'Y-m-d' }}{{ qq }}">{{ c.d.day }}</a><a class="text-decoration-none bm-cil" href="{% url 'create' 'kalendarudalost' %}?datum={{ c.d|date:'Y-m-d' }}T09:00&next={{ nxtpath|urlencode }}">+</a></div>{% for e in c.ev %}{% include "core/kal_event.html" %}{% endfor %}</td>{% endfor %}</tr>{% endfor %}</table>
+<div class="d-flex justify-content-between"><a class="text-decoration-none fw-bold bm-cil" href="?v=day&d={{ c.d|date:'Y-m-d' }}{{ qq }}">{{ c.d.day }}</a><a class="text-decoration-none bm-cil ud-plus" data-d="{{ c.d|date:'Y-m-d' }}" title="Přidat událost {{ c.d|date:'j. n. Y' }}" href="{% url 'create' 'kalendarudalost' %}?datum={{ c.d|date:'Y-m-d' }}T09:00&next={{ nxtpath|urlencode }}">+</a></div>{% for e in c.ev %}{% include "core/kal_event.html" %}{% endfor %}</td>{% endfor %}</tr>{% endfor %}</table>
 {% elif v == "week" %}<div class="row row-cols-1 row-cols-md-7 g-2">{% for c in days %}<div class="col"><div class="card h-100 {% if c.today %}border-primary{% endif %}"><div class="card-header py-1 small"><a href="?v=day&d={{ c.d|date:'Y-m-d' }}{{ qq }}">{{ c.d|date:"D j.n." }}</a></div><div class="card-body p-2">{% for e in c.ev %}{% include "core/kal_event.html" %}{% endfor %}</div></div></div>{% endfor %}</div>
 {% else %}{% for c in days %}{% for e in c.ev %}{% include "core/kal_event.html" %}{% if e.popis %}<div class="small text-muted ms-5 mb-2">{{ e.popis }}</div>{% endif %}{% empty %}<p class="text-muted">Žádné události.</p>{% endfor %}{% endfor %}{% endif %}
+{% with r=rychla %}<style>.ud-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1990;display:none;align-items:center;justify-content:center;padding:1rem}.ud-modal.on{display:flex}
+.ud-box{background:#fff;border-radius:.5rem;width:min(520px,96vw);max-height:92vh;overflow:auto;padding:1rem 1.25rem;box-shadow:0 .5rem 2rem rgba(0,0,0,.25);transition:width .2s}
+.ud-modal.velky .ud-box{width:min(960px,96vw)}.ud-modal:not(.velky) .ud-ext{display:none}.ud-modal.velky .ud-vic{display:none}.ud-modal:not(.velky) .ud-min{display:none}</style>
+<div class="ud-modal" id="ud" role="dialog" aria-modal="true" aria-labelledby="ud-h"><div class="ud-box">
+<div class="d-flex justify-content-between align-items-center mb-2"><h5 class="m-0" id="ud-h">Nová událost</h5><button type="button" class="btn-close ud-zavrit" aria-label="Zavřít"></button></div>
+<form method="post" action="{{ r.url }}?next={{ nxtpath|urlencode }}" hx-boost="false">{% csrf_token %}
+<div class="row g-2 mb-2">{% for f, sirka in r.zaklad %}<div class="col-md-{{ sirka }}">{% include "core/_pole.html" %}</div>{% endfor %}</div>
+<div class="ud-ext">{% for titulek, pole in r.rozsirene %}<h6 class="text-muted mt-2">{{ titulek }}</h6>
+<div class="row g-2 mb-3">{% for f, sirka in pole %}<div class="col-md-{{ sirka }}">{% include "core/_pole.html" %}</div>{% endfor %}</div>{% endfor %}</div>
+<div class="d-flex flex-wrap gap-2 align-items-center mt-2"><button class="btn btn-primary">Uložit</button><button type="button" class="btn btn-secondary ud-zavrit">Zrušit</button>
+<button type="button" class="btn btn-link ms-auto ud-vic" aria-expanded="false">Rozšířené možnosti ▾</button><button type="button" class="btn btn-link ms-auto ud-min">Méně možností ▴</button></div></form></div></div>{% endwith %}
+<script>(function(){const m=document.getElementById('ud');if(!m)return;const f=m.querySelector('form'),dt=f.querySelector('[name=datum]');
+function zavri(){m.classList.remove('on','velky')}
+document.querySelectorAll('.ud-plus').forEach(a=>a.onclick=e=>{e.preventDefault();f.reset();const t=(dt.value.split('T')[1]||'09:00');dt.value=a.dataset.d+'T'+t;m.classList.add('on');f.querySelector('[name=nazev]').focus()});
+m.querySelectorAll('.ud-zavrit').forEach(b=>b.onclick=zavri);
+m.querySelector('.ud-vic').onclick=()=>m.classList.add('velky');m.querySelector('.ud-min').onclick=()=>m.classList.remove('velky');
+m.addEventListener('mousedown',e=>{if(e.target===m)zavri()});
+document.addEventListener('keydown',e=>{if(e.key=='Escape'&&m.classList.contains('on')&&!document.querySelector('.lk-modal'))zavri()});})();</script>
 <script>(function(){const p=document.getElementById('kp'),b=document.getElementById('kp-btn'),D=p.dataset,
 M=["Leden","Únor","Březen","Duben","Květen","Červen","Červenec","Srpen","Září","Říjen","Listopad","Prosinec"];let y=+D.y;
 function draw(){document.getElementById('kp-y').textContent=y;document.getElementById('kp-m').innerHTML=M.map((n,i)=>{const sel=y==+D.y&&i+1==+D.m,dn=y==+D.ty&&i+1==+D.tm;
