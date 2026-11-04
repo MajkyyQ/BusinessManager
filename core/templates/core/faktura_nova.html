@@ -1,10 +1,11 @@
 {% extends "core/base.html" %}{% block content %}<h3>Nová faktura ze zakázky</h3>
 <p class="text-muted">Vyberte zakázku – zákazník, čísla, položky, ceny i DPH se doplní automaticky. Po vytvoření se faktura zobrazí ve výchozí šabloně.</p>
 <form method="post" hx-boost="false" class="col-lg-9">{% csrf_token %}{{ form.non_field_errors }}
-<div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold">Zakázka</label>{{ form.zakazka }}<div class="text-danger small">{{ form.zakazka.errors }}</div></div>
+<div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold">Zakázka</label>{{ form.zakazka }}<div class="form-text mt-0">Položky, ceny a DPH se převezmou z prací a materiálu vybrané zakázky. Chybí-li něco, doplňte to nejdřív do zakázky.</div><div class="text-danger small">{{ form.zakazka.errors }}</div></div>
 <div class="col-md-2"><label class="form-label mb-0 fw-bold">Datum vystavení</label>{{ form.datum }}<div class="text-danger small">{{ form.datum.errors }}</div></div>
 <div class="col-md-2"><label class="form-label mb-0 fw-bold">DUZP</label>{{ form.duzp }}<div class="form-text mt-0">Prázdné = datum vystavení</div><div class="text-danger small">{{ form.duzp.errors }}</div></div>
 <div class="col-md-2"><label class="form-label mb-0 fw-bold">Splatnost</label>{{ form.splatnost }}<div class="text-danger small">{{ form.splatnost.errors }}</div></div></div>
 <div id="nahled">{% if nahled %}{% include "core/nabidka_nahled.html" with z=nahled.z polozky=nahled.polozky sum_bez=nahled.sum_bez sum_s=nahled.sum_s sum_dph=nahled.sum_dph doklad="faktura" %}{% else %}<p class="text-muted">Po výběru zakázky se zde zobrazí náhled faktury.</p>{% endif %}</div>
-<div class="mt-3"><label class="form-label mb-0">{{ form.poznamka.label }}</label>{{ form.poznamka }}</div>
+<div class="mt-3"><label class="form-label mb-0">{{ form.poznamka.label }}</label>{{ form.poznamka }}<div class="form-text">Vytiskne se na doklad, například záruka nebo dohoda se zákazníkem.</div></div>
+<div class="form-text">Číslo faktury se přidělí automaticky. Splatnost je předvyplněná na 14 dní od vystavení.</div>
 <button class="btn btn-primary mt-3">Vytvořit fakturu</button> <a class="btn btn-secondary mt-3" href="{% url 'list' 'faktura' %}">Zrušit</a></form>{% endblock %}

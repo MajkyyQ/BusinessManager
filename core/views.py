@@ -280,6 +280,16 @@ def plocha_home(request):
         otevrene=Zakazka.objects.exclude(stav__nazev__in=CLOSED).select_related("zakaznik", "stav").order_by("-datum_vytvoreni")[:15],
         dnes=KalendarUdalost.objects.filter(datum__date=timezone.localdate()).order_by("datum"))
 
+def hlavni_akce(z, ma_praci, ma_nabidku, ma_fakturu):
+    """Jeden doporučený další krok podle stavu zakázky; na stránce je zvýrazněn jako hlavní tlačítko."""
+    n = z.stav.nazev if z.stav else "Nová"
+    if n in CLOSED: return None
+    if n in ("Opraveno", "Připraveno k vyzvednutí"):
+        if not ma_fakturu: return "faktura" if ma_nabidku or n == "Připraveno k vyzvednutí" else "nabidka"
+        return None
+    if n == "Čeká na schválení": return None if ma_nabidku else "nabidka"
+    if n == "Nová" and not ma_praci: return "list"
+    return "prace"
 def plocha(request, pk):
     z = get_object_or_404(Zakazka.objects.select_related("zakaznik", "stav"), pk=pk); back = f"?next={request.path}"
     items = []
@@ -303,7 +313,8 @@ def plocha(request, pk):
     tabs = [("info", "Přehled"), ("prace", "Práce"), ("mat", "Materiál"), ("foto", f"Fotografie ({len(foto)})"), ("pril", f"Přílohy ({len(pril)})"),
             ("dok", f"Dokumenty ({len(dok)})"), ("kont", "Kontakty"), ("zar", "Zařízení"), ("zam", "Zaměstnanci"), ("hist", "Historie")]
     hist = HistorieZmen.objects.filter(typ_objektu="zakazka", id_objektu=pk)[:60]
-    return R(request, "plocha", **stav_ctx(request, z), sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
+    hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), z.faktura_set.exists())
+    return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
              kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=z.zamestnanci.all(), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby)
 
 # ---------------- Nabídka ze zakázky ----------------

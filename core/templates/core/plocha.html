@@ -3,15 +3,17 @@
 {% block content %}<div id="plocha">
 <div class="d-flex flex-wrap justify-content-between align-items-start mb-2 gap-2">
 <div><h4 class="mb-0">Zakázka #{{ z.cislo_zakazky }}</h4><div class="text-muted">{{ z.zakaznik }}{% if zarizeni %} – {{ zarizeni.0 }}{% endif %}</div></div>
-<div class="d-flex flex-wrap gap-1">
-<a class="btn btn-sm btn-primary" href="{% url 'edit' 'zakazka' z.pk %}?next={{ nxt }}">Upravit zakázku</a>
-<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'fotografie' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat fotografii</a>
-<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'priloha' %}?zakazky={{ z.pk }}&next={{ nxt }}">Přidat přílohu</a>
-<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'provedenyukon' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat práci</a>
-<a class="btn btn-sm btn-outline-primary" href="{% url 'create' 'pouzitymaterial' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat materiál</a>
-<a class="btn btn-sm btn-outline-success" href="{% url 'dokument' 'zakazkovy_list' z.pk %}?next={{ nxt }}">Zakázkový list</a>
-<a class="btn btn-sm btn-outline-success" href="{% url 'create' 'nabidka' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit nabídku</a>
-<a class="btn btn-sm btn-outline-success" href="{% url 'create' 'faktura' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit fakturu</a>
+<div class="d-flex flex-wrap gap-2 align-items-start" role="toolbar" aria-label="Akce zakázky">
+<div class="btn-group btn-group-sm" role="group" aria-label="Úprava"><a class="btn btn-outline-secondary" href="{% url 'edit' 'zakazka' z.pk %}?next={{ nxt }}">Upravit zakázku</a></div>
+<div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Doplnění opravy">
+<a class="btn {% if hlavni == 'prace' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'create' 'provedenyukon' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat práci</a>
+<a class="btn btn-outline-primary" href="{% url 'create' 'pouzitymaterial' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat materiál</a>
+<a class="btn btn-outline-primary" href="{% url 'create' 'fotografie' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat fotografii</a>
+<a class="btn btn-outline-primary" href="{% url 'create' 'priloha' %}?zakazky={{ z.pk }}&next={{ nxt }}">Přidat přílohu</a></div>
+<div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Dokumenty">
+<a class="btn {% if hlavni == 'list' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'dokument' 'zakazkovy_list' z.pk %}?next={{ nxt }}">Zakázkový list</a>
+<a class="btn {% if hlavni == 'nabidka' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'create' 'nabidka' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit nabídku</a>
+<a class="btn {% if hlavni == 'faktura' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'create' 'faktura' %}?zakaznik={{ z.zakaznik_id }}&zakazky={{ z.pk }}&next={{ nxt }}">Vytvořit fakturu</a></div>
 </div></div>
 <form method="post" action="{% url 'stav_akce' z.pk %}" class="d-flex flex-wrap gap-1 align-items-center mb-3 p-2 border rounded bg-light">{% csrf_token %}
 <span class="small text-muted me-1">Stav zakázky:</span><span class="badge fs-6 bg-{{ stav_css }} me-2">{{ z.stav|default:"–" }}</span>
