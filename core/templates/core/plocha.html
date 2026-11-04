@@ -14,7 +14,7 @@
 <a class="btn {% if hlavni == 'list' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'dokument' 'zakazkovy_list' z.pk %}?next={{ nxt }}">Zakázkový list</a>
 <a class="btn {% if hlavni == 'nabidka' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'nabidka_nova' %}?zakazka={{ z.pk }}&next={{ nxt }}">Vytvořit nabídku</a>
 <a class="btn {% if hlavni == 'faktura' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'faktura_nova' %}?zakazka={{ z.pk }}&next={{ nxt }}">Vytvořit fakturu</a>
-<a class="btn btn-outline-success" href="{% url 'objednavka_nova' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přidat objednávku</a></div>
+<a class="btn btn-outline-success" href="{% url 'objednavka_nova' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přijatá objednávka</a></div>
 </div></div>
 <form method="post" action="{% url 'stav_akce' z.pk %}" class="d-flex flex-wrap gap-1 align-items-center mb-3 p-2 border rounded bg-light">{% csrf_token %}
 <span class="small text-muted me-1">Stav zakázky:</span><span class="badge fs-6 bg-{{ stav_css }} me-2">{{ z.stav|default:"–" }}</span>

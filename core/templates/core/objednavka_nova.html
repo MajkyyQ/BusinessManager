@@ -1,5 +1,5 @@
-{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Nová objednávka k zakázce</h3></div>
-<p class="text-muted">Objednávka od zákazníka se vždy přiřadí k zakázce – zákazník se doplní automaticky podle vybrané zakázky.</p>
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Přijatá objednávka od zákazníka</h3></div>
+<p class="text-muted">Zapište objednávku, kterou vám poslal zákazník (aplikace objednávky nevystavuje). Přiřadí se k zakázce a zákazník se doplní automaticky podle ní.</p>
 <form method="post" enctype="multipart/form-data" hx-boost="false" class="col-lg-9">{% csrf_token %}{{ form.non_field_errors }}
 <div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold">Zakázka</label>{{ form.zakazka }}<div class="text-danger small">{{ form.zakazka.errors }}</div></div>
 <div class="col-md-3"><label class="form-label mb-0 fw-bold">{{ form.cislo.label }}</label>{{ form.cislo }}<div class="form-text mt-0">{{ form.cislo.help_text }}</div><div class="text-danger small">{{ form.cislo.errors }}</div></div>

@@ -428,7 +428,7 @@ def faktura_nova(request):
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "faktura_nova", sec="dokumenty", form=form, nahled=dict(nahled_ctx(z), doklad="faktura") if z else None)
 
-# ---------------- Objednávka ze zakázky ----------------
+# ---------------- Přijatá objednávka od zákazníka (aplikace objednávky nevystavuje) ----------------
 class ObjednavkaForm(forms.Form):
     zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— vyberte zakázku —",
                             widget=forms.Select(attrs={"class": "form-select"}))
@@ -450,7 +450,7 @@ def objednavka_nova(request):
             o = Objednavka.objects.create(cislo_objednavky=c["cislo"], zakaznik=z.zakaznik, datum_objednavky=c["datum"], priloha=pr, poznamka=c["poznamka"])
             o.zakazky.add(z)
             log(request, o, "Vytvoření", popis_z=z)
-        messages.success(request, f"Objednávka {o.cislo_objednavky} přidána k zakázce {z.cislo_zakazky}.")
+        messages.success(request, f"Přijatá objednávka {o.cislo_objednavky} zapsána k zakázce {z.cislo_zakazky}.")
         return redirect(safe_next(request) or reverse("detail", args=["zakazka", z.pk]))
     return R(request, "objednavka_nova", sec="dokumenty", form=form)
 
