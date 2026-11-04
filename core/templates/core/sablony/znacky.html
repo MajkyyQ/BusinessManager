@@ -1,4 +1,4 @@
-{% extends "core/base.html" %}{% block content %}<h3>Značky pro vlastní šablony – {{ typ.nazev }}</h3>
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Značky pro vlastní šablony – {{ typ.nazev }}</h3></div>
 <p>Do buňky Excelu napište značku a při vytvoření dokumentu se nahradí údajem z databáze. Značka může být sama v buňce (pak se zapíše jako číslo nebo datum a Excel ji zformátuje podle buňky), nebo uprostřed textu, např. <code>Faktura č. {% templatetag openvariable %}dokument.cislo{% templatetag closevariable %}</code>.
 Ve sloučené oblasti stačí značka v první buňce.</p>
 <p><b>Tabulka položek:</b> do jednoho řádku napište značky <code>{% templatetag openvariable %}polozka.…{% templatetag closevariable %}</code> – tento řádek se zopakuje pro každou položku. Vzorce pod tabulkou (např. <code>=SUMA(H20:H20)</code>) se automaticky rozšíří na všechny řádky.</p>

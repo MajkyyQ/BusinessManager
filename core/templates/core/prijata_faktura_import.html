@@ -1,4 +1,4 @@
-{% extends "core/base.html" %}{% block content %}<h3>Přijatá faktura ze souboru ISDOC</h3>
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Přijatá faktura ze souboru ISDOC</h3></div>
 <p class="text-muted col-md-8">Nahrajte fakturu, kterou vám dodavatel poslal ve formátu ISDOC (soubor <code>.isdoc</code> nebo <code>.isdocx</code>). Aplikace z ní převezme číslo faktury, data, částky, účet a variabilní symbol, najde dodavatele podle IČO (nebo ho založí) a zapíše doručení a splatnost do kalendáře. Faktura se uloží jako nezaplacená.</p>
 <form method="post" enctype="multipart/form-data" hx-boost="false" class="col-md-7">{% csrf_token %}{{ form.non_field_errors }}
 {% for f in form %}<div class="mb-2"><label class="form-label mb-0 {% if f.field.required %}fw-bold{% endif %}">{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>{% endfor %}

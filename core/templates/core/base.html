@@ -15,7 +15,25 @@
 .nav-mini .bm-side{flex-basis:76px}.nav-mini .bm-side hr{margin:.4rem 0!important}
 .nav-mini .bm-side a.bm-l{flex-direction:column;gap:.15rem;padding:.55rem .1rem!important;white-space:normal;text-align:center}
 .nav-mini .bm-ic{flex:none;font-size:1.35rem;line-height:1}.nav-mini .bm-tx{font-size:.66rem;line-height:1.1}
-@media(max-width:767px){.bm-wrap{flex-direction:column;gap:0}.bm-side{flex-basis:auto}.nav-mini .bm-side{display:none}}</style><style>.lk-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}.lk-modal>div{background:#fff;padding:1rem;border-radius:.5rem;width:min(520px,95vw);max-height:90vh;overflow:auto}</style></head>
+@media(max-width:767px){.bm-wrap{flex-direction:column;gap:0}.bm-side{flex-basis:auto}.nav-mini .bm-side{display:none}}</style><style>/* Jednotné rozložení stránky: hlavička (název vlevo, hlavní akce vpravo) -> lišta (hledání vždy první, filtry, přepínač zobrazení vpravo) -> rychlé filtry -> obsah -> patička */
+.bm-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem;min-height:2.6rem;margin-bottom:.75rem}
+.bm-head>h3,.bm-head>div>h3{margin:0;font-size:1.6rem}.bm-actions{display:flex;flex-wrap:wrap;gap:.4rem;margin-left:auto}
+.bm-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.6rem;min-height:38px}
+.bm-search{flex:0 1 340px;width:340px;min-width:200px}.bm-toolbar .form-select{width:auto}.bm-views{margin-left:auto}
+.bm-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem}
+.bm-chip{display:inline-flex;align-items:center;gap:.4rem;min-height:30px;padding:.15rem .7rem;border:1px solid #ced4da;border-radius:999px;color:#212529;text-decoration:none;font-size:.9rem;background:#fff}
+.bm-chip:hover{border-color:#0a58ca;color:#0a58ca}.bm-chip.active{background:#0a58ca;border-color:#0a58ca;color:#fff}.bm-chip.empty:not(.active){color:#5c636a}
+.bm-n{font-size:.75rem;font-weight:600;padding:0 .4rem;border-radius:999px;background:#e9ecef;color:#212529}.bm-chip.active .bm-n{background:#fff;color:#0a58ca}
+.bm-dot{width:.6rem;height:.6rem;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.15)}
+.bm-table{table-layout:fixed;width:100%;min-width:680px}#vysledky{overflow-x:auto}.bm-table th,.bm-table td{overflow-wrap:break-word}.bm-table th{white-space:normal}
+.bm-foot{font-size:.875rem;color:#5c636a;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between}
+.bm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.75rem;margin-bottom:1rem}
+.bm-card{display:block;border:1px solid #dee2e6;border-radius:.5rem;padding:.6rem .75rem;background:#fff;color:#212529;text-decoration:none;min-width:0}
+.bm-card:hover,.bm-card:focus-visible{border-color:#0a58ca;box-shadow:0 2px 6px rgba(0,0,0,.08);color:#212529}
+.bm-card .t{font-weight:600;color:#0a58ca;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bm-card .s{font-size:.85rem;color:#5c636a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-board{display:flex;gap:.75rem;overflow-x:auto;align-items:flex-start;padding-bottom:.5rem;margin-bottom:1rem}
+.bm-col{flex:0 0 250px;background:#f1f3f5;border-radius:.5rem;padding:.5rem}.bm-col>h6{display:flex;justify-content:space-between;align-items:center;margin:0 0 .5rem}.bm-col .bm-card{margin-bottom:.5rem}
+@media(max-width:575px){.bm-search{flex:1 1 100%;width:100%}.bm-views{margin-left:0}}</style><style>.lk-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}.lk-modal>div{background:#fff;padding:1rem;border-radius:.5rem;width:min(520px,95vw);max-height:90vh;overflow:auto}</style></head>
 <body hx-boost="{% block boost %}false{% endblock %}"><nav class="navbar navbar-dark bg-dark mb-3"><div class="container-fluid">
 <div class="d-flex align-items-center">{% if navx %}<button type="button" class="bm-tg" id="bm-tg" aria-label="Zasunout nebo roztáhnout menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>{% endif %}<a class="navbar-brand" href="/">BusinessManager</a></div>
 <div class="d-flex gap-2 align-items-center"><span class="text-light">{{ request.user }}</span>

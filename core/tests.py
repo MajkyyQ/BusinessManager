@@ -320,3 +320,46 @@ class SQLInjectionTest(TestCase):
         for utok in self.UTOKY + ["cislo; DROP TABLE auth_user", "-(SELECT 1)"]:
             self.assertEqual(self.client.get(reverse("list", args=["zakazka"]), {"o": utok}).status_code, 200, utok)
         self.assertTrue(User.objects.exists())
+
+
+class JednotneSeznamyTest(TestCase):
+    """Seznamy: rychlý filtr stavu s počty (ABRA), přepínač tabulka / kanban (Odoo), stejné rozložení stránky."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka, Zarizeni
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("a", password="x", is_staff=True))
+        nova = StavZakazky.objects.get_or_create(nazev="Nová")[0]; self.diag = StavZakazky.objects.get_or_create(nazev="Diagnostika", defaults={"poradi": 2})[0]
+        z = Zakaznik.objects.create(jmeno="Jana Fialová", typ_zakaznika="Soukromá osoba")
+        d = Zarizeni.objects.create(zakaznik=z, vyrobce="Makita", typ="X1")
+        for s in (nova, nova, self.diag): Zakazka.objects.create(zakaznik=z, stav=s).zarizeni.add(d)
+
+    def test_filtr_stavu_s_pocty(self):
+        r = self.client.get(reverse("list", args=["zakazka"]), {"st": "Diagnostika"})
+        chips = {c[0]: (c[2], c[3]) for c in r.context["chips"]}
+        self.assertEqual(chips["Vše"], (3, False)); self.assertEqual(chips["Nová"], (2, False)); self.assertEqual(chips["Diagnostika"], (1, True))
+        self.assertEqual(len(r.context["rows"]), 1)
+        self.assertContains(r, 'class="table table-sm table-hover bm-table"')  # pevné rozložení sloupců
+        self.assertContains(r, 'id="bm-reset"')
+
+    def test_kanban_se_pamatuje(self):
+        url = reverse("list", args=["zakazka"])
+        r = self.client.get(url, {"v": "kan"})
+        sloupce = {s: len(items) for s, css, items in r.context["sloupce"] if items}
+        self.assertEqual(sloupce, {"Nová": 2, "Diagnostika": 1})
+        self.assertContains(r, "bm-board")
+        self.assertEqual(self.client.get(url).context["pohled"], "kan")  # volba zůstane i bez parametru
+        self.assertEqual(self.client.get(url, {"v": "tab"}).context["pohled"], "tab")
+        self.assertContains(self.client.get(reverse("list", args=["zakaznik"]), {"v": "kan"}), "bm-cards")
+        r = self.client.get(reverse("zarizeni_prehled"), {"v": "kan"})
+        self.assertContains(r, "bm-cards"); self.assertContains(r, "Makita X1")
+
+    def test_vsechny_sekce_maji_stejnou_hlavicku(self):
+        for nazev, args in [("dashboard", []), ("list", ["zakazka"]), ("list", ["zakaznik"]), ("zarizeni_prehled", []), ("dokumenty", []), ("kalendar", []), ("nastaveni", [])]:
+            self.assertContains(self.client.get(reverse(nazev, args=args)), 'class="bm-head', msg_prefix=nazev)
+
+    def test_souhrn_dokladu(self):
+        z = Zakaznik.objects.first()
+        Faktura.objects.create(zakaznik=z, cena_s_dph=Decimal("100.50")); Faktura.objects.create(zakaznik=z, cena_s_dph=Decimal("20"))
+        r = self.client.get(reverse("dokumenty"), {"typ": "faktura"})
+        self.assertEqual(r.context["soucet"], [("120,50", "CZK")])
+        self.assertContains(r, "Celkem 2 doklady")

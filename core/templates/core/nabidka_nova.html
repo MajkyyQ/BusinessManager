@@ -1,4 +1,4 @@
-{% extends "core/base.html" %}{% block content %}<h3>Nová nabídka ze zakázky</h3>
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Nová nabídka ze zakázky</h3></div>
 <p class="text-muted">Vyberte zakázku – zákazník, čísla, položky, ceny i DPH se doplní automaticky. Ručně volíte jen datum vystavení.</p>
 <form method="post" hx-boost="false" class="col-lg-9">{% csrf_token %}{{ form.non_field_errors }}
 <div class="row g-2 mb-3"><div class="col-md-7"><label class="form-label mb-0 fw-bold">Zakázka</label>{{ form.zakazka }}<div class="form-text mt-0">Položky, ceny a DPH se převezmou z prací a materiálu vybrané zakázky. Chybí-li něco, doplňte to nejdřív do zakázky.</div><div class="text-danger small">{{ form.zakazka.errors }}</div></div>
