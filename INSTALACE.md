@@ -20,6 +20,10 @@ Docker Desktop je zdarma pro firmy do 250 zaměstnanců a do 10 mil. USD obratu.
 
 1. Stáhněte **Docker Desktop for Windows** z https://www.docker.com/products/docker-desktop/ a nainstalujte
    (nechte zaškrtnuté *Use WSL 2*).
+
+   **Počítejte s tím, že Docker bude chtít zapnout dvě věci ve Windows:** WSL (součást Windows, ve které běží)
+   a virtualizaci procesoru. Sám napíše, co chybí a jak to zapnout. WSL se doinstaluje příkazem a restartem,
+   virtualizace se zapíná v BIOSu (na firemním PC to může vyžadovat správce IT). Je to potřeba udělat jen jednou.
 2. Restartujte počítač, pokud o to instalátor požádá.
 3. Spusťte Docker Desktop, odsouhlaste podmínky (přihlášení k účtu Docker můžete přeskočit).
 4. V Docker Desktop → **Settings → General** zaškrtněte **Start Docker Desktop when you sign in to your computer**.
@@ -31,8 +35,8 @@ Docker Desktop je zdarma pro firmy do 250 zaměstnanců a do 10 mil. USD obratu.
    ```
    Obojí musí vypsat číslo verze.
 
-Když Docker hlásí chybu virtualizace nebo WSL: v příkazovém řádku jako administrátor spusťte `wsl --update`
-a restartujte PC. Pokud to nepomůže, je potřeba v BIOSu zapnout virtualizaci (Intel VT-x / AMD-V).
+Když Docker hlásí chybu virtualizace nebo WSL i po zapnutí: ve Správci úloh → Výkon → CPU musí být
+*Virtualizace: Povoleno*; pak jako správce spusťte `wsl --update` a restartujte PC.
 
 ## 2. Stáhněte aplikaci
 

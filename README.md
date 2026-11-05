@@ -3,6 +3,8 @@
 ## Rychlá instalace (Windows)
 1. Nainstalujte a spusťte **Docker Desktop**: https://www.docker.com/products/docker-desktop/
    V jeho nastavení zapněte *Start Docker Desktop when you sign in to your computer*.
+   Docker bude při první instalaci vyžadovat **WSL** a zapnutou **virtualizaci** procesoru. Sám napíše, co a jak zapnout
+   (virtualizace se zapíná v BIOSu, na firemním PC případně požádejte správce IT).
 2. Stáhněte aplikaci: zelené tlačítko **Code → Download ZIP**, rozbalte do `C:\BusinessManager`.
 3. Dvakrát klikněte na **`instalace.bat`**. Aplikace si sama vytvoří nastavení s hesly, spustí se a otevře prohlížeč
    (poprvé 5–15 minut). Žádná hesla nikam nezadáváte.
