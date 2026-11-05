@@ -1,6 +1,9 @@
 # BusinessManager (Django 5.2 + PostgreSQL 17 + Docker)
 
 ## Rychlá instalace (Windows)
+0. Připravte Windows (jednou): ve **Správci úloh → Výkon → CPU** musí být *Virtualizace: Povoleno*
+   (jinak ji zapněte v BIOSu), pak v **Terminálu (správce)** spusťte `wsl --install --no-distribution` a restartujte PC.
+   Podrobný postup je v [INSTALACE.md](INSTALACE.md#1a-připravte-windows-virtualizace-a-wsl).
 1. Nainstalujte a spusťte **Docker Desktop**: https://www.docker.com/products/docker-desktop/
    V jeho nastavení zapněte *Start Docker Desktop when you sign in to your computer*.
 2. Stáhněte aplikaci: zelené tlačítko **Code → Download ZIP**, rozbalte do `C:\BusinessManager`.
