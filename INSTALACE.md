@@ -16,37 +16,14 @@ Celé to zabere asi 30–60 minut, nejdéle trvá první sestavení aplikace (st
 
 Docker Desktop je zdarma pro firmy do 250 zaměstnanců a do 10 mil. USD obratu.
 
-## 1a. Připravte Windows: virtualizace a WSL
-
-Docker Desktop potřebuje dvě věci, které na většině PC nejsou zapnuté. Stačí to udělat jednou.
-
-**a) Zkontrolujte virtualizaci.** Otevřete Správce úloh (Ctrl+Shift+Esc) → **Výkon** → **CPU**.
-Vpravo dole musí být **Virtualizace: Povoleno**.
-
-Když je tam *Zakázáno*, zapněte ji v BIOSu:
-1. Restartujte PC a hned po zapnutí opakovaně mačkejte klávesu pro BIOS. Bývá to **F2**, **Del**, **F10** nebo **F1**,
-   u notebooků Lenovo často **F1**/**F2**, u HP **Esc** a pak **F10**. Klávesa se většinou krátce ukáže dole na obrazovce.
-   Jiná cesta: Nastavení Windows → Systém → Obnovení → **Rozšířené spuštění** → Řešení potíží → Upřesnit možnosti →
-   **Nastavení firmwaru UEFI**.
-2. Najděte položku **Intel Virtualization Technology** (VT-x), u AMD **SVM Mode** nebo **AMD-V**.
-   Bývá v sekci *Advanced*, *CPU Configuration* nebo *Security*.
-3. Nastavte ji na **Enabled**, uložte (obvykle **F10**) a nechte PC nastartovat.
-
-Na firemním PC může být BIOS zamčený heslem. Pak je potřeba požádat správce IT.
-
-**b) Nainstalujte WSL** (část Windows, ve které Docker běží). Klikněte pravým tlačítkem na Start →
-**Terminál (správce)** nebo **Windows PowerShell (správce)** a zadejte:
-```
-wsl --install --no-distribution
-```
-Po dokončení **restartujte PC**. Když WSL už nainstalované je, spusťte místo toho `wsl --update`.
-Na starších Windows 10 může příkaz hlásit neznámý parametr. Pak zadejte jen `wsl --install`; pokud se potom otevře okno
-Ubuntu a chce uživatelské jméno, můžete ho zavřít, Docker ho nepotřebuje.
-
-## 1b. Nainstalujte Docker Desktop
+## 1. Nainstalujte Docker Desktop
 
 1. Stáhněte **Docker Desktop for Windows** z https://www.docker.com/products/docker-desktop/ a nainstalujte
    (nechte zaškrtnuté *Use WSL 2*).
+
+   **Počítejte s tím, že Docker bude chtít zapnout dvě věci ve Windows:** WSL (součást Windows, ve které běží)
+   a virtualizaci procesoru. Sám napíše, co chybí a jak to zapnout. WSL se doinstaluje příkazem a restartem,
+   virtualizace se zapíná v BIOSu (na firemním PC to může vyžadovat správce IT). Je to potřeba udělat jen jednou.
 2. Restartujte počítač, pokud o to instalátor požádá.
 3. Spusťte Docker Desktop, odsouhlaste podmínky (přihlášení k účtu Docker můžete přeskočit).
 4. V Docker Desktop → **Settings → General** zaškrtněte **Start Docker Desktop when you sign in to your computer**.
@@ -58,8 +35,8 @@ Ubuntu a chce uživatelské jméno, můžete ho zavřít, Docker ho nepotřebuje
    ```
    Obojí musí vypsat číslo verze.
 
-Když Docker i tak hlásí chybu virtualizace nebo WSL, vraťte se ke kroku 1a: zkontrolujte ve Správci úloh,
-že je virtualizace povolená, spusťte `wsl --update` jako správce a restartujte PC.
+Když Docker hlásí chybu virtualizace nebo WSL i po zapnutí: ve Správci úloh → Výkon → CPU musí být
+*Virtualizace: Povoleno*; pak jako správce spusťte `wsl --update` a restartujte PC.
 
 ## 2. Stáhněte aplikaci
 
@@ -78,7 +55,7 @@ Nekopírujte do firmy soubor `db.sqlite3` ani složku `media` ze svého vývojov
 
 ## Rychlá cesta: skript `instalace.bat`
 
-Kroky 3 až 5 udělá skript za vás. Po přípravě Windows a instalaci Dockeru (kroky 1a a 1b) a rozbalení aplikace (krok 2):
+Kroky 3 až 5 udělá skript za vás. Po instalaci Dockeru (krok 1) a rozbalení aplikace (krok 2):
 
 1. Spusťte Docker Desktop a počkejte, až se načte.
 2. Ve složce `C:\BusinessManager` dvakrát klikněte na **`instalace.bat`**.
