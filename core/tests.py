@@ -522,7 +522,7 @@ class UcetZamestnanceTest(TestCase):
         self.assertNotContains(self.client.get(reverse("nastaveni")), "/admin/auth/user/")
 
     def test_vsechny_formulare_v_novem_vzhledu(self):
-        for slug in ("zarizeni", "stavzakazky", "typukonu", "material", "dodavatel", "zamestnanec", "role", "opravneni", "sazbadph"):
+        for slug in ("stavzakazky", "typukonu", "material", "dodavatel", "zamestnanec", "role", "opravneni", "sazbadph"):
             r = self.client.get(reverse("create", args=[slug]))
             self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertEqual(r.status_code, 200, slug)
 
@@ -597,3 +597,102 @@ class CislovaniDokladuTest(TestCase):
     def test_bezny_uzivatel_nastaveni_neotevre(self):
         self.client.force_login(User.objects.create_user("u", password="x"))
         self.assertRedirects(self.client.get(reverse("nastaveni_cislovani")), reverse("dashboard"), fetch_redirect_response=False)
+
+
+class OpravyZProchazeniTest(TestCase):
+    """Opravy po procházení celé aplikace: formuláře, tlačítka Zpět/Zrušit, zařízení, telefony a platby."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka, TypUkonu, SazbaDPH, Zamestnanec
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis", vychozi_dph=Decimal("21"))
+        self.admin = User.objects.create_user("admin", password="x", is_staff=True); self.client.force_login(self.admin)
+        self.k = Zakaznik.objects.create(jmeno="Tonda", telefon="604851237")
+        self.z = Zakazka.objects.create(zakaznik=self.k, stav=StavZakazky.objects.create(nazev="Nová"))
+        self.t = TypUkonu.objects.create(nazev="Diagnostika"); SazbaDPH.objects.create(sazba=Decimal("21")); SazbaDPH.objects.create(sazba=Decimal("12"))
+        self.e1 = Zamestnanec.objects.create(jmeno="Tonda", prijmeni="A"); self.e2 = Zamestnanec.objects.create(jmeno="Pepa", prijmeni="B")
+
+    def test_telefon_po_trojicich(self):
+        from .models import formatuj_telefon
+        self.assertEqual(formatuj_telefon("604851237"), "604 851 237")
+        self.assertEqual(formatuj_telefon("+420604851237"), "+420 604 851 237")
+        self.assertEqual(formatuj_telefon("00420 604851237"), "+420 604 851 237")
+        self.assertEqual(formatuj_telefon("12345"), "12345")
+        r = self.client.get(reverse("detail", args=["zakaznik", self.k.pk]))
+        self.assertContains(r, "604 851 237"); self.assertNotContains(r, "tel:")
+
+    def test_novy_formular_bez_aktivni_a_nahral(self):
+        for slug in ("sazbadph", "zamestnanec", "role", "stavzakazky", "typukonu", "material", "dodavatel", "zakaznik"):
+            r = self.client.get(reverse("create", args=[slug]))
+            self.assertNotContains(r, 'name="aktivni"', msg_prefix=slug)
+        r = self.client.get(reverse("edit", args=["typukonu", self.t.pk])); self.assertContains(r, 'name="aktivni"')
+        r = self.client.get(reverse("create", args=["priloha"]))
+        self.assertNotContains(r, 'name="nahral"'); self.assertNotContains(r, 'name="typ_souboru"')
+
+    def test_vice_fotek_najednou(self):
+        from io import BytesIO
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import Fotografie
+        def png(n):
+            b = BytesIO(); Image.new("RGB", (2, 2)).save(b, "PNG"); return SimpleUploadedFile(n, b.getvalue(), content_type="image/png")
+        r = self.client.get(reverse("create", args=["fotografie"]) + f"?zakazka={self.z.pk}")
+        self.assertContains(r, "multiple"); self.assertNotContains(r, 'name="nahral"'); self.assertNotContains(r, 'name="popis"')
+        r = self.client.post(reverse("create", args=["fotografie"]) + f"?zakazka={self.z.pk}", {"zakazka": self.z.pk, "soubory": [png("a.png"), png("b.png")]})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(list(Fotografie.objects.values_list("nahral", flat=True)), [self.admin.pk, self.admin.pk])
+
+    def test_prace_vice_zamestnancu_a_sazba(self):
+        from .models import ProvedenyUkon
+        r = self.client.get(reverse("create", args=["provedenyukon"]) + f"?zakazka={self.z.pk}")
+        self.assertContains(r, 'type="checkbox" name="zamestnanci"'); self.assertContains(r, "Sazba DPH"); self.assertContains(r, "Jiná sazba")
+        self.client.post(reverse("create", args=["provedenyukon"]) + f"?zakazka={self.z.pk}",
+                         {"zakazka": self.z.pk, "typ_ukonu": self.t.pk, "cena": "100", "sazba_dph": "jina", "sazba_dph_jina": "15", "zamestnanci": [self.e1.pk, self.e2.pk]})
+        u = ProvedenyUkon.objects.get(); self.assertEqual(u.sazba_dph, Decimal("15")); self.assertEqual(u.zamestnanci.count(), 2)
+
+    def test_zakaznik_soukroma_osoba_bez_firemnich_udaju(self):
+        self.client.post(reverse("create", args=["zakaznik"]), {"typ_zakaznika": "Soukromá osoba", "jmeno": "Eva", "firma": "Zbytek", "ico": "", "dic": ""})
+        z = Zakaznik.objects.get(jmeno="Eva"); self.assertEqual(z.firma, ""); self.assertTrue(z.aktivni)
+        r = self.client.post(reverse("create", args=["zakaznik"]), {"typ_zakaznika": "Firma", "jmeno": "", "firma": ""})
+        self.assertContains(r, "Vyplňte název firmy.")
+
+    def test_zarizeni_jen_se_zakazkou_a_jednomu_zakaznikovi(self):
+        from .models import Zarizeni
+        self.assertRedirects(self.client.get(reverse("create", args=["zarizeni"])), reverse("zakazka_nova"), fetch_redirect_response=False)
+        self.client.post(reverse("create", args=["zarizeni"]) + f"?zakazka={self.z.pk}", {"vyrobce": "Makita", "typ": "X", "seriove_cislo": "SN1"})
+        d = Zarizeni.objects.get(); self.assertEqual(d.zakaznik, self.k); self.assertIn(d, self.z.zarizeni.all())
+        pepa = Zakaznik.objects.create(jmeno="Pepa")
+        r = self.client.post(reverse("lookup_new", args=["zarizeni"]), {"dep": pepa.pk, "vyrobce": "makita", "typ": "X", "seriove_cislo": "sn1"})
+        self.assertEqual(r.status_code, 400)  # zařízení je právě na firmě v zakázce Tondy
+        self.z.stav = self.z.stav.__class__.objects.create(nazev="Vydáno"); self.z.save()
+        r = self.client.post(reverse("lookup_new", args=["zarizeni"]), {"dep": pepa.pk, "vyrobce": "makita", "typ": "X", "seriove_cislo": "sn1"})
+        self.assertEqual(r.status_code, 200); self.assertEqual(Zarizeni.objects.count(), 1); d.refresh_from_db(); self.assertEqual(d.zakaznik, pepa)
+
+    def test_pomocne_tabulky_a_zpet(self):
+        from .models import ProvedenyUkon
+        u = ProvedenyUkon.objects.create(zakazka=self.z, typ_ukonu=self.t)
+        self.assertEqual(self.client.get(reverse("list", args=["provedenyukon"])).status_code, 302)
+        self.assertEqual(self.client.get(reverse("list", args=["kalendarudalost"])).status_code, 302)
+        plocha = reverse("detail", args=["zakazka", self.z.pk]); self.client.get(plocha)
+        r = self.client.get(reverse("detail", args=["provedenyukon", u.pk]))
+        self.assertContains(r, f'href="{plocha}">Zpět</a>')
+        r = self.client.get(reverse("edit", args=["provedenyukon", u.pk])); self.assertContains(r, f'href="{reverse("detail", args=["provedenyukon", u.pk])}">Zrušit</a>')
+        self.client.get(plocha); r = self.client.get(reverse("create", args=["pouzitymaterial"])); self.assertContains(r, f'href="{plocha}">Zrušit</a>')
+
+    def test_faktura_zaplaceno_a_platba_bez_faktury(self):
+        from .models import Platba, KalendarUdalost
+        self.client.post(reverse("faktura_nova"), {"zakazka": self.z.pk, "datum": "2026-11-05", "splatnost": "2026-11-19"})
+        f = Faktura.objects.get(); p = Platba.objects.get(faktura=f); self.assertEqual(p.stav, "Čeká na zaplacení")
+        r = self.client.get(reverse("detail", args=["faktura", f.pk])); self.assertContains(r, "Vystaveno"); self.assertNotContains(r, "<h5 class=\"mt-3\">Kalendář")
+        self.client.post(reverse("faktura_zaplaceno", args=[f.pk])); p.refresh_from_db(); self.assertEqual(p.stav, "Zaplaceno")
+        self.assertTrue(KalendarUdalost.objects.filter(typ="Zaplaceno", faktura=f).exists())
+        r = self.client.get(reverse("create", args=["platba"]) + f"?zakazka={self.z.pk}"); self.assertNotContains(r, 'name="faktura"'); self.assertContains(r, "Způsob platby")
+        self.client.post(reverse("create", args=["platba"]) + f"?zakazka={self.z.pk}", {"zpusob": "Hotově", "castka": "500", "datum_zaplaceni": "2026-11-05T10:00"})
+        h = Platba.objects.get(faktura__isnull=True); self.assertEqual((h.stav, h.zakazka), ("Zaplaceno", self.z))
+        r = self.client.get(reverse("list", args=["platba"])); self.assertContains(r, "Datum splatnosti"); self.assertNotContains(r, "+ Nový")
+
+    def test_zpet_po_navratu_tlacitkem_prohlizece(self):
+        """Seznam → detail A → (Zpět v prohlížeči) → detail B: Zpět vede na seznam, ne na A."""
+        b = Zakaznik.objects.create(jmeno="Pepa")
+        seznam = reverse("list", args=["zakaznik"]); a_url = reverse("detail", args=["zakaznik", self.k.pk])
+        self.client.get(seznam); self.client.get(a_url, HTTP_REFERER="http://testserver" + seznam)
+        r = self.client.get(reverse("detail", args=["zakaznik", b.pk]), HTTP_REFERER="http://testserver" + seznam)
+        self.assertContains(r, f'href="{seznam}">Zpět</a>')

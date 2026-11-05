@@ -11,7 +11,7 @@
 <form method="post" action="{% url 'sablona_akce' s.pk 'kopie' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">Vytvořit kopii</button></form>
 {% if s.aktivni %}<form method="post" action="{% url 'sablona_akce' s.pk 'deaktivovat' %}" onsubmit="return confirm('Deaktivovat šablonu? Přestane se nabízet, ale zůstane uložená.')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Deaktivovat</button></form>
 {% else %}<form method="post" action="{% url 'sablona_akce' s.pk 'aktivovat' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">Aktivovat</button></form>{% endif %}
-<a class="btn btn-sm btn-secondary" href="{% url 'sablony' %}?typ={{ s.typ_dokumentu }}">Zpět</a></div></div>
+<a class="btn btn-sm btn-secondary" href="{% if zpet %}{{ zpet }}{% else %}{% url 'sablony' %}?typ={{ s.typ_dokumentu }}{% endif %}">Zpět</a></div></div>
 {% if s.popis %}<p class="mt-2">{{ s.popis|linebreaksbr }}</p>{% endif %}
 <div class="row g-3 mt-1"><div class="col-lg-5">
 {% if s.format == "excel" %}

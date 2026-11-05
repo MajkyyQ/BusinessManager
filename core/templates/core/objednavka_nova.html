@@ -18,4 +18,4 @@
  z.addEventListener('change',()=>{const s=z.options[z.selectedIndex];if(s&&s.value&&!k.value){k.value=s.dataset.zakaznik;filtr()}});
  filtr()})();
 </script>
-<button class="btn btn-primary mt-3">Uložit objednávku</button> <a class="btn btn-secondary mt-3" href="{% url 'dokumenty' %}">Zrušit</a></form>{% endblock %}
+<button class="btn btn-primary mt-3">Uložit objednávku</button> <a class="btn btn-secondary mt-3" href="{% if zrusit_url %}{{ zrusit_url }}{% else %}{% url 'dokumenty' %}{% endif %}">Zrušit</a></form>{% endblock %}

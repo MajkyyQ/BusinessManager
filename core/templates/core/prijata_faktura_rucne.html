@@ -16,4 +16,4 @@
 <div class="row g-2 mb-3"><div class="col-md-6">{% include "core/_pole.html" with f=form.zakazka %}<div class="form-text mt-0">Nepovinné – zakázka, pro kterou byl materiál nebo služba nakoupena.</div></div>
 <div class="col-md-6">{% include "core/_pole.html" with f=form.soubor %}</div></div>
 <div>{% include "core/_pole.html" with f=form.poznamka %}</div>
-<button class="btn btn-primary mt-3">Uložit fakturu</button> <a class="btn btn-secondary mt-3" href="{% url 'dokumenty' %}">Zrušit</a></form>{% endblock %}
+<button class="btn btn-primary mt-3">Uložit fakturu</button> <a class="btn btn-secondary mt-3" href="{% if zrusit_url %}{{ zrusit_url }}{% else %}{% url 'dokumenty' %}{% endif %}">Zrušit</a></form>{% endblock %}

@@ -27,6 +27,13 @@ def validuj_ico(v):
     if (11 - z) % 10 != int(v[7]): raise ValidationError("IČO nemá platný kontrolní součet.")
 validuj_dic = RegexValidator(r"^[A-Z]{2}[0-9A-Z]{2,12}$", "DIČ zadejte jako kód země a číslo bez mezer, např. CZ12345678.")
 validuj_telefon = RegexValidator(r"^\+?[0-9 ]{6,19}$", "Telefon smí obsahovat jen číslice, mezery a úvodní +.")
+def formatuj_telefon(v):
+    """Jednotný zápis telefonu po trojicích: 604 851 237, +420 604 851 237. Jiný tvar čísla se nechá, jak je."""
+    s = re.sub(r"\s+", "", v or "")
+    if s.startswith("00") and s[2:].isdigit(): s = "+" + s[2:]
+    m = re.fullmatch(r"(\+\d{3})?(\d{9})", s)
+    if not m: return v or ""
+    return " ".join(x for x in (m.group(1), s[-9:-6], s[-6:-3], s[-3:]) if x)
 def ICO(): return C(8, validators=[validuj_ico], verbose_name="IČO")
 def DIC(): return C(14, validators=[validuj_dic], verbose_name="DIČ")
 def TEL(): return C(20, validators=[validuj_telefon])

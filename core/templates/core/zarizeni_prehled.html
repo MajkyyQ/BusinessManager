@@ -1,13 +1,13 @@
-{% extends "core/base.html" %}{% block content %}
+{% extends "core/base.html" %}{% load bm %}{% block content %}
 <div class="bm-head"><h3>Zařízení <small class="text-muted fs-6" id="bm-pocet">({{ rows|length }})</small></h3>
-<div class="bm-actions"><a class="btn btn-primary" href="{% url 'create' 'zarizeni' %}?next={{ request.path }}">+ Nové zařízení</a></div></div>
+<div class="bm-actions"><a class="btn btn-primary" href="{% url 'zakazka_nova' %}">+ Nová zakázka</a></div></div>
 <form method="get" id="zf" class="bm-toolbar">{% include "core/_hledat.html" %}<input type="hidden" name="o" value="{{ o }}">{% if fs %}<input type="hidden" name="st" value="{{ fs }}">{% endif %}
 <select name="f" class="form-select" onchange="this.form.submit()" aria-label="Skupina zařízení">{% for k,n in filtry %}<option value="{{ k }}" {% if k == f %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
 <select name="fi" class="form-select" onchange="this.form.submit()" aria-label="Je zařízení na firmě?"><option value="">Na firmě i mimo</option><option value="ano" {% if fi == "ano" %}selected{% endif %}>Na firmě</option><option value="ne" {% if fi == "ne" %}selected{% endif %}>Mimo firmu</option></select>
 <span id="bm-reset">{% if q or f or fs or fi %}<a class="btn btn-link px-1" href="{% url 'zarizeni_prehled' %}">Zrušit filtr</a>{% endif %}</span>{% include "core/_pohled.html" %}</form>
 <div id="vysledky">{% include "core/_stavy.html" %}
 {% if pohled == "kan" %}<div class="bm-cards">{% for r in rows %}<a class="bm-card" href="{% url 'detail' 'zarizeni' r.d.pk %}"><div class="t">{{ r.d.vyrobce }} {{ r.d.typ }}{% if not r.d.vyrobce and not r.d.typ %}Zařízení {{ r.d.pk }}{% endif %}</div>
-<div class="s">S/N: {{ r.d.seriove_cislo|default:"–" }}</div><div>{{ r.d.zakaznik }}</div><div class="s">📞 {{ r.d.zakaznik.telefon|default:"–" }}</div>
+<div class="s">S/N: {{ r.d.seriove_cislo|default:"–" }}</div><div>{{ r.d.zakaznik }}</div><div class="s">📞 {{ r.d.zakaznik.telefon|telefon|default:"–" }}</div>
 <div class="mt-1"><span class="badge bg-{{ r.css }}">{{ r.stav }}</span>{% if r.firma %} <span class="badge bg-warning text-dark">na firmě</span>{% endif %}{% if r.z %} <small class="text-muted">#{{ r.z.cislo_zakazky }}</small>{% endif %}</div>
 <div class="s mt-1">Poslední akce {{ r.akce|date:"j. n. Y"|default:"–" }} · zakázek {{ r.n }}</div></a>{% empty %}<p class="text-muted">Žádná zařízení neodpovídají filtru.</p>{% endfor %}</div>
 {% else %}<table class="table table-sm table-hover align-middle bm-table"><colgroup>{% for k,l,ord,ar,w in heads %}<col style="width:{{ w }}%">{% endfor %}<col></colgroup><thead><tr>
@@ -15,7 +15,7 @@
 {% for r in rows %}<tr style="cursor:pointer" onclick="if(!event.target.closest('a'))location.href='{% url 'detail' 'zarizeni' r.d.pk %}'">
 <td><a href="{% url 'detail' 'zarizeni' r.d.pk %}" class="fw-semibold">{{ r.d.vyrobce }} {{ r.d.typ }}{% if not r.d.vyrobce and not r.d.typ %}Zařízení {{ r.d.pk }}{% endif %}</a>{% if r.d.seriove_cislo %}<br><small class="text-muted">S/N: {{ r.d.seriove_cislo }}</small>{% endif %}</td>
 <td><a href="{% url 'detail' 'zakaznik' r.d.zakaznik_id %}">{{ r.d.zakaznik }}</a></td>
-<td>{% if r.d.zakaznik.telefon %}<a href="tel:{{ r.d.zakaznik.telefon }}">{{ r.d.zakaznik.telefon }}</a>{% else %}–{% endif %}</td>
+<td class="text-nowrap">{{ r.d.zakaznik.telefon|telefon|default:"–" }}</td>
 <td><span class="badge bg-{{ r.css }}">{{ r.stav }}</span>{% if r.firma %} <span class="badge bg-warning text-dark">na firmě</span>{% endif %}{% if r.z %}<br><small><a href="{% url 'detail' 'zakazka' r.z.pk %}">#{{ r.z.cislo_zakazky }}</a></small>{% endif %}</td>
 <td>{{ r.prijeti|date:"j. n. Y"|default:"–" }}</td>
 <td>{{ r.akce|date:"j. n. Y H:i"|default:"–" }}</td>

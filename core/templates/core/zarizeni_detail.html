@@ -1,18 +1,16 @@
-{% extends "core/base.html" %}{% block content %}
+{% extends "core/base.html" %}{% load bm %}{% block content %}
 <div class="bm-head align-items-start">
 <div><h3 class="mb-0">{{ d.vyrobce }} {{ d.typ }}{% if not d.vyrobce and not d.typ %}Zařízení {{ d.pk }}{% endif %} {% if not d.aktivni %}<span class="badge bg-secondary fs-6">neaktivní</span>{% endif %}</h3>
 <div class="mt-1">{% if akt %}<span class="badge bg-warning text-dark">Ve firmě – zakázka <a class="text-dark" href="{% url 'detail' 'zakazka' akt.pk %}">#{{ akt.cislo_zakazky }}</a> ({{ akt.stav|default:"–" }})</span>{% elif zak %}<span class="badge bg-secondary">U zákazníka</span>{% else %}<span class="badge bg-light text-dark border">Zatím bez zakázky</span>{% endif %}</div></div>
 <div class="bm-actions"><a class="btn btn-sm btn-primary" href="{% url 'edit' 'zarizeni' d.pk %}?next={{ nxt }}">Upravit</a>
-<a class="btn btn-sm btn-outline-primary" href="{% url 'zakazka_nova' %}?zakaznik={{ d.zakaznik_id }}&zarizeni={{ d.pk }}">+ Nová zakázka</a>
-{% if d.aktivni %}<a class="btn btn-sm btn-outline-danger" href="{% url 'delete' 'zarizeni' d.pk %}">Deaktivovat</a>{% endif %}
-<a class="btn btn-sm btn-secondary" href="{% url 'zarizeni_prehled' %}">Zpět</a></div></div>
+<a class="btn btn-sm btn-secondary" href="{{ zpet|default:"/zarizeni/" }}">Zpět</a></div></div>
 <div class="row g-3 mb-3"><div class="col-lg-6"><div class="card h-100"><div class="card-header py-1 fw-semibold">Základní informace</div><div class="card-body py-2">
 <table class="table table-sm mb-0"><tr><th class="w-25">Výrobce</th><td>{{ d.vyrobce|default:"–" }}</td></tr><tr><th>Typ</th><td>{{ d.typ|default:"–" }}</td></tr>
 <tr><th>Sériové číslo</th><td>{{ d.seriove_cislo|default:"–" }}</td></tr><tr><th>Popis</th><td style="white-space:pre-line">{{ d.popis|default:"–" }}</td></tr>
 <tr><th>Evidováno od</th><td>{{ d.datum_vytvoreni|date:"j. n. Y" }}</td></tr><tr><th>Poslední akce</th><td>{{ posl|date:"j. n. Y H:i"|default:"–" }}</td></tr><tr><th>Počet zakázek</th><td>{{ zak|length }}</td></tr></table></div></div></div>
 <div class="col-lg-6"><div class="card h-100"><div class="card-header py-1 fw-semibold">Zákazník</div><div class="card-body py-2">{% with c=d.zakaznik %}
 <table class="table table-sm mb-0"><tr><th class="w-25">Zákazník</th><td><a href="{% url 'detail' 'zakaznik' c.pk %}">{{ c }}</a>{% if c.firma and c.jmeno %}<br><small class="text-muted">{{ c.jmeno }}</small>{% endif %}</td></tr>
-<tr><th>Telefon</th><td>{% if c.telefon %}<a href="tel:{{ c.telefon }}">{{ c.telefon }}</a>{% else %}–{% endif %}</td></tr><tr><th>E-mail</th><td>{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% else %}–{% endif %}</td></tr>
+<tr><th>Telefon</th><td>{{ c.telefon|telefon|default:"–" }}</td></tr><tr><th>E-mail</th><td>{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% else %}–{% endif %}</td></tr>
 <tr><th>Adresa</th><td>{{ c.adresa|default:"–" }}</td></tr>{% if c.ico %}<tr><th>IČO</th><td>{{ c.ico }}</td></tr>{% endif %}</table>{% endwith %}</div></div></div></div>
 
 <h5>Historie zařízení</h5>
