@@ -1,2 +1,2 @@
 {% extends "core/base.html" %}{% block content %}<h3>{% if o.aktivni is not None %}Deaktivovat{% else %}Smazat{% endif %}: {{ o }}?</h3>
-<form method="post" hx-boost="false">{% csrf_token %}<button class="btn btn-danger">Potvrdit</button> <a class="btn btn-secondary" href="{% url 'detail' slug o.pk %}">Zpět</a></form>{% endblock %}
+<form method="post" hx-boost="false">{% csrf_token %}<button class="btn btn-danger">Potvrdit</button> <a class="btn btn-secondary" href="{{ zrusit }}">Zpět</a></form>{% endblock %}

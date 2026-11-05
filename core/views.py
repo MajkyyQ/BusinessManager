@@ -30,6 +30,8 @@ from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, Zakazk
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada)
 from . import cislovani
+from .models import formatuj_telefon
+from .navigace import zpet as zpet_url
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
 READONLY = {"historiezmen"}
@@ -66,10 +68,12 @@ def R(request, tpl, sec=None, crumbs=None, **c):
     nav = [(k, l, reverse(u, args=a)) for k, l, u, a in sect]; sl = {k: (l, reverse(u, args=a)) for k, l, u, a in SECT}; g = None; slug = c.get("slug")
     if slug in SEC and not sec: sec, g = SEC[slug]
     if crumbs is None and slug in SEC:
-        crumbs = [(sl[sec][0], sl[sec][1])] + ([(g, reverse("nastaveni"))] if g else []) + [(c["vnp"], None if tpl == "list" else reverse("list", args=[slug]))]
+        crumbs = [(sl[sec][0], sl[sec][1])] + ([(g, reverse("nastaveni"))] if g else []) + [(c["vnp"], None if tpl == "list" or slug in SKRYTE_SEZNAMY else reverse("list", args=[slug]))]
         if not g and sl[sec][0].split(" ", 1)[-1] == c["vnp"]:  # sekce a tabulka se jmenují stejně (Zakázky › Zakázky) -> bez duplicity
             crumbs = None if tpl == "list" else crumbs[:1]
     navx = [(k, *(l.split(" ", 1) if " " in l else ("", l)), u) for k, l, u in nav]  # (klíč, ikona, název, url) pro levou lištu
+    if "zpet" not in c: c["zpet"] = zpet_url(request)  # tlačítko Zpět = stránka, ze které uživatel přišel
+    c.setdefault("zrusit_url", safe_next(request) or c["zpet"])  # Zrušit ve formuláři = zpět tam, odkud se formulář otevřel
     return render(request, f"core/{tpl}.html", {"nav": nav, "navx": navx, "sec": sec, "crumbs": crumbs, **c})
 
 # ---------- Vyhledávací pole s inline vytvářením (místo <select>) ----------
@@ -83,7 +87,7 @@ LOOKUP = {  # slug -> pole pro hledání, závislost (filtr podle zákazníka), 
 def lk_item(slug, o):
     if slug == "zarizeni": return dict(id=o.pk, label=f"{o.vyrobce} {o.typ}".strip() or "Zařízení", sub=f"S/N: {o.seriove_cislo or '–'} · {o.zakaznik} · zakázek: {getattr(o, 'n', 0)}")
     if slug == "material": return dict(id=o.pk, label=o.nazev, sub=f"{o.jednotka} · {o.posledni_cena if o.posledni_cena is not None else '–'} Kč", price=None if o.posledni_cena is None else str(o.posledni_cena))
-    return dict(id=o.pk, label=str(o), sub=" · ".join(x for x in (o.telefon, o.email, getattr(o, "adresa", "")) if x))
+    return dict(id=o.pk, label=str(o), sub=" · ".join(x for x in (formatuj_telefon(o.telefon), o.email, getattr(o, "adresa", "")) if x))
 
 class LookupWidget(forms.Widget):
     def __init__(self, slug, model, multi=False, dep=""):
@@ -115,13 +119,22 @@ def lookup_new(request, slug):
     c = LOOKUP.get(slug)
     if not c: raise Http404
     M = MODELS[slug]; dep = request.GET.get("dep") or request.POST.get("dep") or ""
-    form = modelform_factory(M, form=BaseForm, fields=c["new"], formfield_callback=cb)(request.POST or None)
+    form = modelform_factory(M, form=ZakaznikForm if slug == "zakaznik" else BaseForm, fields=c["new"], formfield_callback=cb)(request.POST or None)
     ctx = {"form": form, "slug": slug, "dep": dep, "title": nadpis_novy(slug, M)}
     if request.method == "POST":
         if slug == "zarizeni" and not dep.isdigit(): form.add_error(None, "Nejdřív vyberte zákazníka.")
         elif form.is_valid():
             cd = form.cleaned_data; dup = None
-            if slug == "zarizeni" and cd["seriove_cislo"]: dup = Zarizeni.objects.filter(zakaznik_id=dep, seriove_cislo__iexact=cd["seriove_cislo"]).first()
+            if slug == "zarizeni" and cd["seriove_cislo"]:
+                jiny = zarizeni_stejne(cd["vyrobce"], cd["seriove_cislo"])
+                if jiny and jiny.zakaznik_id == int(dep): dup = jiny
+                elif jiny:  # stejné zařízení teď přinesl jiný zákazník -> zařízení přejde k němu (nikdy nepatří dvěma zákazníkům najednou)
+                    z_otevrena = otevrena_zakazka(jiny)
+                    if z_otevrena: form.add_error(None, f"Zařízení {jiny} je právě na firmě v zakázce {z_otevrena.cislo_zakazky} zákazníka {jiny.zakaznik}. Jedno zařízení nemůže mít dva zákazníci najednou.")
+                    else:
+                        stary = jiny.zakaznik; jiny.zakaznik_id = int(dep); jiny.save(update_fields=["zakaznik"]); jiny.refresh_from_db()
+                        log(request, jiny, "Změna vlastníka", "zakaznik", stary, jiny.zakaznik)
+                        it = lk_item(slug, jiny); it["sub"] = f"Převedeno od zákazníka {stary} · " + it["sub"]; return JsonResponse(it)
             elif slug == "material": dup = Material.objects.filter(nazev__iexact=cd["nazev"]).first()
             elif slug == "dodavatel" and cd["ico"]: dup = Dodavatel.objects.filter(ico=cd["ico"]).first()
             elif slug == "zakaznik":
@@ -143,7 +156,35 @@ POPISKY = {"jmeno": "Jméno", "typ_zakaznika": "Typ zákazníka", "nazev": "Náz
            "datum_vytvoreni": "Datum vytvoření", "priloha": "Příloha", "stredisko": "Středisko",
            "prijmeni": "Příjmení", "pracovni_pozice": "Pracovní pozice", "poradi": "Pořadí", "kod": "Kód", "je_administrator": "Je administrátor",
            "opravneni": "Oprávnění", "material": "Materiál", "typ_ukonu": "Typ úkonu", "mnozstvi": "Množství", "jednotkova_cena": "Jednotková cena",
-           "zakaznik_kontakt": "Kontakt", "datum_prijeti": "Datum přijetí", "popis_zavady": "Popis závady"}
+           "zakaznik_kontakt": "Kontakt", "datum_prijeti": "Datum přijetí", "popis_zavady": "Popis závady",
+           # české popisky s diakritikou pro pole, která nemají verbose_name
+           "castka": "Částka", "zpusob": "Způsob platby", "datum_zaplaceni": "Datum zaplacení", "datum_splatnosti": "Datum splatnosti", "cena": "Cena bez DPH",
+           "cena_bez_dph": "Cena bez DPH", "cena_s_dph": "Cena s DPH", "dph": "DPH", "sazba": "Sazba DPH", "sazba_dph": "Sazba DPH", "vychozi_dph": "Výchozí sazba DPH",
+           "cislo_faktury": "Číslo faktury", "cislo_nabidky": "Číslo nabídky", "cislo_objednavky": "Číslo objednávky", "cislo_zakazky": "Číslo zakázky",
+           "datum": "Datum", "datum_vydani": "Datum vydání", "datum_vystaveni": "Datum vystavení", "datum_zdanitelneho_plneni": "Datum zdanitelného plnění",
+           "datum_nahrani": "Datum nahrání", "datum_pridani": "Datum přidání", "datum_upravy": "Datum úpravy", "email": "E-mail", "telefon": "Telefon",
+           "adresa": "Adresa", "firma": "Název firmy", "faktura": "Faktura", "nabidka": "Nabídka", "platba": "Platba", "dodavatel": "Dodavatel", "kontakt": "Kontakt",
+           "role": "Role", "stav": "Stav", "typ": "Typ", "popis": "Popis", "jednotka": "Jednotka", "soubor": "Soubor", "logo": "Logo", "mena": "Měna",
+           "nazev_firmy": "Název firmy", "web": "Web", "identifikacni_cislo": "Identifikační číslo", "sekundarni_cislo": "Sekundární číslo", "uzivatel": "Uživatel",
+           "typ_dokumentu": "Typ dokumentu", "format": "Formát"}
+def vychozi_dph():
+    ns = NastaveniFirmy.objects.first()
+    return ns.vychozi_dph if ns and ns.vychozi_dph is not None else Decimal(21)
+def _dph_text(x): return f"{x:.2f}".rstrip("0").rstrip(".")
+class SazbaDPHWidget(forms.Widget):
+    """Sazba DPH: výběr ze sazeb v Nastavení → DPH, nebo „Jiná sazba…“ a vlastní číslo."""
+    def value_from_datadict(self, data, files, name):
+        v = data.get(name, "")
+        return data.get(name + "_jina", "").strip().replace(",", ".") if v == "jina" else v
+    def render(self, name, value, attrs=None, renderer=None):
+        sazby = [_dph_text(x) for x in SazbaDPH.objects.filter(aktivni=True).order_by("-sazba").values_list("sazba", flat=True)]
+        v = "" if value in (None, "") else _dph_text(Decimal(str(value).replace(",", "."))) if _dec(value) is not None else str(value)
+        jina = bool(v) and v not in sazby; i = (attrs or {}).get("id", "id_" + name)
+        opt = '<option value="">—</option>' + "".join(f'<option value="{x}"{" selected" if x == v else ""}>{x} %</option>' for x in sazby)
+        opt += f'<option value="jina"{" selected" if jina else ""}>Jiná sazba…</option>'
+        return mark_safe(f'<div class="d-flex gap-1"><select name="{name}" id="{i}" class="form-select" onchange="var j=this.nextElementSibling;j.classList.toggle(\'d-none\',this.value!=\'jina\');if(this.value==\'jina\')j.focus()">{opt}</select>'
+                         f'<input type="number" step="0.01" min="0" max="100" name="{name}_jina" class="form-control{"" if jina else " d-none"}" placeholder="vlastní sazba v %" value="{escape(v) if jina else ""}"></div>')
+AUTO_UZIVATEL = ("nahral", "vytvoril", "vystavil", "vypracoval")  # kdo záznam vytvořil = vždy přihlášený uživatel, ve formuláři se nevybírá
 class BaseForm(forms.ModelForm):
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -152,9 +193,41 @@ class BaseForm(forms.ModelForm):
             if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]  # pole bez verbose_name -> čeština s diakritikou
             if s in LOOKUP:
                 d = LOOKUP[s]["dep"]; f.widget = LookupWidget(s, t, isinstance(f, forms.ModelMultipleChoiceField), d if d in self.fields else ""); continue
+            if s == "zamestnanec" and isinstance(f, forms.ModelMultipleChoiceField):  # víc zaměstnanců najednou: zaškrtávací políčka místo seznamu s Ctrl
+                ted = list(self.instance.zamestnanci.values_list("pk", flat=True)) if self.instance.pk and hasattr(self.instance, "zamestnanci") else []
+                f.queryset = Zamestnanec.objects.filter(Q(aktivni=True) | Q(pk__in=ted)).order_by("prijmeni", "jmeno")
+                f.widget = forms.CheckboxSelectMultiple(attrs={"class": "bm-volby"}); f.widget.choices = f.choices; continue
+            if n == "sazba_dph":
+                f.widget = SazbaDPHWidget()
+                if not self.instance.pk and not self.initial.get(n): self.initial[n] = vychozi_dph()
+                continue
             w = f.widget; c = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
             w.attrs["class"] = c
             if isinstance(w, forms.Textarea): w.attrs["rows"] = 3
+    def _post_clean(self):
+        for n in ("telefon",):  # telefon se ukládá jednotně po trojicích (604 851 237)
+            if n in self.cleaned_data: self.cleaned_data[n] = formatuj_telefon(self.cleaned_data[n])
+        super()._post_clean()
+class ZakazkaChoice(forms.ModelChoiceField):
+    def label_from_instance(self, z): return f"{z.cislo_zakazky} – {z.zakaznik}"
+class ZakaznikForm(BaseForm):
+    """Zákazník: přepínač Soukromá osoba / Firma. U soukromé osoby se firemní údaje (název firmy, IČO, DIČ) skryjí a neukládají."""
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        f = self.fields.get("typ_zakaznika")
+        if f:
+            f.choices = [(x, x) for x in ("Soukromá osoba", "Firma")]; f.required = True; f.label = "Zákazník je"
+            f.widget = forms.RadioSelect(choices=f.choices, attrs={"class": "bm-volby"})
+            if not self.initial.get("typ_zakaznika"): self.initial["typ_zakaznika"] = "Firma" if self.instance.firma or self.instance.ico else "Soukromá osoba"
+    def clean(self):
+        c = super().clean()
+        if c.get("typ_zakaznika") == "Firma":
+            if "firma" in self.fields and not c.get("firma"): self.add_error("firma", "Vyplňte název firmy.")
+        elif c.get("typ_zakaznika") == "Soukromá osoba":
+            for n in ("firma", "ico", "dic"):
+                if n in c: c[n] = ""
+            if "jmeno" in self.fields and not c.get("jmeno"): self.add_error("jmeno", "Vyplňte jméno a příjmení.")
+        return c
 def cb(f, **k):
     ff = f.formfield(**k)
     if ff and isinstance(f, models.DateTimeField): ff.widget = forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M")
@@ -195,8 +268,16 @@ ZAK_RAZENI = {"cislo": "cislo_zakazky", "prijeti": "datum_prijeti", "vydani": "d
 KANBAN = {"zakazka", "zakaznik"}  # seznamy s přepínačem tabulka / kanban (zařízení má vlastní přehled)
 KANBAN_MAX = 300  # kanban zakázek se nestránkuje; při větším počtu stačí zúžit vyhledáním nebo stavem
 def _dt(v): return timezone.localtime(v).strftime("%d.%m.%Y %H:%M") if v else "–"
+# Pomocné tabulky bez vlastní stránky: jejich záznamy se zobrazují a přidávají u zakázky, dokladu nebo v kalendáři.
+SKRYTE_SEZNAMY = {"provedenyukon": "zakazka", "pouzitymaterial": "zakazka", "fotografie": "zakazka", "priloha": "zakazka", "zakazkakontakt": "zakazka",
+                  "zakaznikkontakt": "zakaznik", "kalendarudalost": None, "polozkanabidky": "nabidka", "polozkafaktury": "faktura"}
+def _mimo_seznam(request, slug):
+    """Kam vede Zpět z pomocného záznamu, když uživatel nepřišel odjinud: na jeho zakázku, doklad nebo do kalendáře."""
+    return zpet_url(request) or (reverse("kalendar") if slug == "kalendarudalost" else reverse("list", args=[SKRYTE_SEZNAMY.get(slug) or "zakazka"]))
 def lst(request, slug):
     if not jen_admin_ok(request, slug): return redirect("dashboard")
+    if slug in SKRYTE_SEZNAMY: return redirect(_mimo_seznam(request, slug))
+    if slug == "platba" and not je_admin(request.user): messages.error(request, "Přehled plateb může otevřít jen administrátor."); return redirect("dokumenty")
     M = get(slug); q = request.GET.get("q", ""); qs = M.objects.all(); flt = {}; o = ""
     if q:
         f = Q()
@@ -225,10 +306,16 @@ def lst(request, slug):
         # uzavřené stavy (Vydáno, Zrušeno) jsou ve výchozím kanbanu sbalené jen na počet; rozbalí se kliknutím na stav
         sloupce = [dict(s=s, css=STAV_CSS.get(s, "light"), items=[z for z in zz if z.stav and z.stav.nazev == s], sbaleno=not st and s in CLOSED, url=_url(request, st=s)) for s in sl]
         if not st and any(not z.stav for z in zz): sloupce.append(dict(s="Bez stavu", css="light", items=[z for z in zz if not z.stav], sbaleno=False, url=""))
+    if slug == "platba": qs = qs.select_related("faktura", "zakazka").order_by("-pk")
     page = Paginator(qs if qs.ordered else qs.order_by("pk"), 50).get_page(request.GET.get("page"))
     if slug == "zakaznik":
         heads = [dict(l=x) for x in ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]]
-        rows = [(o, [o.jmeno or o.firma or str(o), o.firma or "–", o.adresa or "–", o.telefon or "–", o.email or "–", _dt(o.posl)], TYP_ZKR.get(o.typ_zakaznika)) for o in page]
+        rows = [(o, [o.jmeno or o.firma or str(o), o.firma or "–", o.adresa or "–", formatuj_telefon(o.telefon) or "–", o.email or "–", _dt(o.posl)], TYP_ZKR.get(o.typ_zakaznika)) for o in page]
+    elif slug == "platba":
+        heads = [dict(l=x) for x in ["Stav platby", "Faktura", "Zakázka", "Částka", "Způsob platby", "Datum splatnosti", "Datum zaplacení"]]
+        d = lambda x: x.strftime("%d.%m.%Y") if x else "–"
+        rows = [(o, [o.stav or "–", o.faktura or "bez faktury", o.zakazka or "–", o.castka if o.castka is not None else "–", o.zpusob or "–",
+                     d(o.faktura.datum_splatnosti) if o.faktura else "–", _dt(o.datum_zaplaceni) if o.stav == "Zaplaceno" else "–"], None) for o in page]
     elif slug == "prijatafaktura":
         heads = [dict(l=x) for x in ["Číslo faktury", "Dodavatel", "Doručeno", "Splatnost", "K úhradě", "Stav"]]
         rows = [(o, [o.cislo_faktury, o.dodavatel, o.datum_doruceni.strftime("%d.%m.%Y"), o.datum_splatnosti.strftime("%d.%m.%Y") if o.datum_splatnosti else "–",
@@ -243,7 +330,7 @@ def lst(request, slug):
         cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
         heads = [dict(l=capfirst(c.verbose_name)) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
     keep = urlencode({k: x for k, x in {"q": q, **flt}.items() if x})
-    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, flt=flt, keep=keep, o=o,
+    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, bez_noveho=slug == "platba", flt=flt, keep=keep, o=o,
              keep_o=urlencode({k: x for k, x in {"q": q, **flt, "o": o}.items() if x}), chips=chips, pohled=pohled, pohledy=pohledy, sloupce=sloupce,
              kanban_max=KANBAN_MAX, ph={"zakazka": "Číslo zakázky, zákazník, závada…", "zakaznik": "Jméno, firma, telefon, e-mail…"}.get(slug, "Hledat…"))
 
@@ -259,11 +346,17 @@ def detail(request, slug, pk):
     for f in M._meta.many_to_many: fields.append((f.verbose_name, ", ".join(map(str, getattr(o, f.name).all())) or "–", None, False))
     rel = []
     for r in M._meta.related_objects:
-        if r.related_model._meta.model_name in MODELS and (r.one_to_many or r.many_to_many):
-            rel.append((r.related_model._meta.verbose_name_plural, r.related_model._meta.model_name, list(getattr(o, r.get_accessor_name()).all()[:50]),
+        s = r.related_model._meta.model_name
+        if s in MODELS and s not in DETAIL_BEZ and (r.one_to_many or r.many_to_many):
+            rel.append((DETAIL_NAZEV.get(s, r.related_model._meta.verbose_name_plural), s, list(getattr(o, r.get_accessor_name()).all()[:50]),
                         r.field.name if r.one_to_many else None))
     hist = HistorieZmen.objects.filter(typ_objektu=slug, id_objektu=pk)[:30]
-    return R(request, "detail", slug=slug, M=M, o=o, fields=fields, rel=rel, hist=hist, ro=slug in READONLY)
+    z = getattr(o, "zakazka", None) if slug in SKRYTE_SEZNAMY else None  # práce, materiál, foto… patří k zakázce
+    nahradni = reverse("detail", args=["zakazka", z.pk]) if isinstance(z, Zakazka) else _mimo_seznam(request, slug) if slug in SKRYTE_SEZNAMY else reverse("list", args=[slug])
+    zaplaceno = o.platba_set.filter(stav="Zaplaceno").order_by("-datum_zaplaceni").first() if slug == "faktura" else None
+    return R(request, "detail", slug=slug, M=M, o=o, fields=fields, rel=rel, hist=hist, ro=slug in READONLY, nahradni=nahradni, zaplaceno=zaplaceno)
+DETAIL_BEZ = {"kalendarudalost", "platba"}  # události jsou v Kalendáři; platba faktury se řídí tlačítkem Zaplaceno, platby zakázky jsou na její stránce
+DETAIL_NAZEV = {"polozkafaktury": "Položky faktury", "polozkanabidky": "Položky nabídky"}
 
 def edit(request, slug, pk=None):
     if not jen_admin_ok(request, slug): return redirect("dashboard")
@@ -279,37 +372,114 @@ def edit(request, slug, pk=None):
         return redirect(reverse("prijata_faktura_rucne") + ("?" + request.GET.urlencode() if request.GET else ""))
     if slug == "zakazka" and not pk:  # nová zakázka = zakázkový list
         return redirect(reverse("zakazka_nova") + ("?" + request.GET.urlencode() if request.GET else ""))
+    if slug == "fotografie" and not pk: return fotografie_nove(request)  # víc fotek najednou
     o = get_object_or_404(M, pk=pk) if pk else None
-    exclude = ("stav", "datum_vydani") if slug == "zakazka" else ("uzivatel",) if slug == "zamestnanec" else None  # stav se mění jen akcemi workflow, účet zaměstnance má vlastní sekci
-    Form = modelform_factory(M, form=ZamestnanecForm if slug == "zamestnanec" else BaseForm, fields="__all__", formfield_callback=cb, exclude=exclude)
-    init = {}
-    if not o:
-        init = request.GET.dict()
-        for n in ("vypracoval", "vystavil", "nahral", "vytvoril"):
-            if n in Form.base_fields: init.setdefault(n, request.user.pk)
+    zak = None  # nové zařízení vzniká jen ze zakázky (přijetí zařízení), ne samostatně
+    if slug == "zarizeni" and not o:
+        zak = Zakazka.objects.filter(pk=request.GET.get("zakazka") or 0).select_related("zakaznik").first()
+        if not zak:
+            messages.info(request, "Nové zařízení se zakládá s novou zakázkou (zařízení se eviduje, když ho zákazník přinese)."); return redirect("zakazka_nova")
+    if slug == "platba" and not o:  # ručně se zapisuje jen platba k zakázce bez faktury (např. hotově); platbu faktury řeší tlačítko Zaplaceno u faktury
+        zak = Zakazka.objects.filter(pk=request.GET.get("zakazka") or 0).first()
+        if not zak: messages.info(request, "Platba se zapisuje u zakázky (Dokumenty zakázky → Přidat platbu). Platbu faktury označíte tlačítkem Zaplaceno v detailu faktury."); return redirect(zpet_url(request) or "dokumenty")
+    exclude = {"zakazka": ["stav", "datum_vydani"], "zamestnanec": ["uzivatel"], "priloha": ["typ_souboru"], "zarizeni": [] if o else ["zakaznik"],
+               "platba": ["faktura"] + ([] if o else ["stav"])}.get(slug, [])  # stav se mění jen akcemi workflow, účet zaměstnance má vlastní sekci, typ souboru se pozná z přípony
+    exclude += [n for n in AUTO_UZIVATEL if n in {f.name for f in M._meta.fields}]  # kdo záznam vytvořil, se doplní sám
+    if not o and any(f.name == "aktivni" for f in M._meta.fields): exclude.append("aktivni")  # nový záznam je vždy aktivní, deaktivovat jde v úpravě
+    Form = modelform_factory(M, form=ZamestnanecForm if slug == "zamestnanec" else ZakaznikForm if slug == "zakaznik" else BaseForm, fields="__all__", formfield_callback=cb, exclude=exclude)
+    init = {} if o else request.GET.dict()
+    if slug == "platba" and not o: init.update(zakazka=zak.pk, zpusob=init.get("zpusob", "Hotově"), datum_zaplaceni=timezone.localtime().strftime("%Y-%m-%dT%H:%M"))
     form = Form(request.POST or None, request.FILES or None, instance=o, initial=init or None)
+    if slug == "platba" and "zakazka" in form.fields and (zak or (o and o.faktura_id)): form.fields["zakazka"].disabled = True  # zakázka (a faktura) se ve formuláři nemění
     if slug == "zamestnanec": form.prihlaseny = request.user
-    if request.method == "POST" and form.is_valid():
+    nx = safe_next(request); zpet = zpet_url(request)
+    if request.method == "POST" and form.is_valid() and _kontrola(request, slug, form, o, zak):
         changed = [n for n in (form.changed_data if o else []) if n not in getattr(form, "UCET", ())]  # údaje účtu (heslo!) se do historie nepíší
         old = {n: form.initial.get(n) for n in changed}
         with transaction.atomic():
-            o = form.save()
+            o = form.save(commit=False)
+            if not pk:
+                for n in AUTO_UZIVATEL:
+                    if hasattr(o, n + "_id"): setattr(o, n, request.user)
+                if zak and slug == "zarizeni": o.zakaznik = zak.zakaznik
+                if slug == "platba": o.stav = "Zaplaceno"; o.zakazka = zak; o.datum_zaplaceni = o.datum_zaplaceni or timezone.now()
+            o.save(); form.save_m2m()
+            if zak and slug == "zarizeni": zak.zarizeni.add(o)
             if hasattr(form, "uloz_ucet"):
                 zprava = form.uloz_ucet(o)
                 if zprava: log(request, o, "Účet", "uzivatel", "", zprava)
         if changed:
             for n in changed: log(request, o, "Úprava", n, old[n], form.cleaned_data[n])
-        else: log(request, o, "Vytvoření" if not pk else "Úprava")
-        messages.success(request, "Uloženo."); nx = safe_next(request)
-        return redirect(nx) if nx else redirect("detail", slug=slug, pk=o.pk)
+        else: log(request, o, "Vytvoření" if not pk else "Úprava", popis_z=zak if slug == "zarizeni" else None)
+        messages.success(request, "Uloženo.")
+        return redirect(nx or zpet or reverse("detail", args=[slug, o.pk]))
     uvod, sekce = sekce_formulare(slug, form)
-    nx = safe_next(request); zrusit = nx or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
+    zrusit = nx or zpet or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
+    if zak and slug == "zarizeni": uvod = f"Zařízení zákazníka {zak.zakaznik}, přidá se k zakázce {zak.cislo_zakazky}."
+    if zak and slug == "platba": uvod = f"Zaplacená částka k zakázce {zak.cislo_zakazky} bez faktury, např. hotově při vyzvednutí. Platbu faktury označíte tlačítkem Zaplaceno v detailu faktury."
     return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit,
-             nadpis=f"Úprava: {o}" if o else nadpis_novy(slug, M), uvod=None if o else uvod)
+             nadpis=f"Úprava: {o}" if o else nadpis_novy(slug, M), uvod=None if o and not zak else uvod)
+
+def _kontrola(request, slug, form, o, zak):
+    """Kontroly, které potřebují víc než jedno pole formuláře. Chybu zapíše do formuláře a vrátí False."""
+    c = form.cleaned_data
+    if slug == "zarizeni":
+        majitel = zak.zakaznik if zak else c.get("zakaznik")
+        jiny = zarizeni_stejne(c.get("vyrobce", ""), c.get("seriove_cislo", ""), bez=o.pk if o else None)
+        if jiny and majitel and jiny.zakaznik_id != majitel.pk:
+            form.add_error("seriove_cislo", f"Zařízení s tímto sériovým číslem už je v evidenci u zákazníka {jiny.zakaznik}. Jedno zařízení nemůže patřit dvěma zákazníkům – "
+                                            f"otevřete stávající zařízení a změňte u něj zákazníka.")
+        elif jiny: form.add_error("seriove_cislo", f"Toto zařízení už je v evidenci ({jiny}).")
+        if o and majitel and "zakaznik" in form.changed_data:  # převod zařízení na jiného zákazníka jen tehdy, když není rozpracované u původního
+            z = otevrena_zakazka(o)
+            if z and z.zakaznik_id != majitel.pk: form.add_error("zakaznik", f"Zařízení je právě na firmě v zakázce {z.cislo_zakazky} zákazníka {z.zakaznik}. Převést ho jde až po jejím uzavření.")
+    if slug == "zakazka" and c.get("zakaznik"):  # zakázka smí obsahovat jen zařízení svého zákazníka
+        cizi = [d for d in c.get("zarizeni", []) if d.zakaznik_id != c["zakaznik"].pk]
+        if cizi: form.add_error("zarizeni", "Zařízení " + ", ".join(map(str, cizi)) + " patří jinému zákazníkovi.")
+    return not form.errors
+
+def otevrena_zakazka(d):
+    """Neuzavřená zakázka, ve které je zařízení právě na firmě (nebo None)."""
+    return d.zakazka_set.exclude(stav__nazev__in=CLOSED).order_by("-datum_vytvoreni").first() if d.pk else None
+def zarizeni_stejne(vyrobce, sn, bez=None):
+    """Stejné fyzické zařízení = stejný výrobce a sériové číslo (bez ohledu na velikost písmen a mezery)."""
+    sn = (sn or "").strip()
+    if not sn: return None
+    qs = Zarizeni.objects.filter(seriove_cislo__iexact=sn, vyrobce__iexact=(vyrobce or "").strip()).select_related("zakaznik")
+    return (qs.exclude(pk=bez) if bez else qs).first()
+
+class FotkyForm(forms.Form):
+    class VicSouboru(forms.ClearableFileInput): allow_multiple_selected = True
+    class VicSouboruPole(forms.FileField):
+        def clean(self, data, initial=None):
+            data = [x for x in (data if isinstance(data, (list, tuple)) else [data]) if x]
+            if not data: raise forms.ValidationError("Vyberte aspoň jednu fotografii.")
+            r = [forms.FileField.clean(self, x, initial) for x in data]
+            for x in r:
+                if not (getattr(x, "content_type", "") or "").startswith("image/"): raise forms.ValidationError(f"Soubor {x.name} není obrázek.")
+            return r
+    zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— vyberte zakázku —",
+                            widget=forms.Select(attrs={"class": "form-select"}))
+    soubory = VicSouboruPole(label="Fotografie", help_text="Můžete vybrat víc fotek najednou (Ctrl nebo Shift).",
+                             widget=VicSouboru(attrs={"class": "form-control", "accept": "image/*"}))
+
+def fotografie_nove(request):
+    form = FotkyForm(request.POST or None, request.FILES or None, initial={"zakazka": request.GET.get("zakazka")})
+    nx = safe_next(request); zpet = zpet_url(request)
+    if request.method == "POST" and form.is_valid():
+        z = form.cleaned_data["zakazka"]
+        with transaction.atomic():
+            for f in form.cleaned_data["soubory"]:
+                o = Fotografie.objects.create(zakazka=z, soubor=f, nahral=request.user); log(request, o, "Vytvoření", popis_z=z)
+        n = len(form.cleaned_data["soubory"]); messages.success(request, f"Nahráno fotografií: {n}.")
+        return redirect(nx or zpet or reverse("detail", args=["zakazka", z.pk]) + "#foto")
+    sekce = [("Fotografie", [(form["zakazka"], 12), (form["soubory"], 12)])]
+    return R(request, "form_sekce", slug="fotografie", M=Fotografie, o=None, form=form, multipart=True, sekce=sekce, zrusit=nx or zpet or reverse("list", args=["zakazka"]),
+             nadpis="Nové fotografie", uvod="Fotografie se uloží k vybrané zakázce. Kdo je nahrál, se zapíše automaticky.")
 
 def sekce_formulare(slug, form):
     """Všechny obecné formuláře mají nový vzhled: sekce a pole vedle sebe; rozvržení podle ROZVRH, jinak automaticky. Vrátí (úvod, sekce)."""
-    sirka = lambda n: 12 if form[n].widget_type in ("textarea", "checkbox", "selectmultiple", "clearablefile", "file") else 6
+    sirka = lambda n: 12 if form[n].widget_type in ("textarea", "checkbox", "selectmultiple", "checkboxselectmultiple", "radioselect", "clearablefile", "file") else 6
     uvod, rozvrh = ROZVRH.get(slug, (None, [("Údaje", [])]))
     umistena = {n for _, pp in rozvrh for n, _ in pp}
     sekce = [(t, [(form[n], w) for n, w in pp if n in form.fields]) for t, pp in rozvrh]
@@ -379,8 +549,8 @@ class ZamestnanecForm(forms.ModelForm):
         return f"účet {u.username}: " + ", ".join(zm) if zm else ""
 
 ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])]); pole, která tu chybí, se ukážou v sekci „Další údaje“
-    "zakaznik": ("U soukromé osoby vyplňte jméno, u firmy název firmy (a případně jméno kontaktní osoby). Kontaktní osoby a zařízení přidáte na stránce zákazníka.",
-                 [("Zákazník", [("typ_zakaznika", 4), ("jmeno", 4), ("firma", 4)]),
+    "zakaznik": ("Nejdřív vyberte, jestli jde o soukromou osobu, nebo o firmu. U firmy vyplňte název firmy a IČO, jméno je nepovinné (kontaktní osoba). Kontaktní osoby přidáte na stránce zákazníka.",
+                 [("Zákazník", [("typ_zakaznika", 12), ("jmeno", 6), ("firma", 6)]),
                   ("Kontakt", [("telefon", 4), ("email", 8), ("adresa", 12)]),
                   ("Firemní údaje", [("ico", 4), ("dic", 4)]),
                   ("Stav", [("aktivni", 12)])]),
@@ -403,24 +573,30 @@ ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])
                  [("Dodavatel", [("nazev", 6), ("ico", 3), ("dic", 3), ("adresa", 12)]), ("Kontakt a platba", [("telefon", 4), ("email", 4), ("cislo_uctu", 4), ("poznamka", 12)]),
                   ("Stav", [("aktivni", 12)])]),
     "sazbadph": ("Sazby DPH, ze kterých se vybírá u prací a materiálu. Výchozí sazba se nastavuje v Nastavení → Firma.", [("Sazba DPH", [("sazba", 3), ("aktivni", 12)])]),
+    "platba": (None, [("Platba", [("zakazka", 6), ("zpusob", 6), ("castka", 6), ("datum_zaplaceni", 6), ("stav", 6), ("poznamka", 12)])]),
+    "provedenyukon": ("Práce provedená na zakázce. Pokud na ní pracovalo víc lidí (třeba každý jiný den), zaškrtněte všechny.",
+                 [("Práce", [("zakazka", 12), ("typ_ukonu", 5), ("cena", 3), ("sazba_dph", 4), ("zamestnanci", 12), ("poznamka", 12)])]),
+    "priloha": ("Příloha zakázky, např. PDF, dokument nebo tabulka. Typ souboru se pozná z přípony a kdo přílohu nahrál, se zapíše automaticky.",
+                 [("Příloha", [("nazev", 6), ("soubor", 6), ("zakazky", 12), ("poznamka", 12)])]),
     "kalendarudalost": ("Vlastní záznam do kalendáře, např. schůzka, výjezd nebo připomínka. Události zakázek a faktur se do kalendáře zapisují samy.",
                  [("Událost", [("nazev", 6), ("datum", 3), ("typ", 3), ("popis", 12)]),
                   ("Zařazení", [("zakazka", 6), ("zamestnanci", 6)]),
-                  ("Další vazby (nepovinné)", [("faktura", 4), ("platba", 4), ("prijata_faktura", 4), ("vytvoril", 4)])]),
+                  ("Další vazby (nepovinné)", [("faktura", 4), ("platba", 4), ("prijata_faktura", 4)])]),
 }
 
 def delete(request, slug, pk):
     if not jen_admin_ok(request, slug): return redirect("dashboard")
     M = get(slug); o = get_object_or_404(M, pk=pk)
     if slug in READONLY: raise Http404
+    detail_url = reverse("detail", args=[slug, pk])
     if request.method == "POST":
         if hasattr(o, "aktivni"):
             o.aktivni = False; o.save(); log(request, o, "Deaktivace", "aktivni", True, False); messages.success(request, "Záznam byl deaktivován (smazání se u záznamů s historií neprovádí).")
-        else:
-            try: log(request, o, "Smazání"); o.delete(); messages.success(request, "Smazáno.")
-            except ProtectedError: messages.error(request, "Záznam nelze smazat, je na něj navázán jiný záznam."); return redirect(safe_next(request) or reverse("detail", args=[slug, pk]))
-        return redirect(safe_next(request) or reverse("list", args=[slug]))
-    return R(request, "delete", slug=slug, M=M, o=o)
+            return redirect(safe_next(request) or zpet_url(request) or reverse("list", args=[slug]))
+        try: log(request, o, "Smazání"); o.delete(); messages.success(request, "Smazáno.")
+        except ProtectedError: messages.error(request, "Záznam nelze smazat, je na něj navázán jiný záznam."); return redirect(safe_next(request) or zpet_url(request) or detail_url)
+        return redirect(safe_next(request) or zpet_url(request, vynechat=[detail_url]) or (_mimo_seznam(request, slug) if slug in SKRYTE_SEZNAMY else reverse("list", args=[slug])))  # smazaný záznam už nejde otevřít
+    return R(request, "delete", slug=slug, M=M, o=o, zrusit=safe_next(request) or zpet_url(request) or detail_url)
 
 # ---------------- Pracovní plocha ----------------
 IMG = {"jpg", "jpeg", "png", "gif", "webp", "bmp"}
@@ -490,8 +666,6 @@ def nahled_ctx(z):
     p = nabidka_polozky(z); b = sum(x["bez"] for x in p); s = sum(x["s"] for x in p)
     return {"z": z, "polozky": p, "sum_bez": b, "sum_s": s, "sum_dph": s - b}
 
-class ZakazkaChoice(forms.ModelChoiceField):
-    def label_from_instance(self, z): return f"{z.cislo_zakazky} – {z.zakaznik}"
 class NabidkaForm(forms.Form):
     zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— vyberte zakázku —")
     datum = forms.DateTimeField(label="Datum vystavení", input_formats=["%Y-%m-%dT%H:%M"],
@@ -547,6 +721,7 @@ def faktura_nova(request):
             f.zakazky.add(z)
             for p in nabidka_polozky(z):
                 PolozkaFaktury.objects.create(faktura=f, zakazka=z, popis=p["popis"], mnozstvi=p["mnozstvi"], jednotka=p["jednotka"], jednotkova_cena=p["cena"], sazba_dph=p["dph"])
+            f.refresh_from_db(); Platba.objects.create(faktura=f, zakazka=z, stav="Čeká na zaplacení", castka=f.cena_s_dph)  # vystavená faktura čeká na zaplacení
             log(request, f, "Vytvoření", popis_z=z)
         messages.success(request, f"Faktura {f.cislo_faktury} vytvořena ze zakázky {z.cislo_zakazky}.")
         nx = safe_next(request); return redirect(reverse("dokument", args=["faktura", f.pk]) + ("?" + urlencode({"next": nx}) if nx else ""))  # rovnou náhled dokumentu
@@ -669,8 +844,8 @@ def kalendar(request):
 RYCHLA_POLE = ("nazev", "datum", "typ", "popis")  # pole rychlého pop-upu; zbytek formuláře je pod „Rozšířené možnosti“
 def rychla_udalost(request, d):
     """Pop-up „Nová událost“ v kalendáři: stejný formulář jako stránka + Událost, jen se nejdřív ukážou základní pole."""
-    Form = modelform_factory(KalendarUdalost, form=BaseForm, fields="__all__", formfield_callback=cb)
-    form = Form(initial={"datum": f"{d:%Y-%m-%d}T09:00", "vytvoril": request.user.pk})
+    Form = modelform_factory(KalendarUdalost, form=BaseForm, fields="__all__", exclude=["vytvoril"], formfield_callback=cb)
+    form = Form(initial={"datum": f"{d:%Y-%m-%d}T09:00"})
     _, sekce = sekce_formulare("kalendarudalost", form)
     zaklad = [(form[n], {"nazev": 12, "datum": 6, "typ": 6, "popis": 12}[n]) for n in RYCHLA_POLE]
     rozsirene = [(t, [(f, w) for f, w in pp if f.name not in RYCHLA_POLE]) for t, pp in sekce]
@@ -930,6 +1105,17 @@ def prijata_faktura_rucne(request):
         return redirect(safe_next(request) or reverse("detail", args=["prijatafaktura", pf.pk]))
     return R(request, "prijata_faktura_rucne", sec="dokumenty", form=form,
              crumbs=[("📄 Dokumenty", reverse("dokumenty")), ("Přijaté faktury", reverse("list", args=["prijatafaktura"])), ("Zadat ručně", None)])
+
+@require_POST
+def faktura_zaplaceno(request, pk):
+    """Vystavená faktura → Zaplaceno: platba faktury se označí jako zaplacená (u starších faktur bez platby se založí) a zapíše se do kalendáře."""
+    f = get_object_or_404(Faktura, pk=pk)
+    p = f.platba_set.filter(~Q(stav="Zaplaceno")).first()
+    if p or not f.platba_set.filter(stav="Zaplaceno").exists():
+        p = p or Platba(faktura=f, zakazka=f.zakazky.first())
+        p.stav = "Zaplaceno"; p.datum_zaplaceni = timezone.now(); p.castka = p.castka if p.castka is not None else f.cena_s_dph; p.save()
+        log(request, f, "Úprava", "stav platby", "Čeká na zaplacení", "Zaplaceno"); messages.success(request, f"Faktura {f.cislo_faktury} je označena jako zaplacená.")
+    return redirect(safe_next(request) or reverse("detail", args=["faktura", pk]))
 
 @require_POST
 def prijata_faktura_zaplaceno(request, pk):

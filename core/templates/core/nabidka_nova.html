@@ -6,4 +6,4 @@
 <div id="nahled">{% if nahled %}{% include "core/nabidka_nahled.html" with z=nahled.z polozky=nahled.polozky sum_bez=nahled.sum_bez sum_s=nahled.sum_s sum_dph=nahled.sum_dph %}{% else %}<p class="text-muted">Po výběru zakázky se zde zobrazí náhled nabídky.</p>{% endif %}</div>
 <div class="mt-3"><label class="form-label mb-0">{{ form.poznamka.label }}</label>{{ form.poznamka }}<div class="form-text">Vytiskne se na doklad, například záruka nebo dohoda se zákazníkem.</div></div>
 <div class="form-text">Nabídka dostane stejné číslo jako zakázka. Po vytvoření se zakázka ve stavu „Nová“ přepne na „Čeká na schválení“.</div>
-<button class="btn btn-primary mt-3">Vytvořit nabídku</button> <a class="btn btn-secondary mt-3" href="{% url 'list' 'nabidka' %}">Zrušit</a></form>{% endblock %}
+<button class="btn btn-primary mt-3">Vytvořit nabídku</button> <a class="btn btn-secondary mt-3" href="{% if zrusit_url %}{{ zrusit_url }}{% else %}{% url 'list' 'nabidka' %}{% endif %}">Zrušit</a></form>{% endblock %}

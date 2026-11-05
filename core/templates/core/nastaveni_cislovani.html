@@ -20,7 +20,7 @@
 <div class="text-danger small chyba"></div></div>
 <div class="col-md-6"><div class="small fw-bold mb-1">Náhled</div><div class="nahled small"></div></div></div>
 </div></div>{% endfor %}
-<button class="btn btn-primary mt-1">Uložit</button> <a class="btn btn-secondary mt-1" href="{% url 'nastaveni' %}">Zrušit</a></form>
+<button class="btn btn-primary mt-1">Uložit</button> <a class="btn btn-secondary mt-1" href="{% if zrusit_url %}{{ zrusit_url }}{% else %}{% url 'nastaveni' %}{% endif %}">Zrušit</a></form>
 <script>
 (() => {
   const form = document.getElementById("cislovani"), dnes = new Date(form.dataset.dnes + "T12:00:00");
