@@ -1,6 +1,19 @@
 # BusinessManager (Django 5.2 + PostgreSQL 17 + Docker)
 
-## A) Docker (doporučeno pro firemní PC)
+## Rychlá instalace (Windows)
+1. Nainstalujte a spusťte **Docker Desktop**: https://www.docker.com/products/docker-desktop/
+   V jeho nastavení zapněte *Start Docker Desktop when you sign in to your computer*.
+2. Stáhněte aplikaci: zelené tlačítko **Code → Download ZIP**, rozbalte do `C:\BusinessManager`.
+3. Dvakrát klikněte na **`instalace.bat`**. Aplikace si sama vytvoří nastavení s hesly, spustí se a otevře prohlížeč
+   (poprvé 5–15 minut). Žádná hesla nikam nezadáváte.
+4. V prohlížeči založte v průvodci účet administrátora a firmu. Hotovo: http://localhost:8080
+
+**Po restartu PC není potřeba nic spouštět.** Docker Desktop se spustí po přihlášení do Windows a aplikaci zapne sám.
+Kdyby se aplikace nenačetla, otevřete ručně Docker Desktop a chvíli počkejte.
+
+Zálohy: dvojklik na `zaloha.bat`. Přístup z ostatních PC, zálohy, obnova a řešení potíží: [INSTALACE.md](INSTALACE.md).
+
+## A) Docker ručně (pro pokročilé)
 Podrobný postup čisté instalace na Windows krok za krokem (Docker Desktop, `.env`, první spuštění,
 přístup z ostatních PC, zálohy a obnova) je v **[INSTALACE.md](INSTALACE.md)**.
 Nejjednodušší je dvojklik na `instalace.bat` (vytvoří `.env` s náhodnými hesly a spustí aplikaci). Ručně:
