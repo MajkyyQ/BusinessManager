@@ -2,7 +2,8 @@
 
 ## A) Docker (doporučeno pro firemní PC)
 Podrobný postup čisté instalace na Windows krok za krokem (Docker Desktop, `.env`, první spuštění,
-přístup z ostatních PC, zálohy a obnova) je v **[INSTALACE.md](INSTALACE.md)**. Stručně:
+přístup z ostatních PC, zálohy a obnova) je v **[INSTALACE.md](INSTALACE.md)**.
+Nejjednodušší je dvojklik na `instalace.bat` (vytvoří `.env` s náhodnými hesly a spustí aplikaci). Ručně:
 
     copy .env.example .env      (upravte hesla a ALLOWED_HOSTS)
     docker compose up -d --build

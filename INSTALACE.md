@@ -49,7 +49,27 @@ git clone https://github.com/MajkyyQ/BusinessManager.git
 
 Nekopírujte do firmy soubor `db.sqlite3` ani složku `media` ze svého vývojového počítače. Jsou v nich testovací data.
 
-## 3. Zjistěte adresu počítače
+## Rychlá cesta: skript `instalace.bat`
+
+Kroky 3 až 5 udělá skript za vás. Po instalaci Dockeru (krok 1) a rozbalení aplikace (krok 2):
+
+1. Spusťte Docker Desktop a počkejte, až se načte.
+2. Ve složce `C:\BusinessManager` dvakrát klikněte na **`instalace.bat`**.
+3. Skript vytvoří soubor `.env` s náhodnými hesly, spustí aplikaci (poprvé 5–15 minut) a otevře prohlížeč.
+   Pak pokračujte krokem 6 (průvodce prvním spuštěním).
+
+**Jaká hesla skript vytváří a jestli je potřebujete znát:** dvě, `SECRET_KEY` a `DB_PASSWORD`. Používá je jen aplikace
+sama mezi svými částmi, **nikam se nezadávají** a pro přihlášení ani zálohy nejsou potřeba. Jsou uložená v souboru
+`C:\BusinessManager\.env` (otevřete ho Poznámkovým blokem). Neměňte je, databáze by se pak neotevřela.
+Heslo, které si zapamatovat **musíte**, je heslo účtu administrátora, které si sami zvolíte v průvodci.
+
+Skript na konci vypíše i adresy, na kterých aplikaci otevřete z ostatních počítačů (po povolení firewallu v kroku 7).
+Když `.env` už existuje, skript ho nepřepíše, takže ho lze bezpečně spustit znovu.
+
+## 3. Zjistěte adresu počítače (ruční postup)
+
+Tento krok je potřeba jen tehdy, když se k aplikaci budou připojovat i jiné počítače. Pokud se bude pracovat
+jen na tomto PC, přeskočte ho i krok 7 a používejte adresu http://localhost:8080.
 
 V příkazovém řádku zadejte:
 ```

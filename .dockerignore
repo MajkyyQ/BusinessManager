@@ -6,3 +6,6 @@ staticfiles/
 __pycache__/
 *.pyc
 zalohy
+instalace.ps1
+instalace.bat
+zaloha.bat
