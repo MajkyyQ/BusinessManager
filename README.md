@@ -1,16 +1,23 @@
 # BusinessManager (Django 5.2 + PostgreSQL 17 + Docker)
 
 ## A) Docker (doporučeno pro firemní PC)
+Podrobný postup čisté instalace na Windows krok za krokem (Docker Desktop, `.env`, první spuštění,
+přístup z ostatních PC, zálohy a obnova) je v **[INSTALACE.md](INSTALACE.md)**.
+Nejjednodušší je dvojklik na `instalace.bat` (vytvoří `.env` s náhodnými hesly a spustí aplikaci). Ručně:
+
     copy .env.example .env      (upravte hesla a ALLOWED_HOSTS)
     docker compose up -d --build
     -> http://localhost:8080
 Při prvním otevření se spustí průvodce: založíte účet administrátora a vyplníte údaje o firmě (povinný je jen název).
+Databáze je po instalaci prázdná; testovací data (`seed_data`) jsou jen pro vývoj.
 Data: volume `pgdata` (databáze) a `media` (fotky, přílohy). Přežijí restart i aktualizaci kontejnerů.
 POZOR: `docker compose down -v` volumes SMAŽE. Bez `-v` je `down` bezpečné.
 Aktualizace aplikace: `git pull` ; `docker compose up -d --build` (migrace proběhnou samy).
-Záloha DB:   docker compose exec -T db pg_dump -U businessmanager businessmanager > zaloha.sql
-Obnova DB:   docker compose exec -T db psql -U businessmanager businessmanager < zaloha.sql
-Záloha fotek: docker run --rm -v businessmanager_media:/m -v "%cd%":/b alpine tar czf /b/media.tgz -C /m .
+Záloha (databáze + soubory): `zaloha.bat` (vytvoří složku `zalohy\RRRR-MM-DD_HHMM`). Ručně v cmd (ne v PowerShellu):
+
+    docker compose exec -T db pg_dump -U businessmanager businessmanager > zaloha.sql
+    docker compose cp web:/app/media zaloha-media
+Obnova přepíše současná data, databáze se musí nejdřív vyprázdnit (postup v [INSTALACE.md](INSTALACE.md#obnova-ze-zálohy-např-na-nový-pc)).
 
 ## B) Vývoj ve VS Code bez Dockeru (SQLite)
     python -m venv .venv ; .venv\Scripts\activate ; pip install -r requirements.txt
