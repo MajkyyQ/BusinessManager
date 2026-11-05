@@ -688,3 +688,11 @@ class OpravyZProchazeniTest(TestCase):
         self.client.post(reverse("create", args=["platba"]) + f"?zakazka={self.z.pk}", {"zpusob": "Hotově", "castka": "500", "datum_zaplaceni": "2026-11-05T10:00"})
         h = Platba.objects.get(faktura__isnull=True); self.assertEqual((h.stav, h.zakazka), ("Zaplaceno", self.z))
         r = self.client.get(reverse("list", args=["platba"])); self.assertContains(r, "Datum splatnosti"); self.assertNotContains(r, "+ Nový")
+
+    def test_zpet_po_navratu_tlacitkem_prohlizece(self):
+        """Seznam → detail A → (Zpět v prohlížeči) → detail B: Zpět vede na seznam, ne na A."""
+        b = Zakaznik.objects.create(jmeno="Pepa")
+        seznam = reverse("list", args=["zakaznik"]); a_url = reverse("detail", args=["zakaznik", self.k.pk])
+        self.client.get(seznam); self.client.get(a_url, HTTP_REFERER="http://testserver" + seznam)
+        r = self.client.get(reverse("detail", args=["zakaznik", b.pk]), HTTP_REFERER="http://testserver" + seznam)
+        self.assertContains(r, f'href="{seznam}">Zpět</a>')

@@ -23,9 +23,20 @@ def _zapisovat(request):
     return m.app_name != "admin" and m.url_name not in NEZAPISOVAT and not request.path.startswith(("/admin/", "/static/", "/media/"))
 
 
+def _odkud(request, stopa):
+    """Stopa oříznutá za stránkou, ze které uživatel opravdu klikl (hlavička Referer). Pozná se tak i návrat tlačítkem Zpět v prohlížeči."""
+    ref = request.META.get("HTTP_REFERER", "")
+    if not ref: return stopa
+    r = urlsplit(ref)
+    if r.netloc and r.netloc != request.get_host(): return stopa
+    j = next((k for k in range(len(stopa) - 1, -1, -1) if _cesta(stopa[k]) == r.path), None)
+    return stopa if j is None else stopa[:j + 1]
+
+
 def zpet(request, vynechat=()):
     """Adresa stránky, ze které uživatel přišel (nebo None). Stránky z `vynechat` (cesty) se přeskočí."""
     stopa = request.session.get(KLIC, []) if hasattr(request, "session") else []
+    if not any(_cesta(u) == request.path for u in stopa): stopa = _odkud(request, stopa)
     tady = request.path; vynechat = set(vynechat) | {tady}
     i = next((k for k in range(len(stopa) - 1, -1, -1) if _cesta(stopa[k]) == tady), len(stopa))  # vrátil-li se uživatel na starší stránku, bere se stopa před ní
     for u in reversed(stopa[:i]):
@@ -39,7 +50,7 @@ class StopaMiddleware:
     def __call__(self, request):
         r = self.get_response(request)
         if r.status_code == 200 and "text/html" in r.get("Content-Type", "") and getattr(request, "user", None) and request.user.is_authenticated and _zapisovat(request):
-            stopa = list(request.session.get(KLIC, [])); u = request.get_full_path()
+            stopa = _odkud(request, list(request.session.get(KLIC, []))); u = request.get_full_path()
             i = next((k for k in range(len(stopa) - 1, -1, -1) if _cesta(stopa[k]) == request.path), None)
             if i is not None: stopa = stopa[:i]  # stejná stránka (třeba jen jiný filtr) nebo návrat zpět: stopa se zkrátí
             stopa.append(u); request.session[KLIC] = stopa[-MAX:]
