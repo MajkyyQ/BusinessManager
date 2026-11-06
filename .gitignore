@@ -19,6 +19,7 @@ __pycache__/
 .vscode/
 .idea/
 *.log
+instalace-log.txt
 Thumbs.db
 .DS_Store
 zalohy/

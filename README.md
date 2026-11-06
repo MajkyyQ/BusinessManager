@@ -8,7 +8,7 @@
 2. Stáhněte aplikaci: zelené tlačítko **Code → Download ZIP**, rozbalte do `C:\BusinessManager`.
 3. Dvakrát klikněte na **`instalace.bat`**. Aplikace si sama vytvoří nastavení s hesly, spustí se a otevře prohlížeč
    (poprvé 5–15 minut). Žádná hesla nikam nezadáváte.
-4. V prohlížeči založte v průvodci účet administrátora a firmu. Hotovo: http://localhost:8080
+4. V prohlížeči založte v průvodci účet administrátora a firmu. Hotovo: http://127.0.0.1:8080
 
 **Po restartu PC není potřeba nic spouštět.** Docker Desktop se spustí po přihlášení do Windows a aplikaci zapne sám.
 Kdyby se aplikace nenačetla, otevřete ručně Docker Desktop a chvíli počkejte.
@@ -22,7 +22,7 @@ Nejjednodušší je dvojklik na `instalace.bat` (vytvoří `.env` s náhodnými 
 
     copy .env.example .env      (upravte hesla a ALLOWED_HOSTS)
     docker compose up -d --build
-    -> http://localhost:8080
+    -> http://127.0.0.1:8080
 Při prvním otevření se spustí průvodce: založíte účet administrátora a vyplníte údaje o firmě (povinný je jen název).
 Databáze je po instalaci prázdná; testovací data (`seed_data`) jsou jen pro vývoj.
 Data: volume `pgdata` (databáze) a `media` (fotky, přílohy). Přežijí restart i aktualizaci kontejnerů.
