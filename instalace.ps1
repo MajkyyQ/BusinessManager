@@ -52,7 +52,8 @@ docker compose up -d --build
 if ($LASTEXITCODE -ne 0) { Write-Host "Spusteni se nepovedlo, viz chyba vyse." -ForegroundColor Red; Konec 1 }
 
 # 4) Cekani, az aplikace odpovi
-# Dotaz jde primo na 127.0.0.1 a bez proxy: firemni proxy (nebo PAC skript) jinak umi dotazy na localhost zachytit.
+# Dotaz jde primo na 127.0.0.1 a bez proxy. "localhost" se na Windows preklada nejdriv na IPv6 (::1)
+# a presmerovani portu Dockeru na IPv6 na nekterych PC visi; firemni proxy zas umi localhost zachytit.
 function StavHttp {
     try {
         $r = [System.Net.HttpWebRequest]::Create("http://127.0.0.1:8080/login/")
@@ -135,9 +136,9 @@ if (-not $ok) {
     }
 }
 
-Start-Process "http://localhost:8080"
+Start-Process "http://127.0.0.1:8080"
 Write-Host ""
-Write-Host "Hotovo. Aplikace bezi na http://localhost:8080" -ForegroundColor Green
+Write-Host "Hotovo. Aplikace bezi na http://127.0.0.1:8080" -ForegroundColor Green
 Write-Host "V prohlizeci zalozte v pruvodci ucet administratora (toto heslo si zapamatujte) a firmu."
 Write-Host "Z ostatnich PC ve firme (po povoleni portu 8080 ve firewallu, viz INSTALACE.md):"
 Write-Host "  http://${pc}:8080"

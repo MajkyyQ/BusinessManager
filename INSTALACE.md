@@ -73,7 +73,7 @@ Když `.env` už existuje, skript ho nepřepíše, takže ho lze bezpečně spus
 ## 3. Zjistěte adresu počítače (ruční postup)
 
 Tento krok je potřeba jen tehdy, když se k aplikaci budou připojovat i jiné počítače. Pokud se bude pracovat
-jen na tomto PC, přeskočte ho i krok 7 a používejte adresu http://localhost:8080.
+jen na tomto PC, přeskočte ho i krok 7 a používejte adresu http://127.0.0.1:8080.
 
 V příkazovém řádku zadejte:
 ```
@@ -99,7 +99,7 @@ V Poznámkovém bloku upravte řádky takto (příklad pro IP `192.168.1.50` a n
 SECRET_KEY=sem-vlozte-dlouhy-nahodny-retezec
 DEBUG=0
 ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.50,KANCELAR-PC
-CSRF_TRUSTED_ORIGINS=http://localhost:8080,http://192.168.1.50:8080,http://KANCELAR-PC:8080
+CSRF_TRUSTED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080,http://192.168.1.50:8080,http://KANCELAR-PC:8080
 DB_NAME=businessmanager
 DB_USER=businessmanager
 DB_PASSWORD=sem-vlastni-silne-heslo
@@ -134,7 +134,7 @@ Příkaz `seed_data` (testovací data) **nespouštějte**.
 
 ## 6. První spuštění: účet administrátora a firma
 
-1. Na tomto PC otevřete v prohlížeči **http://localhost:8080**.
+1. Na tomto PC otevřete v prohlížeči **http://127.0.0.1:8080**.
 2. Otevře se průvodce **První spuštění**:
    - **Krok 1, Účet administrátora:** přihlašovací jméno, jméno, příjmení, e-mail a heslo.
      Tento účet má plná práva (Nastavení, zaměstnanci, Django admin). Heslo si bezpečně uložte.
@@ -217,8 +217,9 @@ Obnova do databáze, ve které už data jsou, skončí chybami. Proto se databá
 - **Instalace skončila chybou:** skript uloží výpis do souboru `instalace-log.txt` ve složce aplikace
   a otevře ho v Poznámkovém bloku. Ten soubor pošlete správci. Ručně se stejný výpis získá příkazem
   `docker compose logs web > web-log.txt` spuštěným ve složce aplikace.
-- **Skript dlouho čeká na „Čekám, až se aplikace načte“, ale kontejnery běží:** zkuste v prohlížeči
-  `http://localhost:8080`. Pokud se stránka načte, aplikace funguje a čekání blokovala firemní proxy nebo antivir.
+- **Na `http://localhost:8080` se stránka jen načítá, ale `http://127.0.0.1:8080` funguje:** Windows překládá
+  `localhost` nejdřív na IPv6 adresu a Docker na některých PC spojení přes IPv6 nepředá. Používejte adresu
+  `http://127.0.0.1:8080` (instalační skript ji otevírá sám).
 - **Stránka se nenačte ani na serverovém PC:** běží Docker Desktop? `docker compose ps` ukazuje oba kontejnery `Up`?
   Chybu najdete v `docker compose logs web`.
 - **`web` stále restartuje:** nejčastěji překlep v `.env`. Po opravě `docker compose up -d`.
