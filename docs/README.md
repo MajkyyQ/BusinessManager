@@ -6,6 +6,7 @@ BusinessManager je webová aplikace pro malou servisní firmu: eviduje zákazní
 
 - **[Rychlá instalace na Windows](../README.md#rychlá-instalace-windows)** – čtyři kroky: Docker Desktop, stažení, dvojklik na `instalace.bat`, průvodce v prohlížeči.
 - **[Podrobný návod k instalaci (INSTALACE.md)](../INSTALACE.md)** – čistá instalace krok za krokem, přístup z ostatních PC, [zálohování](../INSTALACE.md#8-zálohování), [obnova ze zálohy](../INSTALACE.md#obnova-ze-zálohy-např-na-nový-pc) a [řešení potíží](../INSTALACE.md#10-když-něco-nefunguje).
+- **Aktualizace na novou verzi** – dvojklik na `aktualizace.bat` (záloha, stažení nové verze z GitHubu, spuštění; data i `.env` zůstanou), viz [README](../README.md).
 - **[Vývoj a testování](09-vyvoj-a-testovani.md)** – spuštění bez Dockeru, konfigurace, testovací data, automatické testy.
 
 ## Obsah dokumentace
