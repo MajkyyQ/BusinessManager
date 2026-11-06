@@ -1,5 +1,5 @@
 <!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>První spuštění – BusinessManager</title>
-{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet"></head>
+{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet">{% include "core/_motiv.html" %}</head>
 <body class="bg-light"><div class="container py-5" style="max-width:640px">
 <h3 class="mb-1">Vítejte v BusinessManageru</h3><p class="text-muted">Než začnete, založte účet administrátora a vyplňte základní údaje o firmě. Zabere to minutu.</p>
 <ol class="list-unstyled d-flex gap-2 mb-3">{% for n, nazev in kroky %}<li class="flex-fill rounded px-3 py-2 small {% if n == krok %}bg-primary text-white{% elif n < krok %}bg-success-subtle text-success-emphasis{% else %}bg-white border text-muted{% endif %}">

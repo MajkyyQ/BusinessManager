@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}{% block head %}<style>.vb-card{cursor:pointer;transition:box-shadow .15s}.vb-card:hover{box-shadow:0 0 0 3px #0d6efd55}.vb-card.akt{box-shadow:0 0 0 3px #198754}
-.vb-th{width:100%;aspect-ratio:210/297;object-fit:cover;object-position:top;border-bottom:1px solid #dee2e6;background:#fff}
+.vb-th{width:100%;aspect-ratio:210/297;object-fit:cover;object-position:top;border-bottom:1px solid var(--bs-border-color);background:#fff}
 .vb-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;display:none;align-items:center;justify-content:center}.vb-modal.on{display:flex}
-.vb-modal>div{background:#fff;border-radius:.5rem;width:min(1000px,96vw);height:94vh;display:flex;flex-direction:column}</style>{% endblock %}
+.vb-modal>div{background:var(--bs-body-bg);border-radius:.5rem;width:min(1000px,96vw);height:94vh;display:flex;flex-direction:column}</style>{% endblock %}
 {% block content %}<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><div><h4 class="mb-0">Vyberte šablonu</h4><div class="text-muted small">{{ titulek }} – kliknutím na šablonu se dokument zobrazí v ní. Výchozí šablona se tím nemění.</div></div>
 <a class="btn btn-secondary" href="{{ zpet }}">← Zpět bez změny</a></div>
 <div class="row g-3">{% for s in sab %}<div class="col-12 col-sm-6 col-lg-4"><div class="card h-100 vb-card{% if s.pk == akt.pk %} akt{% endif %}" data-href="{% url 'dokument' typ pk %}?sablona={{ s.pk }}{% if nx %}&next={{ nx|urlencode }}{% endif %}">

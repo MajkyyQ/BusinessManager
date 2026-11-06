@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}{% block head %}<style>
-.ed-top{position:sticky;top:0;z-index:20;background:#fff;padding:.4rem 0;border-bottom:1px solid #dee2e6}
-.ed-grid-wrap{overflow:auto;max-height:78vh;border:1px solid #dee2e6;background:#e9ecef}
-.ed-in{position:relative;display:inline-block;background:#fff}
+.ed-top{position:sticky;top:0;z-index:20;background:var(--bs-body-bg);padding:.4rem 0;border-bottom:1px solid var(--bs-border-color)}
+.ed-grid-wrap{overflow:auto;max-height:78vh;border:1px solid var(--bs-border-color);background:var(--bs-secondary-bg)}
+.ed-in{position:relative;display:inline-block;background:#fff;color:#212529}/* list šablony zůstává bílý jako papír i v tmavém režimu */
 table.ed{border-collapse:collapse;table-layout:fixed;font-family:Calibri,Carlito,Arial,sans-serif;font-size:13px;user-select:none}
 table.ed td{border:1px dotted #d5d8dc;padding:0 2px;overflow:hidden;white-space:nowrap;word-break:break-word;vertical-align:bottom;line-height:1.15;cursor:cell}
 table.ed th{background:#f1f3f5;color:#6c757d;font-weight:normal;font-size:11px;text-align:center;border:1px solid #dee2e6;position:sticky;z-index:5}
@@ -18,7 +18,7 @@ table.ed td.vzorec{color:#6f42c1}
 .tvar span{position:absolute;top:-1px;right:2px;font-size:10px;color:#6c757d;background:rgba(255,255,255,.8)}
 .ed-panel{max-height:78vh;overflow:auto}
 .pole-i{cursor:grab;font-size:13px;padding:.15rem .4rem;border-radius:3px;display:flex;justify-content:space-between;gap:.5rem}
-.pole-i:hover{background:#e7f1ff}.pole-i .u{font-size:11px;color:#198754;white-space:nowrap}
+.pole-i:hover{background:var(--bs-primary-bg-subtle)}.pole-i .u{font-size:11px;color:var(--bs-success-text-emphasis);white-space:nowrap}
 #ed-iframe{width:100%;height:72vh;border:1px solid #dee2e6;background:#fff}
 </style>{% endblock %}{% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2"><div><h4 class="mb-0">Editor šablony: {{ s.nazev }}</h4>

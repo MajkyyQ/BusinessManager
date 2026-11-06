@@ -24,6 +24,7 @@ Tato část popisuje hlavní funkce aplikace z pohledu uživatele i z pohledu to
 | Správa záznamů a nastavení | Nastavení, administrace                          | číselníky, NastaveniFirmy, SazbaDPH, Zamestnanec, Role                                  |
 | Průvodce prvním spuštěním  | první otevření aplikace                          | auth_user, NastaveniFirmy                                                               |
 | Historie změn              | záložka Historie, Nastavení                      | HistorieZmen                                                                            |
+| Tmavý režim                | tlačítko v horní liště                           | žádné (volba se ukládá v prohlížeči)                                                    |
 
 *Přehled hlavních funkcí aplikace*
 
@@ -276,6 +277,16 @@ stateDiagram-v2
 **K čemu slouží.** Tlačítka Zpět a Zrušit vracejí uživatele na stránku, ze které opravdu přišel, a ne pevně na jednu stránku.
 
 **Co se děje na pozadí.** Middleware `StopaMiddleware` (`core/navigace.py`) si v relaci pamatuje posledních 20 zobrazených stránek (formuláře a pomocné odpovědi se nezapisují). Podle hlavičky Referer pozná i návrat tlačítkem Zpět v prohlížeči.
+
+## Tmavý režim
+
+**K čemu slouží.** Aplikaci lze zobrazit ve světlých nebo tmavých barvách. Tmavý režim šetří oči při práci večer nebo v tmavší dílně.
+
+**Jak ho uživatel používá.** Kulaté tlačítko vlevo od jména uživatele v horní liště přepíná mezi třemi volbami: podle systému (výchozí, ikona půlkruhu), světlý (slunce) a tmavý (měsíc). Při volbě podle systému se aplikace řídí nastavením Windows nebo telefonu a přepne se sama, když se změní. Najetím myší na tlačítko se zobrazí, která volba platí a na jakou se kliknutím přepne.
+
+**Co se děje na pozadí.** Volba se ukládá v prohlížeči (`localStorage`, klíč `bm-motiv`), takže každý počítač a prohlížeč si pamatuje svou. Do databáze se nic neukládá. Krátký skript v hlavičce stránky nastaví atribut `data-bs-theme` dřív, než se stránka vykreslí, aby neblikla světlou barvou. Barvy přebírá Bootstrap, vlastní prvky aplikace používají jeho barevné proměnné. Náhledy dokumentů a list v editoru šablon zůstávají bílé, protože ukazují, jak bude dokument vypadat na papíře.
+
+**Části systému a data.** Šablona `core/templates/core/_motiv.html` (skript a barvy), kterou vkládají `base.html`, přihlašovací stránka a průvodce prvním spuštěním.
 
 ## Zálohování
 

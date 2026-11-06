@@ -1,4 +1,4 @@
-{% extends "core/base.html" %}{% block head %}<style>.sb-th{width:100%;aspect-ratio:210/297;object-fit:cover;object-position:top;border:1px solid #dee2e6;background:#fff}.sb-card.off{opacity:.55}</style>{% endblock %}
+{% extends "core/base.html" %}{% block head %}<style>.sb-th{width:100%;aspect-ratio:210/297;object-fit:cover;object-position:top;border:1px solid var(--bs-border-color);background:#fff}.sb-card.off{opacity:.55}</style>{% endblock %}
 {% block content %}<div class="bm-head"><h3>Šablony dokumentů</h3>
 <div class="bm-actions"><a class="btn btn-outline-secondary btn-sm" href="{% url 'sablony_znacky' %}{% if kod %}?typ={{ kod }}{% endif %}">Značky pro vlastní šablony</a>
 <a class="btn btn-primary btn-sm" href="{% url 'sablona_nova' %}{% if kod %}?typ={{ kod }}{% endif %}">+ Přidat šablonu</a></div></div>

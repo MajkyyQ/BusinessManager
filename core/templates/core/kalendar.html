@@ -16,7 +16,7 @@
 {% elif v == "week" %}<div class="row row-cols-1 row-cols-md-7 g-2">{% for c in days %}<div class="col"><div class="card h-100 {% if c.today %}border-primary{% endif %}"><div class="card-header py-1 small"><a href="?v=day&d={{ c.d|date:'Y-m-d' }}{{ qq }}">{{ c.d|date:"D j.n." }}</a></div><div class="card-body p-2">{% for e in c.ev %}{% include "core/kal_event.html" %}{% endfor %}</div></div></div>{% endfor %}</div>
 {% else %}{% for c in days %}{% for e in c.ev %}{% include "core/kal_event.html" %}{% if e.popis %}<div class="small text-muted ms-5 mb-2">{{ e.popis }}</div>{% endif %}{% empty %}<p class="text-muted">Žádné události.</p>{% endfor %}{% endfor %}{% endif %}
 {% with r=rychla %}<style>.ud-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1990;display:none;align-items:center;justify-content:center;padding:1rem}.ud-modal.on{display:flex}
-.ud-box{background:#fff;border-radius:.5rem;width:min(520px,96vw);max-height:92vh;overflow:auto;padding:1rem 1.25rem;box-shadow:0 .5rem 2rem rgba(0,0,0,.25);transition:width .2s}
+.ud-box{background:var(--bs-body-bg);border-radius:.5rem;width:min(520px,96vw);max-height:92vh;overflow:auto;padding:1rem 1.25rem;box-shadow:0 .5rem 2rem rgba(0,0,0,.25);transition:width .2s}
 .ud-modal.velky .ud-box{width:min(960px,96vw)}.ud-modal:not(.velky) .ud-ext{display:none}.ud-modal.velky .ud-vic{display:none}.ud-modal:not(.velky) .ud-min{display:none}</style>
 <div class="ud-modal" id="ud" role="dialog" aria-modal="true" aria-labelledby="ud-h"><div class="ud-box">
 <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="m-0" id="ud-h">Nová událost</h5><button type="button" class="btn-close ud-zavrit" aria-label="Zavřít"></button></div>
