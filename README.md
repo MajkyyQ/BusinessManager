@@ -1,5 +1,13 @@
 # BusinessManager (Django 5.2 + PostgreSQL 17 + Docker)
 
+Webová aplikace pro malou servisní firmu: evidence zákazníků, zařízení a servisních zakázek a tvorba zakázkových listů,
+nabídek a faktur (PDF i ISDOC) z uložených dat.
+
+**Dokumentace:** [docs/](docs/README.md) – [popis aplikace](docs/01-popis-aplikace.md), [funkce](docs/02-funkce.md),
+[technologie](docs/03-technologie.md), [architektura](docs/04-architektura.md), [databáze](docs/07-databaze.md),
+[šablony dokumentů, PDF a ISDOC](docs/08-sablony-dokumentu.md), [vývoj a testování](docs/09-vyvoj-a-testovani.md).
+Instalace: níže a podrobně v [INSTALACE.md](INSTALACE.md).
+
 ## Rychlá instalace (Windows)
 1. Nainstalujte a spusťte **Docker Desktop**: https://www.docker.com/products/docker-desktop/
    V jeho nastavení zapněte *Start Docker Desktop when you sign in to your computer*.
