@@ -214,6 +214,11 @@ Obnova do databáze, ve které už data jsou, skončí chybami. Proto se databá
 
 ## 10. Když něco nefunguje
 
+- **Instalace skončila chybou:** skript uloží výpis do souboru `instalace-log.txt` ve složce aplikace
+  a otevře ho v Poznámkovém bloku. Ten soubor pošlete správci. Ručně se stejný výpis získá příkazem
+  `docker compose logs web > web-log.txt` spuštěným ve složce aplikace.
+- **Skript dlouho čeká na „Čekám, až se aplikace načte“, ale kontejnery běží:** zkuste v prohlížeči
+  `http://localhost:8080`. Pokud se stránka načte, aplikace funguje a čekání blokovala firemní proxy nebo antivir.
 - **Stránka se nenačte ani na serverovém PC:** běží Docker Desktop? `docker compose ps` ukazuje oba kontejnery `Up`?
   Chybu najdete v `docker compose logs web`.
 - **`web` stále restartuje:** nejčastěji překlep v `.env`. Po opravě `docker compose up -d`.

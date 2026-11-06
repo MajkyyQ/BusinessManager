@@ -52,15 +52,87 @@ docker compose up -d --build
 if ($LASTEXITCODE -ne 0) { Write-Host "Spusteni se nepovedlo, viz chyba vyse." -ForegroundColor Red; Konec 1 }
 
 # 4) Cekani, az aplikace odpovi
-Write-Host "Cekam, az se aplikace nacte..."
-$ok = $false
-for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
-    try { Invoke-WebRequest -Uri "http://localhost:8080/login/" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop | Out-Null; $ok = $true }
-    catch { Start-Sleep -Seconds 3 }
+# Dotaz jde primo na 127.0.0.1 a bez proxy: firemni proxy (nebo PAC skript) jinak umi dotazy na localhost zachytit.
+function StavHttp {
+    try {
+        $r = [System.Net.HttpWebRequest]::Create("http://127.0.0.1:8080/login/")
+        $r.Proxy = $null; $r.Timeout = 5000; $r.ReadWriteTimeout = 5000; $r.AllowAutoRedirect = $false
+        $odp = $r.GetResponse(); $kod = [int]$odp.StatusCode; $odp.Close(); return $kod
+    } catch {
+        $odp = $_.Exception.InnerException.Response
+        if (-not $odp) { $odp = $_.Exception.Response }
+        if ($odp) { $kod = [int]$odp.StatusCode; $odp.Close(); return $kod }
+        return 0  # zadna odpoved, server jeste nebezi
+    }
 }
-if (-not $ok) {
-    Write-Host "Aplikace zatim neodpovida. Vypis chyb: docker compose logs --tail 50 web" -ForegroundColor Red
+
+function StavKontejneru {
+    $id = (docker compose ps -a -q web 2>$null | Select-Object -First 1)
+    if (-not $id) { return @{ Stav = "chybi"; Restarty = 0 } }
+    $t = (docker inspect -f "{{.State.Status}} {{.RestartCount}}" $id 2>$null) -split " "
+    return @{ Stav = $t[0]; Restarty = [int]$t[1] }
+}
+
+$log = Join-Path $PSScriptRoot "instalace-log.txt"
+function UlozLog($duvod) {
+    Set-Content -Path $log -Encoding UTF8 -Value @(
+        "BusinessManager - log instalace $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+        "Duvod: $duvod", "", "=== docker compose ps -a ===")
+    cmd /c "docker compose ps -a >> `"$log`" 2>&1"
+    Add-Content -Path $log -Encoding UTF8 -Value @("", "=== docker compose logs web ===")
+    cmd /c "docker compose logs --no-color --tail 300 web >> `"$log`" 2>&1"
+    Add-Content -Path $log -Encoding UTF8 -Value @("", "=== docker compose logs db ===")
+    cmd /c "docker compose logs --no-color --tail 50 db >> `"$log`" 2>&1"
+}
+
+function Selhani($duvod) {
+    Write-Host ""
+    Write-Host $duvod -ForegroundColor Red
+    UlozLog $duvod
+    Write-Host ""
+    Write-Host "--- posledni radky logu aplikace (docker compose logs web) ---" -ForegroundColor Yellow
+    cmd /c "docker compose logs --no-color --tail 40 web 2>&1"
+    Write-Host "--------------------------------------------------------------" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Cely log je ulozen v souboru:" -ForegroundColor Yellow
+    Write-Host "  $log" -ForegroundColor Yellow
+    Write-Host "Tento soubor poslete spravci/autorovi aplikace. Otviram ho v Poznamkovem bloku."
+    Start-Process notepad.exe -ArgumentList "`"$log`""
     Konec 1
+}
+
+Write-Host "Cekam, az se aplikace nacte (prvni spusteni obvykle do 1 minuty, nejvyse 10 minut)..."
+$limit = [TimeSpan]::FromMinutes(10)
+$hodiny = [System.Diagnostics.Stopwatch]::StartNew()
+$dalsiHlaseni = 30
+$restartyPred = (StavKontejneru).Restarty  # restarty z drivejsich spusteni se nepocitaji
+$ok = $false
+while (-not $ok -and $hodiny.Elapsed -lt $limit) {
+    $kod = StavHttp
+    if ($kod -ge 200 -and $kod -lt 500) { $ok = $true; break }
+    if ($kod -ge 500) { Selhani "Aplikace bezi, ale hlasi chybu (HTTP $kod)." }
+
+    $k = StavKontejneru
+    if ($k.Stav -eq "exited" -or $k.Stav -eq "dead" -or $k.Stav -eq "chybi") { Selhani "Kontejner aplikace (web) se zastavil (stav: $($k.Stav))." }
+    if ($k.Restarty -gt $restartyPred -or $k.Stav -eq "restarting") { Selhani "Kontejner aplikace (web) pri startu spadl a restartuje se." }
+
+    $s = [int]$hodiny.Elapsed.TotalSeconds
+    if ($s -ge $dalsiHlaseni) { Write-Host "  porad cekam... ($s s, kontejner web: $($k.Stav))"; $dalsiHlaseni += 30 }
+    Start-Sleep -Seconds 3
+}
+
+if (-not $ok) {
+    # Odpovida aplikace aspon uvnitr kontejneru? Pak bezi a problem je jen ve spojeni z Windows (proxy, antivir, firewall, port).
+    docker compose exec -T web python -c "import urllib.request as u; u.urlopen('http://localhost:8080/login/', timeout=5)" *> $null
+    if ($LASTEXITCODE -eq 0) {
+        UlozLog "Aplikace v kontejneru bezi, ale z Windows na http://127.0.0.1:8080 neodpovida."
+        Write-Host ""
+        Write-Host "Aplikace v Dockeru bezi, ale skript se k ni z Windows nedostal (http://127.0.0.1:8080)." -ForegroundColor Yellow
+        Write-Host "Casta pricina je firemni proxy, antivir nebo firewall. Zkusim otevrit prohlizec."
+        Write-Host "Kdyz se stranka nenacte, poslete soubor $log"
+    } else {
+        Selhani "Aplikace ani po $([int]$limit.TotalMinutes) minutach neodpovida."
+    }
 }
 
 Start-Process "http://localhost:8080"
