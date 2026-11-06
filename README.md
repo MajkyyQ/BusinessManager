@@ -21,7 +21,12 @@ Instalace: níže a podrobně v [INSTALACE.md](INSTALACE.md).
 **Po restartu PC není potřeba nic spouštět.** Docker Desktop se spustí po přihlášení do Windows a aplikaci zapne sám.
 Kdyby se aplikace nenačetla, otevřete ručně Docker Desktop a chvíli počkejte.
 
-Zálohy: dvojklik na `zaloha.bat`. Přístup z ostatních PC, zálohy, obnova a řešení potíží: [INSTALACE.md](INSTALACE.md).
+Zálohy: dvojklik na `zaloha.bat`.
+
+**Aktualizace na novou verzi:** dvojklik na `aktualizace.bat`. Udělá zálohu, stáhne nejnovější verzi z GitHubu,
+přepíše jí soubory aplikace a spustí ji. Data i nastavení (`.env`) zůstanou. Zda vyšla nová verze, sledujte
+na GitHubu (stránka repozitáře, případně **Watch → Custom → Releases**). Složku aplikace před aktualizací nemažte,
+přišli byste o `.env` s heslem k databázi. Přístup z ostatních PC, zálohy, obnova a řešení potíží: [INSTALACE.md](INSTALACE.md).
 
 ## A) Docker ručně (pro pokročilé)
 Podrobný postup čisté instalace na Windows krok za krokem (Docker Desktop, `.env`, první spuštění,
