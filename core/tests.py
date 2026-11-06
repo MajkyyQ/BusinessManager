@@ -696,3 +696,22 @@ class OpravyZProchazeniTest(TestCase):
         self.client.get(seznam); self.client.get(a_url, HTTP_REFERER="http://testserver" + seznam)
         r = self.client.get(reverse("detail", args=["zakaznik", b.pk]), HTTP_REFERER="http://testserver" + seznam)
         self.assertContains(r, f'href="{seznam}">Zpět</a>')
+
+
+class TmavyRezimTest(TestCase):
+    """Přepínač vzhledu je v horní liště a skript tmavého režimu je i na stránkách mimo base.html."""
+    def setUp(self):
+        self.u = User.objects.create_user("motiv", password="heslo12345", is_staff=True, is_superuser=True)
+        NastaveniFirmy.objects.create(nazev_firmy="Test s.r.o.")
+
+    def test_prepinac_v_liste(self):
+        self.client.force_login(self.u)
+        h = self.client.get("/").content.decode()
+        self.assertIn('id="bm-motiv"', h)
+        self.assertIn("prefers-color-scheme: dark", h)
+        self.assertIn("data-bs-theme", h)
+
+    def test_prihlaseni_respektuje_rezim(self):
+        h = self.client.get("/login/").content.decode()
+        self.assertIn("prefers-color-scheme: dark", h)
+

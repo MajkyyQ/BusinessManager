@@ -1,4 +1,4 @@
-<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>Přihlášení</title>{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet"></head>
+<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>Přihlášení</title>{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet">{% include "core/_motiv.html" %}</head>
 <body class="bg-light"><div class="container" style="max-width:380px;margin-top:12vh"><div class="card"><div class="card-body"><h4>BusinessManager</h4>
 <form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for f in form %}<div class="mb-2"><label>{{ f.label }}</label>{{ f }}</div>{% endfor %}<button class="btn btn-primary w-100">Přihlásit</button></form></div></div></div>
 <script>document.querySelectorAll('input').forEach(i=>{if(i.type!='hidden')i.classList.add('form-control')})</script></body></html>

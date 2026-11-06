@@ -1,0 +1,22 @@
+<script>/* Tmavý režim: volba se ukládá v prohlížeči ('light', 'dark', nebo nic = podle systému). Skript běží v hlavičce, aby stránka neblikla světlou barvou. */
+(function(){var h=document.documentElement,m=window.matchMedia?matchMedia('(prefers-color-scheme: dark)'):null;
+function vol(){try{var v=localStorage.getItem('bm-motiv');return v=='light'||v=='dark'?v:'auto'}catch(e){return 'auto'}}
+function apply(){var v=vol();h.setAttribute('data-bs-theme',v=='auto'?(m&&m.matches?'dark':'light'):v);h.setAttribute('data-motiv',v)}
+apply();if(m&&m.addEventListener)m.addEventListener('change',apply);
+window.bmMotiv={vol:vol,set:function(v){try{if(v=='auto')localStorage.removeItem('bm-motiv');else localStorage.setItem('bm-motiv',v)}catch(e){}apply()}}})();</script>
+<style>/* Barvy vlastních prvků, které Bootstrap sám nepřebarví. Kontrast textu drží WCAG 2.2 (aspoň 4,5 : 1). */
+[data-bs-theme=dark] .navbar.bg-dark{background-color:#111316!important;border-bottom:1px solid var(--bs-border-color)}
+[data-bs-theme=dark] .text-secondary{color:#adb5bd!important}
+[data-bs-theme=dark] .btn-outline-secondary{--bs-btn-color:#adb5bd;--bs-btn-border-color:#6c757d;--bs-btn-hover-bg:#6c757d;--bs-btn-hover-border-color:#6c757d;--bs-btn-hover-color:#fff}
+[data-bs-theme=dark] .btn-outline-danger{--bs-btn-color:#ea868f;--bs-btn-border-color:#ea868f}
+[data-bs-theme=dark] .btn-outline-primary{--bs-btn-color:#6ea8fe;--bs-btn-border-color:#6ea8fe}
+[data-bs-theme=dark] .btn-outline-success{--bs-btn-color:#75b798;--bs-btn-border-color:#75b798}
+[data-bs-theme=dark] .btn-light{--bs-btn-bg:var(--bs-tertiary-bg);--bs-btn-color:var(--bs-body-color);--bs-btn-border-color:var(--bs-border-color);--bs-btn-hover-bg:var(--bs-secondary-bg);--bs-btn-hover-color:var(--bs-emphasis-color);--bs-btn-hover-border-color:var(--bs-border-color);--bs-btn-active-bg:var(--bs-secondary-bg);--bs-btn-active-color:var(--bs-emphasis-color)}
+[data-bs-theme=dark] .bg-light,[data-bs-theme=dark] .bg-white{background-color:var(--bs-tertiary-bg)!important}
+[data-bs-theme=dark] .bg-light.text-dark{color:var(--bs-body-color)!important}
+[data-bs-theme=dark] a.text-dark,[data-bs-theme=dark] .bm-side .text-dark{color:var(--bs-body-color)!important}
+[data-bs-theme=dark] .bg-warning a.text-dark,[data-bs-theme=dark] .bg-info a.text-dark{color:#212529!important}
+[data-bs-theme=dark] .text-bg-dark,[data-bs-theme=dark] .badge.bg-dark{background-color:#495057!important}
+.bm-motiv{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid rgba(255,255,255,.5);border-radius:50%;background:none;color:#fff;padding:0}
+.bm-motiv:hover,.bm-motiv:focus-visible{background:rgba(255,255,255,.18);outline:0}
+.bm-motiv svg{display:none}[data-motiv=light] .bm-motiv .i-light,[data-motiv=dark] .bm-motiv .i-dark,[data-motiv=auto] .bm-motiv .i-auto{display:block}</style>

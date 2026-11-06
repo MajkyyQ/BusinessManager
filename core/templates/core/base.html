@@ -1,9 +1,9 @@
 <!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BusinessManager</title>
-{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet">
+{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet">{% include "core/_motiv.html" %}
 <script src="{% static 'vendor/htmx.min.js' %}"></script>{% block head %}{% endblock %}<script>try{if(localStorage.getItem('bm-nav-mini')=='1')document.documentElement.classList.add('nav-mini')}catch(e){}</script>
 <style>/* WCAG 2.2: kontrast textu aspoň 4,5 : 1 (1.4.3) a klikací prvky aspoň 24 × 24 px (2.5.8) */
-:root{--bs-link-color:#0a58ca;--bs-link-color-rgb:10,88,202}
+:root:not([data-bs-theme=dark]){--bs-link-color:#0a58ca;--bs-link-color-rgb:10,88,202}
 .text-secondary{color:#5c636a!important}
 .btn-outline-secondary{--bs-btn-color:#5c636a;--bs-btn-border-color:#5c636a}
 .btn-outline-danger{--bs-btn-color:#b02a37;--bs-btn-border-color:#b02a37}
@@ -21,33 +21,34 @@
 .bm-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin-bottom:.6rem;min-height:38px}
 .bm-search{flex:0 1 340px;width:340px;min-width:200px}.bm-toolbar .form-select{width:auto}.bm-views{margin-left:auto}
 .bm-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem}
-.bm-chip{display:inline-flex;align-items:center;gap:.4rem;min-height:30px;padding:.15rem .7rem;border:1px solid #ced4da;border-radius:999px;color:#212529;text-decoration:none;font-size:.9rem;background:#fff}
-.bm-chip:hover{border-color:#0a58ca;color:#0a58ca}.bm-chip.active{background:#0a58ca;border-color:#0a58ca;color:#fff}.bm-chip.empty:not(.active){color:#5c636a}
-.bm-n{font-size:.75rem;font-weight:600;padding:0 .4rem;border-radius:999px;background:#e9ecef;color:#212529}.bm-chip.active .bm-n{background:#fff;color:#0a58ca}
-.bm-dot{width:.6rem;height:.6rem;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.15)}
+.bm-chip{display:inline-flex;align-items:center;gap:.4rem;min-height:30px;padding:.15rem .7rem;border:1px solid var(--bs-border-color);border-radius:999px;color:var(--bs-body-color);text-decoration:none;font-size:.9rem;background:var(--bs-body-bg)}
+.bm-chip:hover{border-color:var(--bs-link-color);color:var(--bs-link-color)}.bm-chip.active{background:#0a58ca;border-color:#0a58ca;color:#fff}.bm-chip.empty:not(.active){color:var(--bs-secondary-color)}
+.bm-n{font-size:.75rem;font-weight:600;padding:0 .4rem;border-radius:999px;background:var(--bs-secondary-bg);color:var(--bs-body-color)}.bm-chip.active .bm-n{background:#fff;color:#0a58ca}
+.bm-dot{width:.6rem;height:.6rem;border-radius:50%;display:inline-block;border:1px solid var(--bs-border-color-translucent)}
 .bm-table{table-layout:fixed;width:100%;min-width:680px}#vysledky{overflow-x:auto}.bm-table th,.bm-table td{overflow-wrap:break-word}.bm-table th{white-space:normal}
-.bm-foot{font-size:.875rem;color:#5c636a;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between}
+.bm-foot{font-size:.875rem;color:var(--bs-secondary-color);display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between}
 .bm-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.75rem;margin-bottom:1rem}
-.bm-card{display:block;border:1px solid #dee2e6;border-radius:.5rem;padding:.6rem .75rem;background:#fff;color:#212529;text-decoration:none;min-width:0}
-.bm-card:hover,.bm-card:focus-visible{border-color:#0a58ca;box-shadow:0 2px 6px rgba(0,0,0,.08);color:#212529}
-.bm-card .t{font-weight:600;color:#0a58ca;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bm-card .s{font-size:.85rem;color:#5c636a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-card{display:block;border:1px solid var(--bs-border-color);border-radius:.5rem;padding:.6rem .75rem;background:var(--bs-body-bg);color:var(--bs-body-color);text-decoration:none;min-width:0}
+.bm-card:hover,.bm-card:focus-visible{border-color:#0a58ca;box-shadow:0 2px 6px rgba(0,0,0,.08);color:var(--bs-body-color)}
+.bm-card .t{font-weight:600;color:var(--bs-link-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bm-card .s{font-size:.85rem;color:var(--bs-secondary-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* kanban: sloupce se zalomí na další řádek, takže se vejdou na šířku obrazovky bez vodorovného posouvání */
 .bm-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.75rem;align-items:start;margin-bottom:1rem}
-.bm-col{min-width:0;background:#f1f3f5;border-radius:.5rem;padding:.5rem}.bm-col>h6{display:flex;justify-content:space-between;align-items:center;margin:0 0 .5rem}.bm-col .bm-card{margin-bottom:.5rem}
+.bm-col{min-width:0;background:var(--bs-tertiary-bg);border-radius:.5rem;padding:.5rem}.bm-col>h6{display:flex;justify-content:space-between;align-items:center;margin:0 0 .5rem}.bm-col .bm-card{margin-bottom:.5rem}
 @media(max-width:575px){.bm-search{flex:1 1 100%;width:100%}.bm-views{margin-left:0}}</style><style>/* výběr více možností (zaměstnanci) a přepínač Soukromá osoba / Firma */
 div.bm-volby{display:flex;flex-wrap:wrap;gap:.3rem 1.5rem;padding:.3rem 0}div.bm-volby label{display:inline-flex;align-items:center;gap:.4rem;cursor:pointer}input.bm-volby{width:1.1em;height:1.1em;margin:0}
 form:has(input[name=typ_zakaznika][value="Soukromá osoba"]:checked) div[class*="col"]:has(> [name=firma],> [name=ico],> [name=dic]),
 form:has(input[name=typ_zakaznika][value="Soukromá osoba"]:checked) h6:has(+ .row [name=ico]){display:none}</style>
-<style>.lk-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}.lk-modal>div{background:#fff;padding:1rem;border-radius:.5rem;width:min(680px,95vw);max-height:90vh;overflow:auto}</style></head>
+<style>.lk-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}.lk-modal>div{background:var(--bs-body-bg);padding:1rem;border-radius:.5rem;width:min(680px,95vw);max-height:90vh;overflow:auto}</style></head>
 <body hx-boost="{% block boost %}false{% endblock %}"><nav class="navbar navbar-dark bg-dark mb-3"><div class="container-fluid">
 <div class="d-flex align-items-center">{% if navx %}<button type="button" class="bm-tg" id="bm-tg" aria-label="Zasunout nebo roztáhnout menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>{% endif %}<a class="navbar-brand" href="/">BusinessManager</a></div>
-<div class="d-flex gap-2 align-items-center"><span class="text-light">{{ request.user }}</span>
+<div class="d-flex gap-2 align-items-center"><button type="button" class="bm-motiv" id="bm-motiv"><svg class="i-auto" width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"/></svg><svg class="i-light" width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708"/></svg><svg class="i-dark" width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"/></svg></button><span class="text-light">{{ request.user }}</span>
 {% if request.user.is_staff %}<a class="btn btn-sm btn-outline-light" href="/admin/" hx-boost="false">Admin</a>{% endif %}
 <form method="post" action="{% url 'logout' %}" hx-boost="false">{% csrf_token %}<button class="btn btn-sm btn-outline-light">Odhlásit</button></form></div></div></nav>
 <div class="container-fluid"><div class="bm-wrap">
 <aside class="bm-side mb-3">{% for k,ic,l,u in navx %}{% if k == "zakazky" or k == "nastaveni" %}<hr class="my-2">{% endif %}<a class="bm-l px-2 py-1 mb-1 rounded text-decoration-none {% if k == sec %}bg-primary text-white{% else %}text-dark{% endif %}" href="{{ u }}" title="{{ l }}"><span class="bm-ic">{{ ic }}</span><span class="bm-tx">{{ l }}</span></a>{% endfor %}</aside>
 <main class="bm-main">{% if crumbs %}<nav class="small text-muted mb-2">{% for l,u in crumbs %}{% if u %}<a href="{{ u }}">{{ l }}</a>{% else %}{{ l }}{% endif %}{% if not forloop.last %} › {% endif %}{% endfor %}</nav>{% endif %}{% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %}">{{ m }}</div>{% endfor %}
-{% if subtabs %}<ul class="nav nav-tabs mb-3">{% for l,u,a in subtabs %}<li class="nav-item"><a class="nav-link {% if a %}active{% endif %}" href="{{ u }}">{{ l }}</a></li>{% endfor %}</ul>{% endif %}{% block content %}{% endblock %}</main></div></div><script>(function(){const b=document.getElementById('bm-tg'),h=document.documentElement;if(!b)return;const upd=()=>{const m=h.classList.contains('nav-mini');b.title=m?'Roztáhnout menu':'Zasunout menu';b.setAttribute('aria-expanded',m?'false':'true')};upd();
+{% if subtabs %}<ul class="nav nav-tabs mb-3">{% for l,u,a in subtabs %}<li class="nav-item"><a class="nav-link {% if a %}active{% endif %}" href="{{ u }}">{{ l }}</a></li>{% endfor %}</ul>{% endif %}{% block content %}{% endblock %}</main></div></div><script>(function(){const b=document.getElementById('bm-motiv');if(!b)return;const N={auto:'Vzhled: podle systému',light:'Vzhled: světlý',dark:'Vzhled: tmavý'},D={auto:'light',light:'dark',dark:'auto'};
+const upd=()=>{const v=bmMotiv.vol();b.title=N[v]+' (kliknutím přepnete na: '+N[D[v]].slice(8)+')';b.setAttribute('aria-label',b.title)};upd();b.onclick=()=>{bmMotiv.set(D[bmMotiv.vol()]);upd()}})();</script><script>(function(){const b=document.getElementById('bm-tg'),h=document.documentElement;if(!b)return;const upd=()=>{const m=h.classList.contains('nav-mini');b.title=m?'Roztáhnout menu':'Zasunout menu';b.setAttribute('aria-expanded',m?'false':'true')};upd();
 b.onclick=()=>{h.classList.toggle('nav-mini');upd();try{localStorage.setItem('bm-nav-mini',h.classList.contains('nav-mini')?'1':'0')}catch(e){}}})();</script><script>(function(){
 const Q=(e,s)=>e.querySelector(s),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));let T,CUR;
 const dep=c=>{const d=c.dataset.dep,f=c.closest('form'),i=d&&f&&f.querySelector('[name="'+d+'"]');return i?i.value:''};

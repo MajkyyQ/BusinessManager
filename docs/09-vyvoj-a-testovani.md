@@ -63,7 +63,8 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `UcetZamestnanceTest` | 6 | přihlašovací účet zaměstnance: založení, heslo, vypnutí, ochrana vlastního účtu |
 | `CislovaniDokladuTest` | 6 | vlastní číslování zakázek, nabídek a faktur, výchozí čísla, přeskočení obsazeného čísla |
 | `OpravyZProchazeniTest` | 9 | opravy z procházení aplikace: telefony, více fotek, práce více zaměstnanců, platby, tlačítka Zpět |
-| **Celkem** | **66** | |
+| `TmavyRezimTest` | 2 | přepínač vzhledu v horní liště, tmavý režim i na přihlašovací stránce |
+| **Celkem** | **68** | |
 
 ## Úprava databáze
 
