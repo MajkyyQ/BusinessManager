@@ -29,6 +29,25 @@ $ip = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
 if (Test-Path ".env") {
     Write-Host "Soubor .env uz existuje, ponechavam ho beze zmeny."
 } else {
+    # Databaze z drivejsi instalace (Docker volume) prezije smazani slozky, ale jeji heslo bylo v puvodnim .env.
+    # S novym nahodnym heslem by se k ni aplikace neprihlasila ("password authentication failed").
+    $projekt = (Split-Path -Leaf $PSScriptRoot).ToLower() -replace '[^a-z0-9_-]', ''
+    docker volume inspect "${projekt}_pgdata" *> $null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""
+        Write-Host "V Dockeru zustala databaze z predchozi instalace, ale chybi k ni soubor .env s heslem." -ForegroundColor Yellow
+        Write-Host "Mate dve moznosti:"
+        Write-Host "  1) Mate puvodni .env (napr. v zaloze)? Zkopirujte ho do teto slozky a spustte instalaci znovu."
+        Write-Host "     Data z predchozi instalace zustanou."
+        Write-Host "  2) Starou databazi smazat a zacit znovu. VSECHNA DATA z predchozi instalace (vcetne fotek a priloh) se ztrati."
+        $volba = Read-Host "Pro smazani napiste SMAZAT, cokoli jineho instalaci ukonci"
+        if ($volba -cne "SMAZAT") { Write-Host "Instalace ukoncena, nic se nesmazalo."; Konec 1 }
+        # docker compose down bez .env nejde (env_file chybi), proto kontejnery a volumy primo
+        $kontejnery = @(docker ps -aq --filter "label=com.docker.compose.project=$projekt")
+        if ($kontejnery.Count -gt 0) { docker rm -f $kontejnery *> $null }
+        docker volume rm "${projekt}_pgdata" "${projekt}_media" *> $null
+        Write-Host "Stara databaze smazana." -ForegroundColor Green
+    }
     $hosty = @("localhost", "127.0.0.1", $pc) + $ip
     $puvody = $hosty | ForEach-Object { "http://${_}:8080" }
     $obsah = @(
@@ -90,6 +109,11 @@ function Selhani($duvod) {
     Write-Host ""
     Write-Host $duvod -ForegroundColor Red
     UlozLog $duvod
+    if (Select-String -Path $log -Pattern "password authentication failed" -Quiet) {
+        Write-Host ""
+        Write-Host "Heslo k databazi nesedi: databaze je z drivejsi instalace a soubor .env je novy." -ForegroundColor Yellow
+        Write-Host "Vratte puvodni .env, nebo (pokud stara data nepotrebujete) spustte 'docker compose down -v' a instalaci znovu."
+    }
     Write-Host ""
     Write-Host "--- posledni radky logu aplikace (docker compose logs web) ---" -ForegroundColor Yellow
     cmd /c "docker compose logs --no-color --tail 40 web 2>&1"

@@ -222,6 +222,10 @@ Obnova do databáze, ve které už data jsou, skončí chybami. Proto se databá
   `http://127.0.0.1:8080` (instalační skript ji otevírá sám).
 - **Stránka se nenačte ani na serverovém PC:** běží Docker Desktop? `docker compose ps` ukazuje oba kontejnery `Up`?
   Chybu najdete v `docker compose logs web`.
+- **V logu je `password authentication failed`:** databáze zůstala z předchozí instalace, ale soubor `.env`
+  s jejím heslem je nový (např. po smazání a novém rozbalení složky). Vraťte původní `.env`, nebo, pokud stará
+  data nepotřebujete, spusťte `docker compose down -v` (smaže databázi i nahrané soubory) a instalaci znovu.
+  Nový instalační skript tuto situaci pozná a sám nabídne obě možnosti.
 - **`web` stále restartuje:** nejčastěji překlep v `.env`. Po opravě `docker compose up -d`.
 - **Na jiném PC se nenačte:** firewall (krok 7), stejná síť, správná IP (`ipconfig`), síť nastavená jako soukromá.
 - **400 Bad Request:** adresa chybí v `ALLOWED_HOSTS` (krok 7).
