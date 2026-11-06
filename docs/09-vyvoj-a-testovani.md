@@ -14,7 +14,7 @@ python manage.py migrate
 python manage.py runserver 8080
 ```
 
-Na Linuxu a macOS se prostředí aktivuje příkazem `source .venv/bin/activate`. Aplikace pak běží na <http://localhost:8080>. Při prvním otevření se spustí průvodce, ve kterém založíte účet administrátora a firmu.
+Na Linuxu a macOS se prostředí aktivuje příkazem `source .venv/bin/activate`. Aplikace pak běží na <http://127.0.0.1:8080>. Při prvním otevření se spustí průvodce, ve kterém založíte účet administrátora a firmu.
 
 - **Testovací data:** `python manage.py seed_data` vytvoří ukázkové zákazníky, zařízení, zakázky, zaměstnance, práce a materiál. Je určen jen pro vývoj a předvádění, ne pro ostrou databázi.
 - **PDF a náhledy Excelových šablon** potřebují LibreOffice. Ve Windows ho aplikace najde v `C:\Program Files\LibreOffice`, jinou cestu lze zadat proměnnou prostředí `LIBREOFFICE`. Bez LibreOffice fungují HTML šablony.
