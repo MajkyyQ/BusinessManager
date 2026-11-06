@@ -207,7 +207,7 @@ Obnova do databáze, ve které už data jsou, skončí chybami. Proto se databá
 | Zastavit | `docker compose stop` |
 | Spustit | `docker compose up -d` |
 | Výpis chyb | `docker compose logs --tail 100 web` |
-| Aktualizace na novou verzi | nejdřív záloha, pak nové soubory (`git pull`, nebo nový ZIP rozbalený přes starý, `.env` zůstane), pak `docker compose up -d --build` |
+| Aktualizace na novou verzi | dvojklik na `aktualizace.bat` (záloha, stažení nové verze z GitHubu, sestavení a spuštění; `.env` i data zůstanou). Ručně: záloha, nové soubory (`git pull`, nebo nový ZIP rozbalený přes starý, složku nemazat), `docker compose up -d --build` |
 
 **Nikdy nespouštějte `docker compose down -v`.** Přepínač `-v` smaže databázi i nahrané soubory.
 `docker compose down` bez `-v` je bezpečné.
