@@ -1,12 +1,12 @@
 # Použité technologie
 
-Při výběru technologií byla rozhodující tři kritéria vyplývající z analýzy požadavků. Aplikace musí běžet na jednom firemním počítači bez placených licencí, musí být udržovatelná jedním vývojářem a musí umět pracovat se stávajícími Excelovými formuláři firmy. Všechny použité technologie jsou proto open-source, rozšířené a dobře zdokumentované. Tabulka na konci této stránky shrnuje, jakou roli má každá z nich v aplikaci; v následujících odstavcích jsou popsány podrobně.
+Při výběru technologií byla rozhodující tři kritéria. Aplikace musí běžet na jednom firemním počítači bez placených licencí, musí být udržovatelná jedním vývojářem a musí umět pracovat se stávajícími Excelovými formuláři firmy. Všechny použité technologie jsou proto open-source, rozšířené a dobře zdokumentované. Tabulka na konci této stránky shrnuje, jakou roli má každá z nich v aplikaci; v následujících odstavcích jsou popsány podrobně.
 
 ## Python
 
 **Co to je.** Python je interpretovaný, dynamicky typovaný programovací jazyk pro obecné použití. Je známý čitelnou syntaxí a rozsáhlou standardní knihovnou a patří k nejpoužívanějším jazykům pro vývoj webových aplikací, automatizaci a zpracování dat.
 
-**Proč byl zvolen.** Python je jazykem frameworku Django a knihovny openpyxl, které tvoří jádro aplikace. Pro práci s Excelovými soubory, PDF a XML má Python zralé knihovny a celá aplikace tak může být napsaná v jednom jazyce. Svou roli hrála i autorova předchozí zkušenost s tímto jazykem.
+**Proč byl zvolen.** Python je jazykem frameworku Django a knihovny openpyxl, které tvoří jádro aplikace. Pro práci s Excelovými soubory, PDF a XML má Python zralé knihovny a celá aplikace tak může být napsaná v jednom jazyce.
 
 **Jak je v aplikaci použit.** Python je hlavním programovacím jazykem aplikace a zajišťuje veškerou serverovou logiku: definici datového modelu, zpracování požadavků z prohlížeče, výpočty cen a DPH, automatické číslování zakázek a dokladů, řízení stavů zakázky, sestavení dat pro dokumenty i vyplňování Excelových šablon. Aplikace běží na verzi Python 3.12 (verze použitá v obrazu Dockeru). Kromě frameworku Django a knihoven popsaných dále využívá aplikace standardní knihovnu jazyka, zejména modul `decimal` pro přesné peněžní výpočty bez zaokrouhlovacích chyb typu `float`, moduly `datetime` a `calendar` pro práci s daty a kalendářem, `re` pro rozpoznávání značek v šablonách, `zipfile` pro práci s vnitřní strukturou souborů `.xlsx`, `subprocess` pro spouštění LibreOffice a `hashlib` pro vyrovnávací paměť hotových PDF. Seznam knihoven třetích stran je uveden v souboru `requirements.txt`.
 

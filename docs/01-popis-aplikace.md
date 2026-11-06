@@ -10,7 +10,7 @@ Druhou důležitou myšlenkou je, že *vzhled dokumentů zůstává v rukou firm
 
 ## Problém, který aplikace řeší
 
-Jak vyplynulo z analýzy procesů, administrativa servisní zakázky byla ve firmě rozdělena mezi několik nezávislých nástrojů. Údaje o zákazníkovi a zařízení se zapisovaly do papírového zakázkového listu, provedené práce a materiál do samostatné tabulky, fotografie byly uloženy ve složkách na disku a nabídky i faktury vznikaly ručním vyplněním Excelových formulářů. To přinášelo několik konkrétních problémů:
+Před zavedením aplikace byla administrativa servisní zakázky ve firmě rozdělena mezi několik nezávislých nástrojů. Údaje o zákazníkovi a zařízení se zapisovaly do papírového zakázkového listu, provedené práce a materiál do samostatné tabulky, fotografie byly uloženy ve složkách na disku a nabídky i faktury vznikaly ručním vyplněním Excelových formulářů. To přinášelo několik konkrétních problémů:
 
 - stejné údaje (jméno zákazníka, IČO, typ zařízení, ceny) se opakovaně přepisovaly, a vznikaly tak chyby a nesoulad mezi dokumenty,
 - nebylo snadné zjistit, v jakém stavu je konkrétní zakázka a která zařízení jsou právě ve firmě,
