@@ -9,6 +9,7 @@ BusinessManager/
 |-- LICENSE                   licence MIT
 |-- docs/                     tato dokumentace
 |-- instalace.bat, .ps1       instalace ve Windows dvojklikem
+|-- aktualizace.bat, .ps1     aktualizace na novou verzi z GitHubu dvojklikem
 |-- zaloha.bat                záloha databáze a souborů
 |-- manage.py                 spouštění příkazů Django
 |-- requirements.txt          knihovny jazyka Python
@@ -84,7 +85,7 @@ Knihovny frontendu (Bootstrap, htmx) jsou přibalené ve složce `core/static/ve
 
 ## Data a spouštěcí soubory
 
-Soubor `db.sqlite3` je databáze SQLite používaná při spuštění bez Dockeru, složka `media/` obsahuje nahrané soubory. Obě položky jsou daty konkrétní instalace, nikoli součástí zdrojového kódu. V Dockeru jsou místo nich použity svazky `pgdata` a `media`. Soubor `manage.py` je standardní nástroj Django pro spouštění příkazů (migrace, vývojový server, vlastní příkazy). Soubory `Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh` a `.env.example` slouží k zabalení a spuštění aplikace, skripty `instalace.bat`/`instalace.ps1` a `zaloha.bat` k instalaci a záloze ve Windows. Soubor `README.md` obsahuje rychlou instalaci a `INSTALACE.md` podrobný návod včetně zálohy a obnovy.
+Soubor `db.sqlite3` je databáze SQLite používaná při spuštění bez Dockeru, složka `media/` obsahuje nahrané soubory. Obě položky jsou daty konkrétní instalace, nikoli součástí zdrojového kódu. V Dockeru jsou místo nich použity svazky `pgdata` a `media`. Soubor `manage.py` je standardní nástroj Django pro spouštění příkazů (migrace, vývojový server, vlastní příkazy). Soubory `Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh` a `.env.example` slouží k zabalení a spuštění aplikace, skripty `instalace.bat`/`instalace.ps1`, `aktualizace.bat`/`aktualizace.ps1` a `zaloha.bat` k instalaci, aktualizaci a záloze ve Windows. Soubor `README.md` obsahuje rychlou instalaci a `INSTALACE.md` podrobný návod včetně zálohy a obnovy.
 
 ## Vazby mezi částmi projektu
 
