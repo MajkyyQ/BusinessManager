@@ -3,17 +3,25 @@ import os
 import shutil
 import subprocess
 import tempfile
+import sys
 import threading
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from django.conf import settings
 
-_ZAMEK = threading.Lock()  # LibreOffice nesmí běžet se stejným profilem dvakrát naráz
+_ZAMEK = threading.Lock()  # LibreOffice nesmí běžet se stejným profilem dvakrát naráz (vlákna jednoho procesu)
+POKUSY = 3  # první spuštění s novým profilem LibreOffice často skončí bez výsledku (profil teprve zakládá), další už projde
 WIN_CESTY = [r"C:\Program Files\LibreOffice\program\soffice.exe", r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"]
 
 
 class ChybiLibreOffice(RuntimeError):
-    pass
+    """LibreOffice na počítači není."""
+
+
+class PrevodSeNepovedl(RuntimeError):
+    """LibreOffice je nainstalovaný, ale převod selhal (např. vypršel čas při prvním spuštění)."""
 
 
 def soffice():
@@ -50,20 +58,80 @@ def na_xlsx(soubor):
     return na_pdf(soubor, cil="xlsx")
 
 
+@contextmanager
+def _zamek_profilu(profil):
+    """Převody jdou jeden po druhém: zámek mezi vlákny i mezi procesy (gunicorn má víc workerů)."""
+    with _ZAMEK:
+        f = open(profil / "businessmanager.lock", "a+b")
+        try:
+            if sys.platform == "win32":
+                import msvcrt
+                f.seek(0)
+                while True:
+                    try:
+                        msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1); break
+                    except OSError:  # LK_LOCK to po 10 s vzdá, zkoušíme dál
+                        pass
+                try:
+                    yield
+                finally:
+                    f.seek(0); msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(f, fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(f, fcntl.LOCK_UN)
+        finally:
+            f.close()
+
+
+def _spust(cmd, limit):
+    """Spustí LibreOffice; při překročení limitu ukončí celý strom procesů (ve Windows by jinak zůstal viset soffice.bin
+    a držel profil zamčený, takže by selhávaly i další převody)."""
+    win = sys.platform == "win32"
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if win else 0, start_new_session=not win)
+    try:
+        out, err = p.communicate(timeout=limit)
+        return p.returncode, (err or out).decode(errors="ignore")[-500:]
+    except subprocess.TimeoutExpired:
+        if win:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        else:
+            import signal
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except OSError:
+                p.kill()
+        p.communicate()
+        return None, f"LibreOffice nestihl převod do {limit} s."
+
+
 def na_pdf(soubor, filtr=None, cil="pdf"):
     """Převede soubor (xlsx, html…) na PDF (nebo jiný formát `cil`) a vrátí jeho obsah (bytes)."""
     exe = soffice()
     if not exe: raise ChybiLibreOffice("Pro převod do PDF je potřeba nainstalovat LibreOffice (zdarma, libreoffice.org).")
     soubor = Path(soubor)
     profil = _profil()
-    with tempfile.TemporaryDirectory() as out, _ZAMEK:
-        cmd = [exe, f"-env:UserInstallation={profil.as_uri()}", "--headless", "--norestore", "--nologo",
-               "--convert-to", f"{cil}:{filtr}" if filtr else cil, "--outdir", out, str(soubor)]
-        r = subprocess.run(cmd, capture_output=True, timeout=120)
-        pdf = Path(out) / (soubor.stem + "." + cil)
-        if not pdf.exists():
-            raise RuntimeError("LibreOffice soubor nepřevedl: " + (r.stderr or r.stdout).decode(errors="ignore")[-500:])
-        return pdf.read_bytes()
+    limit = int(getattr(settings, "LIBREOFFICE_LIMIT", 0) or os.getenv("LIBREOFFICE_LIMIT") or 180)
+    chyba = ""
+    with _zamek_profilu(profil):
+        for pokus in range(POKUSY):
+            if pokus: time.sleep(1)
+            with tempfile.TemporaryDirectory() as out:
+                cmd = [exe, f"-env:UserInstallation={profil.as_uri()}", "--headless", "--norestore", "--nologo",
+                       "--convert-to", f"{cil}:{filtr}" if filtr else cil, "--outdir", out, str(soubor)]
+                try:
+                    _, chyba = _spust(cmd, limit)
+                except OSError as e:
+                    raise ChybiLibreOffice(f"LibreOffice nejde spustit ({e}).")
+                vysledek = Path(out) / (soubor.stem + "." + cil)
+                if vysledek.exists() and vysledek.stat().st_size:
+                    return vysledek.read_bytes()
+    raise PrevodSeNepovedl("LibreOffice soubor nepřevedl" + (f": {chyba.strip()}" if chyba.strip() else "."))
 
 
 def miniatura(pdf_bytes, sirka=420):
