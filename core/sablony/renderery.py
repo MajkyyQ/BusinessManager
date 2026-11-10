@@ -4,7 +4,9 @@ Nový formát (např. Word) = nová třída se stejným rozhraním, zaregistrova
 """
 import hashlib
 import json
+import os
 import tempfile
+import threading
 from pathlib import Path
 
 from django.conf import settings
@@ -59,6 +61,12 @@ def _cache(sablona, data, pripona):
     return d / f"{k}.{pripona}"
 
 
+def _uloz(cesta, obsah):
+    """Zápis přes dočasný soubor, aby souběžný požadavek nikdy nepřečetl napůl zapsané PDF."""
+    tmp = cesta.with_name(f"{cesta.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_bytes(obsah); os.replace(tmp, cesta)
+
+
 class Renderer:
     kod = ""; nazev = ""; pripony = (); nahled_typ = "application/pdf"
 
@@ -104,7 +112,7 @@ class ExcelRenderer(Renderer):
         with tempfile.TemporaryDirectory() as d:
             x = Path(d) / "dokument.xlsx"; x.write_bytes(self.xlsx(sablona, typ_cls, data))
             pdf = prevod.na_pdf(x)
-        c.write_bytes(pdf); return pdf
+        _uloz(c, pdf); return pdf
 
 
 def html_kontext(typ_cls, data):
@@ -154,4 +162,4 @@ class HtmlRenderer(Renderer):
         with tempfile.TemporaryDirectory() as d:
             x = Path(d) / "dokument.html"; x.write_text(self.html(sablona, typ_cls, data, pro_pdf=True), encoding="utf-8")
             pdf = prevod.na_pdf(x, "writer_web_pdf_Export")
-        c.write_bytes(pdf); return pdf
+        _uloz(c, pdf); return pdf

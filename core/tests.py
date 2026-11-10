@@ -715,3 +715,69 @@ class TmavyRezimTest(TestCase):
         h = self.client.get("/login/").content.decode()
         self.assertIn("prefers-color-scheme: dark", h)
 
+
+
+class PrevodLibreOfficeTest(TestCase):
+    """Převod přes LibreOffice: opakování po nepovedeném prvním spuštění a rozlišení chyb."""
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        self.d = Path(tempfile.mkdtemp()); self.x = self.d / "dokument.xlsx"; self.x.write_bytes(b"x")
+
+    def _falesny_soffice(self, chovani):
+        """Podvrhne spuštění LibreOffice: chovani je seznam 'ok' / 'nic' / 'cas' pro jednotlivé pokusy."""
+        from pathlib import Path
+        from unittest import mock
+        from .sablony import prevod
+        pokusy = iter(chovani)
+        def spust(cmd, limit):
+            c = next(pokusy)
+            if c == "ok": (Path(cmd[cmd.index("--outdir") + 1]) / "dokument.pdf").write_bytes(b"%PDF-1.4")
+            return (None, "LibreOffice nestihl převod") if c == "cas" else (0 if c == "ok" else 81, "")
+        return [mock.patch.object(prevod, "soffice", return_value="/usr/bin/soffice"),
+                mock.patch.object(prevod, "_spust", side_effect=spust), mock.patch.object(prevod.time, "sleep")]
+
+    def _s(self, chovani):
+        from contextlib import ExitStack
+        from .sablony import prevod
+        with ExitStack() as st:
+            for p in self._falesny_soffice(chovani): st.enter_context(p)
+            return prevod.na_pdf(self.x)
+
+    def test_prvni_spusteni_bez_vysledku_se_zopakuje(self):
+        self.assertEqual(self._s(["nic", "ok"]), b"%PDF-1.4")
+        self.assertEqual(self._s(["cas", "nic", "ok"]), b"%PDF-1.4")
+
+    def test_opakovane_selhani_neni_chybejici_libreoffice(self):
+        from .sablony import prevod
+        with self.assertRaises(prevod.PrevodSeNepovedl) as e:
+            self._s(["cas", "cas", "cas"])
+        self.assertNotIsInstance(e.exception, prevod.ChybiLibreOffice)
+
+    def test_chybejici_libreoffice(self):
+        from unittest import mock
+        from .sablony import prevod
+        with mock.patch.object(prevod, "soffice", return_value=None), self.assertRaises(prevod.ChybiLibreOffice):
+            prevod.na_pdf(self.x)
+
+    def test_limit_ukonci_proces(self):
+        import sys
+        import time
+        from .sablony import prevod
+        t = time.time(); kod, text = prevod._spust([sys.executable, "-c", "import time; time.sleep(30)"], 1)
+        self.assertIsNone(kod); self.assertIn("nestihl", text); self.assertLess(time.time() - t, 10)
+
+    def test_miniatura_rozlisuje_duvod_a_neuklada_se(self):
+        from unittest import mock
+        from .models import SablonaDokumentu as S
+        from .sablony import prevod
+        from .views_sablony import sablona_miniatura
+        from django.test import RequestFactory
+        s = S.objects.filter(format="excel").first()
+        rq = RequestFactory().get("/")
+        for chyba, text in ((prevod.PrevodSeNepovedl("x"), "převod se nepovedl"), (prevod.ChybiLibreOffice("x"), "chybí LibreOffice")):
+            with mock.patch("core.views_sablony.renderery.renderer", return_value=mock.Mock(pdf=mock.Mock(side_effect=chyba))):
+                r = sablona_miniatura(rq, s.pk)
+            self.assertIn(text, r.content.decode()); self.assertEqual(r["Cache-Control"], "no-store")
+            s.refresh_from_db(); self.assertFalse(s.nahled)

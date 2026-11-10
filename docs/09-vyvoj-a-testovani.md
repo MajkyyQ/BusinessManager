@@ -34,6 +34,7 @@ Nastavení se čte z proměnných prostředí, v Dockeru ze souboru `.env` (vzor
 | `DB_ENGINE` | `postgres` = PostgreSQL, jinak SQLite | SQLite |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | připojení k PostgreSQL | `businessmanager`, `localhost`, `5432` |
 | `LIBREOFFICE` | cesta k programu LibreOffice, pokud není ve standardním umístění | hledá se automaticky |
+| `LIBREOFFICE_LIMIT` | kolik sekund smí trvat jeden převod v LibreOffice, než se zkusí znovu | 180 |
 
 ## Automatické testy
 

@@ -10,6 +10,7 @@ import json
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils.text import slugify
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
@@ -40,22 +41,25 @@ def vyber_sablonu(request, kod):
 
 
 def zajisti_miniaturu(s):
-    """Miniatura šablony s ukázkovými daty (vytvoří se jednou pro každou verzi šablony)."""
+    """Miniatura šablony s ukázkovými daty (vytvoří se jednou pro každou verzi šablony).
+    Vrací None, když je miniatura hotová, jinak důvod, proč ji nejde vytvořit. Nepovedený pokus se neukládá."""
     st = s.nahled.storage
     jmeno = f"sablony/nahledy/sablona_{s.pk}_v{s.verze}_{renderery.otisk(s)}.png"
-    if s.nahled and s.nahled.name == jmeno and st.exists(s.nahled.name): return True
+    if s.nahled and s.nahled.name == jmeno and st.exists(s.nahled.name): return None
     t = typy.typ(s.typ_dokumentu)
-    if not t: return False
+    if not t: return "neznámý typ dokumentu"
     try:
         png = prevod.miniatura(renderery.renderer(s).pdf(s, t, t.ukazka()))
+    except prevod.ChybiLibreOffice:
+        return "chybí LibreOffice"
     except Exception:
-        return False
-    if not png: return False
+        return "převod se nepovedl, obnovte stránku"
+    if not png: return "chybí knihovna pypdfium2"
     if s.nahled and st.exists(s.nahled.name): st.delete(s.nahled.name)
     if st.exists(jmeno): st.delete(jmeno)
     jmeno = st.save(jmeno, ContentFile(png))
     S.objects.filter(pk=s.pk).update(nahled=jmeno); s.nahled.name = jmeno
-    return True
+    return None
 
 
 def _znovu_analyzovat(s):
@@ -181,12 +185,13 @@ def sablona_akce(request, pk, akce):
 
 def sablona_miniatura(request, pk):
     s = get_object_or_404(S, pk=pk)
-    if zajisti_miniaturu(s):
+    duvod = zajisti_miniaturu(s)
+    if not duvod:
         r = HttpResponse(s.nahled.read(), content_type="image/png"); r["Cache-Control"] = "private, max-age=86400"; return r
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="420" height="594"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#ccc"/>'
            '<text x="50%" y="48%" text-anchor="middle" font-family="Arial" font-size="20" fill="#888">Náhled není k dispozici</text>'
-           '<text x="50%" y="54%" text-anchor="middle" font-family="Arial" font-size="14" fill="#aaa">(chybí LibreOffice)</text></svg>')
-    return HttpResponse(svg, content_type="image/svg+xml")
+           f'<text x="50%" y="54%" text-anchor="middle" font-family="Arial" font-size="14" fill="#aaa">({escape(duvod)})</text></svg>')
+    r = HttpResponse(svg, content_type="image/svg+xml"); r["Cache-Control"] = "no-store"; return r  # chybu si prohlížeč nepamatuje
 
 
 @xframe_options_sameorigin
@@ -234,6 +239,8 @@ def _obsah(s, t, data, jako_pdf=False):
         ct, body = ("application/pdf", r.pdf(s, t, data)) if jako_pdf else r.nahled(s, t, data)
     except prevod.ChybiLibreOffice as e:
         return _chyba_html(f"{e}<br><br>Mezitím můžete použít šablonu ve formátu HTML (tlačítko Změnit šablonu).")
+    except prevod.PrevodSeNepovedl as e:
+        return _chyba_html(f"LibreOffice je nainstalovaný, ale převod se tentokrát nepovedl. Zkuste stránku obnovit (F5).<br><small>{escape(e)}</small>")
     except Exception as e:
         return _chyba_html(f"Dokument se nepodařilo vytvořit ze šablony „{s}“: {e}")
     resp = HttpResponse(body, content_type=ct)
