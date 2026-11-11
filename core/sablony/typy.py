@@ -217,15 +217,17 @@ def cislo_zakazky_rozlozene(zk):
 
 
 def _poradi(cislo):
-    """Pořadové číslo z čísla dokladu: 2026-048 -> 048, NAB-2026-001 -> 001, 001-27-10/2026 -> 001."""
+    """Pořadové číslo z čísla dokladu: 2026-048 -> 048, NAB-2026-001 -> 001, 001-27-10/2026 -> 001.
+    Další nabídka ke stejné zakázce si nechá svou příponu: DMN260002-2 -> 260002-2, 2026-048-2 -> 048-2
+    (dřív z ní zbyla jen ta 2)."""
     import re
     c = cislo or ""
     m = re.match(r"^(\d+)-\d{1,2}-\d{1,2}/\d{4}$", c)
     if m: return m.group(1)
-    m = re.match(r"^\d{4}-(\d+)(-\d+)?$", c)  # číslo zakázky, i nabídka se stejným číslem (2026-048-2 -> 048)
+    m = re.match(r"^\d{4}-(\d+(?:-\d+)?)$", c)  # číslo zakázky, i nabídka se stejným číslem (2026-048-2)
     if m: return m.group(1)
-    m = re.search(r"(\d+)$", c)
-    return m.group(1) if m else c
+    m = re.search(r"(\d+)(-\d{1,2})?$", c)  # přípona -2, -3 … jen krátká, ať z NAB-2026-001 zůstane 001
+    return m.group(1) + (m.group(2) or "") if m else c
 
 
 def _polozka(i, popis, mn, jedn, cena, dph, bez=None, s=None):

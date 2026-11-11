@@ -620,6 +620,10 @@ class CislovaniDokladuTest(TestCase):
         self.assertEqual(Nabidka.cislo_ze_zakazky(z2), f"NAB{rr}0002")
         Nabidka.objects.create(zakaznik=self.zak, cislo_nabidky=Nabidka.cislo_ze_zakazky(z2))
         self.assertEqual(Nabidka.cislo_ze_zakazky(z2), f"NAB{rr}0002-2")
+        from .sablony.typy import Nabidka as NabidkaSablona  # druhá nabídka: v šabloně celé číslo, ne jen „2“
+        n2 = Nabidka.objects.create(zakaznik=self.zak, cislo_nabidky=Nabidka.cislo_ze_zakazky(z2))
+        self.assertEqual(NabidkaSablona.pole_dokladu(n2)["dokument.poradove_cislo"], f"{rr}0002-2")
+        self.assertEqual(NabidkaSablona.nazev_souboru(n2), f"DMN_{rr}0002-2")
         f1 = Faktura.objects.create(zakaznik=self.zak); f2 = Faktura.objects.create(zakaznik=self.zak)
         self.assertEqual((f1.cislo_faktury, f2.cislo_faktury), ("Fa0041", "Fa0042"))
 
