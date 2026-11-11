@@ -40,10 +40,10 @@ OSOBY = [  # jméno, adresa, telefon, email
     ("David Urban", "Třebízského 1101, 390 01 Tábor", "777 468 213", "david.urban@gmail.com"),
 ]
 ZAMESTNANCI = [  # jméno, příjmení, telefon, email, pozice, role
-    ("Tomáš", "Bláha", "604 112 358", "blaha@servis.cz", "Technik", "Mechanik"),
-    ("Ondřej", "Růžička", "721 132 134", "ruzicka@servis.cz", "Technik", "Mechanik"),
-    ("Michal", "Kříž", "736 558 914", "kriz@servis.cz", "Technik", "Mechanik"),
-    ("Kateřina", "Malá", "608 233 377", "mala@servis.cz", "Administrativní pracovník", None),
+    ("Tomáš", "Bláha", "604 112 358", "blaha@servis.cz", "Technik", "Technik"),
+    ("Ondřej", "Růžička", "721 132 134", "ruzicka@servis.cz", "Technik", "Technik"),
+    ("Michal", "Kříž", "736 558 914", "kriz@servis.cz", "Technik", "Technik"),
+    ("Kateřina", "Malá", "608 233 377", "mala@servis.cz", "Administrativní pracovník", "Administrativa"),
 ]
 # výrobce, typ, popis, typická závada
 ZARIZENI = [

@@ -378,7 +378,7 @@ Tabulka `core_zamestnanec` eviduje zaměstnance firmy, kteří zařízení přij
 
 #### Role a Opravneni
 
-Tabulky `core_role` a (`core_opravneni`) tvoří jednoduchý systém oprávnění. Role má sloupce `nazev`, `popis`, `je_administrator` a `aktivni` a vazbu M:N na Opravneni (`core_role_opravneni`). Oprávnění má sloupce `kod` (unikátní, např. `zakazky.zmenit_stav`), `nazev` a `popis`. Zaměstnanci se přiřazují role (`core_zamestnanec_role`). V současné verzi aplikace se oprávnění používá pro ruční změnu stavu zakázky mimo standardní pracovní postup; struktura je však připravena na další oprávnění.
+Tabulky `core_role` a (`core_opravneni`) tvoří jednoduchý systém oprávnění. Role má sloupce `nazev`, `popis`, `je_administrator` a `aktivni` a vazbu M:N na Opravneni (`core_role_opravneni`). Oprávnění má sloupce `kod` (unikátní, např. `zakazky.zmenit_stav`), `nazev` a `popis`. Zaměstnanci se přiřazují role (`core_zamestnanec_role`). Seznam oprávnění určuje aplikace (modul `core/prava.py`): základní přístup, ruční změna stavu zakázky, úprava zákazníků a zařízení, úprava kalendáře, nabídky a objednávky, faktury a platby, mazání a deaktivace a nastavení. Záznamy oprávnění vytvoří migrace `0018_opravneni_a_vychozi_role` spolu se čtyřmi výchozími rolemi (Zaměstnanec, Technik, Administrativa, Administrátor); v aplikaci se tabulka oprávnění jen prohlíží a administrátor mění, která oprávnění má která role. Role s příznakem `je_administrator` smí všechno.
 
 #### auth_user
 

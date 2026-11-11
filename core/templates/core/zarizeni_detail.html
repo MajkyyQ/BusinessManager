@@ -2,7 +2,7 @@
 <div class="bm-head align-items-start">
 <div><h3 class="mb-0">{{ d.vyrobce }} {{ d.typ }}{% if not d.vyrobce and not d.typ %}Zařízení {{ d.pk }}{% endif %} {% if not d.aktivni %}<span class="badge bg-secondary fs-6">neaktivní</span>{% endif %}</h3>
 <div class="mt-1">{% if akt %}<span class="badge bg-warning text-dark">Ve firmě – zakázka <a class="text-dark" href="{% url 'detail' 'zakazka' akt.pk %}">#{{ akt.cislo_zakazky }}</a> ({{ akt.stav|default:"–" }})</span>{% elif zak %}<span class="badge bg-secondary">U zákazníka</span>{% else %}<span class="badge bg-light text-dark border">Zatím bez zakázky</span>{% endif %}</div></div>
-<div class="bm-actions"><a class="btn btn-sm btn-primary" href="{% url 'edit' 'zarizeni' d.pk %}?next={{ nxt }}">Upravit</a>
+<div class="bm-actions">{% if "zakaznici.upravit" in prava %}<a class="btn btn-sm btn-primary" href="{% url 'edit' 'zarizeni' d.pk %}?next={{ nxt }}">Upravit</a>{% endif %}
 <a class="btn btn-sm btn-secondary" href="{{ zpet|default:"/zarizeni/" }}">Zpět</a></div></div>
 <div class="row g-3 mb-3"><div class="col-lg-6"><div class="card h-100"><div class="card-header py-1 fw-semibold">Základní informace</div><div class="card-body py-2">
 <table class="table table-sm mb-0"><tr><th class="w-25">Výrobce</th><td>{{ d.vyrobce|default:"–" }}</td></tr><tr><th>Typ</th><td>{{ d.typ|default:"–" }}</td></tr>
