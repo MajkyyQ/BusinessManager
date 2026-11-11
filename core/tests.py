@@ -1000,3 +1000,23 @@ class CitelnaHistorieTest(TestCase):
         self.assertEqual(zmena(h), "— → SPL92456"); self.assertEqual(pole_nazev(h), "Identifikační číslo")
         self.assertEqual(zmena(HistorieZmen(typ_objektu="zakazka")), "")  # vytvoření: žádná osamocená šipka
         self.assertEqual(zmena(HistorieZmen(puvodni_hodnota="[poznámka]", nova_hodnota="True")), "[poznámka] → Ano")
+
+
+class PolozkyDokladuBezPridaniTest(TestCase):
+    """Položky faktury a nabídky se ručně nepřidávají, vznikají jen ze zakázky."""
+    def setUp(self):
+        self.client.force_login(uzivatel())
+        self.f = Faktura.objects.create(zakaznik=Zakaznik.objects.create(firma="Odběratel a.s."))
+        PolozkaFaktury.objects.create(faktura=self.f, popis="Oprava", mnozstvi=Decimal("1"), jednotka="ks", jednotkova_cena=Decimal("100"), sazba_dph=Decimal("21"))
+
+    def test_bez_tlacitka_pridat(self):
+        r = self.client.get(reverse("detail", args=["faktura", self.f.pk]))
+        self.assertContains(r, "Položky faktury")
+        self.assertNotContains(r, reverse("create", args=["polozkafaktury"]))
+
+    def test_formular_nove_polozky_neexistuje(self):
+        for s, d in (("polozkafaktury", "faktura"), ("polozkanabidky", "nabidka")):
+            r = self.client.get(reverse("create", args=[s]) + f"?{d}={self.f.pk}")
+            self.assertRedirects(r, reverse("detail", args=[d, self.f.pk]), fetch_redirect_response=False)
+            self.assertRedirects(self.client.get(reverse("create", args=[s])), reverse("list", args=[d]), fetch_redirect_response=False)
+        self.assertEqual(PolozkaFaktury.objects.count(), 1)
