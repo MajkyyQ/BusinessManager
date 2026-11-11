@@ -38,6 +38,13 @@ def vestavene_sablony():
                     pass
 
 
+CHYBA_EMAIL = "Zadejte platný e-mail, např. jan.novak@firma.cz."
+
+
 class CoreConfig(AppConfig):
     name = "core"; verbose_name = "BusinessManager"
-    def ready(self): post_migrate.connect(seed, sender=self)
+    def ready(self):
+        post_migrate.connect(seed, sender=self)
+        # Jednotná česká hláška pro špatný e-mail ve všech formulářích (zákazník, zaměstnanec, průvodce, firma, admin…)
+        from django import forms
+        forms.EmailField.default_error_messages = {**forms.EmailField.default_error_messages, "invalid": CHYBA_EMAIL}

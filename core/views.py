@@ -30,7 +30,7 @@ from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, Zakazk
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada)
 from . import cislovani
-from .models import formatuj_telefon
+from .models import formatuj_telefon, TEL_PRIKLAD
 from .navigace import zpet as zpet_url
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
@@ -204,6 +204,7 @@ class BaseForm(forms.ModelForm):
             w = f.widget; c = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
             w.attrs["class"] = c
             if isinstance(w, forms.Textarea): w.attrs["rows"] = 3
+            if n == "telefon": w.attrs.setdefault("placeholder", TEL_PRIKLAD)
     def _post_clean(self):
         for n in ("telefon",):  # telefon se ukládá jednotně po trojicích (604 851 237)
             if n in self.cleaned_data: self.cleaned_data[n] = formatuj_telefon(self.cleaned_data[n])
@@ -511,6 +512,7 @@ class ZamestnanecForm(forms.ModelForm):
         for n, f in self.fields.items():
             if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]
             w = f.widget; w.attrs["class"] = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
+            if n == "telefon": w.attrs.setdefault("placeholder", TEL_PRIKLAD)
         u = self.instance.uzivatel if self.instance.pk else None
         if u: self.initial.update(ucet_aktivni=u.is_active, ucet_jmeno=u.username, ucet_admin=u.is_staff or u.is_superuser)
     def clean(self):
