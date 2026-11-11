@@ -647,6 +647,35 @@ def hlavni_akce(z, ma_praci, ma_nabidku, ma_fakturu):
     if n == "Čeká na schválení": return None if ma_nabidku else "nabidka"
     if n == "Nová" and not ma_praci: return "list"
     return "prace"
+def zapojeni_zamestnanci(z):
+    """Všichni zaměstnanci, kteří mají se zakázkou něco společného, a u každého co na ní dělal.
+    Přiřazení k zakázce (kdo ji převzal), provedené práce, události v kalendáři a to, co nahrál nebo vystavil přes svůj účet."""
+    lide = {}  # klíč -> dict(e=zaměstnanec nebo účet, pozice, cinnosti)
+    def pridej(e, cinnost, pocet=1):
+        if e is None: return
+        if isinstance(e, User):  # účet bez karty zaměstnance se ukáže jménem z účtu
+            zam = Zamestnanec.objects.filter(uzivatel=e).first()
+            if zam is None:
+                klic = ("u", e.pk); jmeno = e.get_full_name() or e.username
+                o = lide.setdefault(klic, dict(e=jmeno, pk=None, pozice="", cinnosti={}))
+                o["cinnosti"][cinnost] = o["cinnosti"].get(cinnost, 0) + pocet; return
+            e = zam
+        o = lide.setdefault(("z", e.pk), dict(e=e, pk=e.pk, pozice=e.pracovni_pozice, cinnosti={}))
+        o["cinnosti"][cinnost] = o["cinnosti"].get(cinnost, 0) + pocet
+    for e in z.zamestnanci.all(): pridej(e, "přiřazen(a) k zakázce")
+    for u in z.provedenyukon_set.select_related("typ_ukonu").prefetch_related("zamestnanci"):
+        for e in u.zamestnanci.all(): pridej(e, f"práce: {u.typ_ukonu}" if u.typ_ukonu else "práce")
+    for k in KalendarUdalost.objects.filter(zakazka=z).prefetch_related("zamestnanci"):
+        for e in k.zamestnanci.all(): pridej(e, f"kalendář: {k.typ}")
+    for f in z.fotografie_set.select_related("nahral"): pridej(f.nahral, "nahrál(a) fotografii")
+    for p in z.priloha_set.select_related("nahral"): pridej(p.nahral, "nahrál(a) přílohu")
+    for n in z.nabidka_set.select_related("vypracoval"): pridej(n.vypracoval, "vypracoval(a) nabídku")
+    for f in z.faktura_set.select_related("vystavil"): pridej(f.vystavil, "vystavil(a) fakturu")
+    out = []
+    for o in lide.values():
+        o["cinnosti"] = [f"{c} ({n}×)" if n > 1 else c for c, n in o["cinnosti"].items()]; out.append(o)
+    return out
+
 def plocha(request, pk):
     z = get_object_or_404(Zakazka.objects.select_related("zakaznik", "stav"), pk=pk); back = f"?next={request.path}"
     items = []
@@ -673,7 +702,7 @@ def plocha(request, pk):
     hist = HistorieZmen.objects.filter(typ_objektu="zakazka", id_objektu=pk)[:60]
     hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), z.faktura_set.exists())
     return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
-             kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=z.zamestnanci.all(), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby)
+             kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=zapojeni_zamestnanci(z), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby)
 
 # ---------------- Nabídka ze zakázky ----------------
 def nabidka_polozky(z):
