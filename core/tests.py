@@ -207,7 +207,7 @@ class HlavniAkceZakazkyTest(TestCase):
     def zvyraznene(self):
         import re
         html = self.client.get(reverse("plocha", args=[self.z.pk])).content.decode()
-        return re.findall(r'class="btn btn-(?:primary|success)" href="[^"]*">([^<]+)</a>', html)
+        return re.findall(r'class="btn (?:btn-sm )?btn-(?:primary|success)" href="[^"]*">([^<]+)</a>', html)
 
     def nastav(self, nazev):
         from .models import StavZakazky
