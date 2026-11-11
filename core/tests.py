@@ -941,3 +941,42 @@ class RoleAOpravneniTest(TestCase):
         self.assertEqual(list(self.Zam.objects.get(jmeno="Petr").role.values_list("nazev", flat=True)), ["Zaměstnanec"])
         r = self.client.get(reverse("create", args=["role"])); self.assertContains(r, "Faktury a platby"); self.assertContains(r, 'type="checkbox"')
         self.assertContains(self.client.get(reverse("list", args=["opravneni"])), "Mazání a deaktivace")
+
+
+class CitelnaHistorieTest(TestCase):
+    """Historie změn: vybraní zaměstnanci a jiné vazby se zapíší jménem, ne jako „[] → <QuerySet […]>“."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka, Zamestnanec
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(uzivatel("u"))
+        self.e = Zamestnanec.objects.create(jmeno="Barunka", prijmeni="Placková")
+        self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Nová"))
+
+    def uloz(self, **zmena):
+        url = reverse("edit", args=["zakazka", self.z.pk]); form = self.client.get(url).context["form"]
+        data = {}
+        for n in form.fields:
+            v = form[n].value(); w = form[n].field.widget
+            if isinstance(v, (list, tuple)): data[n] = [str(x.pk if hasattr(x, "pk") else x) for x in v]
+            elif v not in (None, False): data[n] = v if isinstance(v, bool) else (w.format_value(v) or "")
+        data.update(zmena)
+        r = self.client.post(url, data); self.assertEqual(r.status_code, 302, getattr(r, "context", None) and r.context["form"].errors)
+
+    def test_zamestnanci_jmenem(self):
+        from .models import HistorieZmen
+        self.uloz(zamestnanci=[str(self.e.pk)])
+        h = HistorieZmen.objects.get(typ_objektu="zakazka", akce="Úprava")  # jen zaměstnanci, nic jiného se nezměnilo
+        self.assertEqual((h.puvodni_hodnota, h.nova_hodnota), ("", str(self.e)))
+        html = self.client.get(reverse("plocha", args=[self.z.pk])).content.decode()
+        self.assertIn(f"— → {self.e}", html); self.assertNotIn("QuerySet", html); self.assertIn("Zaměstnanci", html)
+
+    def test_starsi_zaznamy(self):
+        from .models import HistorieZmen
+        from .historie import zmena, pole_nazev
+        h = HistorieZmen(typ_objektu="zakazka", pole="zamestnanci", puvodni_hodnota="[]",
+                         nova_hodnota="<QuerySet [<Zamestnanec: Barunka Placková>, <Zamestnanec: Milda>]>")
+        self.assertEqual(zmena(h), "— → Barunka Placková, Milda"); self.assertEqual(pole_nazev(h), "Zaměstnanci")
+        h = HistorieZmen(typ_objektu="zakazka", pole="identifikacni_cislo", puvodni_hodnota="", nova_hodnota="SPL92456")
+        self.assertEqual(zmena(h), "— → SPL92456"); self.assertEqual(pole_nazev(h), "Identifikační číslo")
+        self.assertEqual(zmena(HistorieZmen(typ_objektu="zakazka")), "")  # vytvoření: žádná osamocená šipka
+        self.assertEqual(zmena(HistorieZmen(puvodni_hodnota="[poznámka]", nova_hodnota="True")), "[poznámka] → Ano")
