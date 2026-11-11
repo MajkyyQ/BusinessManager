@@ -55,6 +55,20 @@ def poradi_z_cisla(fmt, cislo):
     return int(m.group(1)) if m else None
 
 
+def rozloz(fmt, cislo):
+    """Rok a pořadové číslo z hotového čísla dokladu podle formátu: ("ZL{YY}{N4}", "ZL260001") -> (2026, "0001").
+    Pořadí zůstává jako text s úvodními nulami. Co ve formátu není nebo číslo do formátu nepatří, je None."""
+    out, i = "^", 0
+    for m in ZNACKA.finditer(fmt or ""):
+        out += re.escape(fmt[i:m.start()]); z = m.group(1); i = m.end()
+        out += r"(?P<N>\d+)" if m.group(2) else r"(?P<%s>\d{%d})" % (z, 4 if z == "YYYY" else 2)
+    m = re.match(out + re.escape((fmt or "")[i:]) + "$", cislo or "")
+    if not m: return None, None
+    g = m.groupdict()
+    rok = int(g["YYYY"]) if g.get("YYYY") else 2000 + int(g["YY"]) if g.get("YY") else None
+    return rok, g.get("N")
+
+
 def dalsi_poradi(fmt, nulovat, d, existujici, zacit_od=1, zacit_od_obdobi=""):
     """Nejbližší volné pořadí v období data d: za nejvyšším existujícím, ale nejméně „zacit_od“
     (to platí jen v období, ve kterém bylo nastaveno)."""

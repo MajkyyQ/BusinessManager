@@ -563,6 +563,27 @@ class CislovaniDokladuTest(TestCase):
         self.assertIsNone(c.over_format("Fa{N4}"))
         self.assertIsNotNone(c.over_nulovani("Fa{N4}", "rok"))
 
+    def test_rok_a_poradi_do_sablony(self):
+        """Do políček „rok“ a „poř. číslo“ zakázkového listu jde zvlášť rok (2026) a pořadí (0001), ne celé číslo."""
+        from . import cislovani as c
+        from .models import Zakazka
+        from .sablony.typy import ZakazkovyList
+        self.assertEqual(c.rozloz("ZL{YY}{N4}", "ZL260001"), (2026, "0001"))
+        self.assertEqual(c.rozloz("{YYYY}-{N3}", "2026-048"), (2026, "048"))
+        self.assertEqual(c.rozloz("{N3}-{DD}-{MM}/{YYYY}", "012-05-01/2026"), (2026, "012"))
+        self.assertEqual(c.rozloz("Z{N5}", "Z00042"), (None, "00042"))
+        self.assertEqual(c.rozloz("ZL{YY}{N4}", "jine"), (None, None))
+        self.nastav("zakazka", "ZL260001", "ZL{YY}{N4}")
+        z = Zakazka.objects.create(zakaznik=self.zak)
+        p = ZakazkovyList.data(z)["pole"]; rok = z.datum_vytvoreni.year
+        self.assertEqual((p["zakazka.rok"], p["zakazka.poradove_cislo"], p["dokument.poradove_cislo"]), (str(rok), "0001", "0001"))
+        Zakazka.objects.filter(pk=z.pk).update(cislo_zakazky="2025-007")  # starší číslo v původním tvaru
+        p = ZakazkovyList.data(Zakazka.objects.get(pk=z.pk))["pole"]
+        self.assertEqual((p["zakazka.rok"], p["zakazka.poradove_cislo"]), ("2025", "007"))
+        self.nastav("zakazka", "Z00001", "Z{N5}", "nikdy")
+        p = ZakazkovyList.data(Zakazka.objects.create(zakaznik=self.zak))["pole"]
+        self.assertEqual((p["zakazka.rok"], p["zakazka.poradove_cislo"]), (str(date.today().year), "00001"))
+
     def test_vychozi_cisla_beze_zmeny(self):
         from .models import Zakazka
         z = Zakazka.objects.create(zakaznik=self.zak)

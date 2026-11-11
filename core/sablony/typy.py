@@ -178,11 +178,11 @@ def _zakazka(zk):
     if not zk: return {p.klic: "" for p in ZAKAZKA + ZARIZENI}
     zar = list(zk.zarizeni.all()); z0 = zar[0] if zar else None
     mat, pr = _seznamy(zk)
-    rok, _, por = (zk.cislo_zakazky or "").partition("-")
+    rok, por = cislo_zakazky_rozlozene(zk)
     obj = zk.objednavka_set.order_by("-pk").first(); nab = zk.nabidka_set.order_by("-pk").first()
     S = lambda L, k: sum((x[k] for x in L), Decimal(0))
     dp = _d(zk.datum_prijeti)
-    return {"zakazka.prijeti_den_mesic": f"{dp.day}. {dp.month}." if dp else "", "zakazka.poradove_cislo": por if por else zk.cislo_zakazky, "zakazka.rok": rok if rok.isdigit() else "",
+    return {"zakazka.prijeti_den_mesic": f"{dp.day}. {dp.month}." if dp else "", "zakazka.poradove_cislo": por, "zakazka.rok": rok,
             "zakazka.objednavka": obj.cislo_objednavky if obj else "", "zakazka.nabidka": nab.cislo_nabidky if nab else "",
             "zakazka.ukony": ukony_textem(zk),
             "zakazka.prace_seznam": "\n".join(x["prace.popis"] for x in pr), "zakazka.material_seznam": "\n".join(
@@ -197,6 +197,23 @@ def _zakazka(zk):
             "zarizeni.vyrobce": z0.vyrobce if z0 else "", "zarizeni.typ": z0.typ if z0 else "",
             "zarizeni.seriove_cislo": z0.seriove_cislo if z0 else "", "zarizeni.popis": z0.popis if z0 else "",
             "zarizeni.vse": "\n".join(f"{x} ({x.popis})" if x.popis else str(x) for x in zar)}
+
+
+def cislo_zakazky_rozlozene(zk):
+    """(rok, pořadové číslo) zakázky pro šablony: ZL260001 -> ("2026", "0001"), 2026-001 -> ("2026", "001").
+    Bere se z formátu číselné řady (Nastavení → Dokumenty); když ve formátu rok není nebo číslo bylo zadané
+    ručně v jiném tvaru, rok je rok vytvoření zakázky a pořadí poslední skupina číslic."""
+    from core import cislovani
+    from core.models import CiselnaRada
+    rok, por = cislovani.rozloz(CiselnaRada.pro("zakazka").format, zk.cislo_zakazky)
+    if por is None:
+        rok2, _, por2 = (zk.cislo_zakazky or "").partition("-")  # starší čísla 2026-001 po změně formátu
+        if len(rok2) == 4 and rok2.isdigit() and por2.isdigit(): rok, por = int(rok2), por2
+        else: por = _poradi(zk.cislo_zakazky)
+    if rok is None:
+        d = timezone.localtime(zk.datum_vytvoreni) if zk.datum_vytvoreni else timezone.localdate()
+        rok = d.year
+    return str(rok), por
 
 
 def _poradi(cislo):
@@ -321,7 +338,7 @@ class ZakazkovyList(TypDokumentu):
     def data(cls, z):
         from core.views import nabidka_polozky
         pol = [_polozka(i, x["popis"], x["mnozstvi"], x["jednotka"], x["cena"], x["dph"], x["bez"], x["s"]) for i, x in enumerate(nabidka_polozky(z), 1)]
-        p = {"dokument.cislo": z.cislo_zakazky, "dokument.poradove_cislo": _poradi(z.cislo_zakazky), "dokument.datum_vystaveni": timezone.localdate()}
+        p = {"dokument.cislo": z.cislo_zakazky, "dokument.poradove_cislo": cislo_zakazky_rozlozene(z)[1], "dokument.datum_vystaveni": timezone.localdate()}
         p |= _firma() | _zakaznik(z.zakaznik) | _zakazka(z) | _soucty(pol)
         mat, pr = _seznamy(z)
         return {"pole": p, "polozky": pol, "material": mat, "prace": pr}
