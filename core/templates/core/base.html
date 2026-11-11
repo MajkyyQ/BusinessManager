@@ -38,6 +38,10 @@
 div.bm-volby{display:flex;flex-wrap:wrap;gap:.3rem 1.5rem;padding:.3rem 0}div.bm-volby label{display:inline-flex;align-items:center;gap:.4rem;cursor:pointer}input.bm-volby{width:1.1em;height:1.1em;margin:0}
 form:has(input[name=typ_zakaznika][value="Soukromá osoba"]:checked) div[class*="col"]:has(> [name=firma],> [name=ico],> [name=dic]),
 form:has(input[name=typ_zakaznika][value="Soukromá osoba"]:checked) h6:has(+ .row [name=ico]){display:none}</style>
+<style>/* potvrzovací okna a hlášení ve vzhledu aplikace (místo systémového confirm/alert prohlížeče) */
+.bm-dlg{border:1px solid var(--bs-border-color);border-radius:.75rem;padding:1.25rem 1.5rem 1rem;width:min(460px,92vw);background:var(--bs-body-bg);color:var(--bs-body-color);box-shadow:0 .75rem 2rem rgba(0,0,0,.35)}
+.bm-dlg::backdrop{background:rgba(0,0,0,.45)}.bm-dlg h5{margin:0 0 .5rem;font-size:1.15rem;font-weight:600}.bm-dlg p{margin:0 0 1rem;color:var(--bs-secondary-color)}
+.bm-dlg .bm-dlg-ne{--bs-btn-color:var(--bs-body-color);--bs-btn-border-color:var(--bs-border-color);--bs-btn-hover-color:var(--bs-body-color);--bs-btn-hover-bg:var(--bs-tertiary-bg);--bs-btn-hover-border-color:var(--bs-secondary-color)}.bm-dlg .bm-dlg-tl{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}</style>
 <style>.lk-modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center}.lk-modal>div{background:var(--bs-body-bg);padding:1rem;border-radius:.5rem;width:min(680px,95vw);max-height:90vh;overflow:auto}</style></head>
 <body hx-boost="{% block boost %}false{% endblock %}"><nav class="navbar navbar-dark bg-dark mb-3"><div class="container-fluid">
 <div class="d-flex align-items-center">{% if navx %}<button type="button" class="bm-tg" id="bm-tg" aria-label="Zasunout nebo roztáhnout menu"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>{% endif %}<a class="navbar-brand" href="/">BusinessManager</a></div>
@@ -54,6 +58,28 @@ b.onclick=()=>{h.classList.toggle('nav-mini');upd();try{localStorage.setItem('bm
 const nv=r=>{if(!r.querySelectorAll)return;if(r.matches('form'))r.noValidate=true;r.querySelectorAll('form').forEach(f=>f.noValidate=true);const i=chyby(r);if(i)i.focus()};nv(document.documentElement);
 new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(nv))).observe(document.documentElement,{childList:true,subtree:true});
 document.addEventListener('input',e=>e.target.classList.remove('is-invalid'))})();</script>
+<script>/* bmPotvrdit(otázka, {text, ok, ne, styl}) -> Promise<true|false>, bmZprava(text) -> Promise. Tlačítka, formuláře a odkazy s atributem
+data-potvrdit="Otázka?" (případně data-potvrdit-text, data-potvrdit-ok, data-potvrdit-styl) se před odesláním zeptají v okně ve vzhledu aplikace. */
+(function(){let D;
+function dlg(){if(D&&D.isConnected)return D;D=document.createElement('dialog');D.className='bm-dlg';D.setAttribute('aria-labelledby','bm-dlg-t');D.setAttribute('aria-describedby','bm-dlg-x');
+ D.innerHTML='<form method="dialog" hx-boost="false"><h5 id="bm-dlg-t"></h5><p id="bm-dlg-x"></p><div class="bm-dlg-tl"><button value="ne" class="btn btn-outline-secondary bm-dlg-ne">Zpět</button><button value="ano" class="btn bm-dlg-ok"></button></div></form>';
+ D.addEventListener('click',e=>{if(e.target===D)D.close('ne')});document.body.appendChild(D);return D}
+function ukaz(titul,o){o=o||{};const d=dlg(),x=d.querySelector('#bm-dlg-x'),ok=d.querySelector('.bm-dlg-ok'),ne=d.querySelector('.bm-dlg-ne');
+ if(d.open)d.close('ne');d.querySelector('h5').textContent=titul;x.textContent=o.text||'';x.hidden=!o.text;
+ ok.textContent=o.ok||'Ano';ok.className='btn bm-dlg-ok btn-'+(o.styl||'primary');ne.textContent=o.ne||'Zpět';ne.hidden=!!o.jenOk;
+ return new Promise(res=>{d.returnValue='';d.addEventListener('close',()=>res(d.returnValue==='ano'),{once:true});d.showModal();(o.styl=='danger'&&!o.jenOk?ne:ok).focus()})}
+window.bmPotvrdit=(titul,o)=>ukaz(titul,o);
+window.bmZprava=(titul,o)=>ukaz(titul,Object.assign({ok:'Rozumím',jenOk:true},o)).then(()=>{});
+const opt=el=>({text:el.dataset.potvrditText,ok:el.dataset.potvrditOk,styl:el.dataset.potvrditStyl});
+// tlačítko nebo odkaz s data-potvrdit: zachytí se dřív, než formulář odešle prohlížeč nebo htmx
+document.addEventListener('click',e=>{const el=e.target.closest('button[data-potvrdit],input[data-potvrdit],a[data-potvrdit]');if(!el)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ bmPotvrdit(el.dataset.potvrdit,opt(el)).then(a=>{if(!a)return;if(el.tagName=='A'){location.href=el.href;return}if(el.form){el.form.dataset.bmPotvrzeno='1';el.form.requestSubmit(el)}})},true);
+// formulář s data-potvrdit (odeslání tlačítkem i Enterem)
+document.addEventListener('submit',e=>{const f=e.target;if(!f.dataset||!f.dataset.potvrdit)return;if(f.dataset.bmPotvrzeno){delete f.dataset.bmPotvrzeno;return}
+ e.preventDefault();e.stopImmediatePropagation();const s=e.submitter;bmPotvrdit(f.dataset.potvrdit,opt(f)).then(a=>{if(a){f.dataset.bmPotvrzeno='1';f.requestSubmit(s||undefined)}})},true);
+document.addEventListener('submit',e=>{const f=e.target;if(f.dataset&&f.dataset.bmPotvrzeno&&!f.dataset.potvrdit)delete f.dataset.bmPotvrzeno},true);
+})();</script>
 <script>(function(){
 const Q=(e,s)=>e.querySelector(s),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));let T,CUR;
 const dep=c=>{const d=c.dataset.dep,f=c.closest('form'),i=d&&f&&f.querySelector('[name="'+d+'"]');return i?i.value:''};
@@ -66,7 +92,7 @@ function pick(c,o){Q(c,'.lk-dd').classList.add('d-none');let ch=false;
  if(o.price!=null){const s=c.closest('.mrow')||c.closest('form'),p=s&&s.querySelector('[name=mat_cena],[name=jednotkova_cena]');if(p&&!p.value)p.value=o.price}
  if(ch)document.querySelectorAll('.lk[data-dep="'+c.dataset.name+'"]').forEach(x=>{if(x.closest('form')==c.closest('form')){const v=Q(x,'.lk-v');if(v)v.value='';x.firstElementChild.innerHTML='';Q(x,'.lk-q').value=''}})}
 function modal(h){let m=document.querySelector('.lk-modal');if(!m){m=document.createElement('div');m.className='lk-modal';m.innerHTML='<div></div>';document.body.appendChild(m)}m.firstChild.innerHTML=h}
-async function create(c){const d=dep(c);if(c.dataset.dep&&!d){alert('Nejdřív vyberte zákazníka.');return}CUR=c;modal(await(await fetch(c.dataset.new+'?dep='+d)).text())}
+async function create(c){const d=dep(c);if(c.dataset.dep&&!d){bmZprava('Nejdřív vyberte zákazníka.');return}CUR=c;modal(await(await fetch(c.dataset.new+'?dep='+d)).text())}
 document.addEventListener('input',e=>{if(e.target.matches('.lk-q')){const c=e.target.closest('.lk');if(c.dataset.multi!='1')Q(c,'.lk-v').value='';clearTimeout(T);T=setTimeout(()=>search(c),200)}});
 document.addEventListener('focusin',e=>{if(e.target.matches('.lk-q'))search(e.target.closest('.lk'))});
 document.addEventListener('focusout',e=>{if(e.target.matches('.lk-q')){const c=e.target.closest('.lk');setTimeout(()=>Q(c,'.lk-dd').classList.add('d-none'),150)}});
