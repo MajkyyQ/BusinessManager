@@ -89,7 +89,7 @@ async function search(c){const q=Q(c,'.lk-q').value,r=await(await fetch(c.datase
 function pick(c,o){Q(c,'.lk-dd').classList.add('d-none');let ch=false;
  if(c.dataset.multi=='1'){if(!c.querySelector('.lk-chip input[value="'+o.id+'"]')){const s=document.createElement('span');s.className='badge bg-secondary me-1 lk-chip';s.innerHTML=esc(o.label)+' <a href="#" class="lk-x text-white text-decoration-none">×</a><input type="hidden" name="'+c.dataset.name+'" value="'+o.id+'">';c.firstElementChild.appendChild(s)}Q(c,'.lk-q').value=''}
  else{const v=Q(c,'.lk-v');ch=v.value!=String(o.id);v.value=o.id;Q(c,'.lk-q').value=o.label}
- if(o.price!=null){const s=c.closest('.mrow')||c.closest('form'),p=s&&s.querySelector('[name=mat_cena],[name=jednotkova_cena]');if(p&&!p.value)p.value=o.price}
+ if(o.price!=null){const s=c.closest('.mrow')||c.closest('.bm-dalsi')||c.closest('form'),p=s&&s.querySelector('[name=mat_cena],[name$=jednotkova_cena]');if(p&&!p.value)p.value=o.price}
  if(ch)document.querySelectorAll('.lk[data-dep="'+c.dataset.name+'"]').forEach(x=>{if(x.closest('form')==c.closest('form')){const v=Q(x,'.lk-v');if(v)v.value='';x.firstElementChild.innerHTML='';Q(x,'.lk-q').value=''}})}
 function modal(h){let m=document.querySelector('.lk-modal');if(!m){m=document.createElement('div');m.className='lk-modal';m.innerHTML='<div></div>';document.body.appendChild(m)}m.firstChild.innerHTML=h}
 async function create(c){const d=dep(c);if(c.dataset.dep&&!d){bmZprava('Nejdřív vyberte zákazníka.');return}CUR=c;modal(await(await fetch(c.dataset.new+'?dep='+d)).text())}

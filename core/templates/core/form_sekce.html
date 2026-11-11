@@ -3,4 +3,8 @@
 <form method="post" {% if multipart %}enctype="multipart/form-data"{% endif %} hx-boost="false" class="col-lg-9">{% csrf_token %}{% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
 {% for titulek, pole in sekce %}<h6 class="text-muted mt-2">{{ titulek }}</h6>
 <div class="row g-2 mb-3">{% for f, sirka in pole %}<div class="col-md-{{ sirka }}">{% include "core/_pole.html" %}</div>{% endfor %}</div>{% endfor %}
-<button class="btn btn-primary mt-1">Uložit</button> <a class="btn btn-secondary mt-1" href="{{ zrusit }}">Zrušit</a></form>{% endblock %}
+{% if dalsi %}<div id="bm-dalsi">{% for n, chyby, dsekce in dalsi.kopie %}{% include "core/_dalsi.html" %}{% endfor %}</div>
+<template id="bm-dalsi-vzor">{% with n="__N__" chyby=None dsekce=dalsi.vzor %}{% include "core/_dalsi.html" %}{% endwith %}</template>{% endif %}
+<button class="btn btn-primary mt-1">Uložit</button> <a class="btn btn-secondary mt-1" href="{{ zrusit }}">Zrušit</a>{% if dalsi %}
+<button type="button" class="btn btn-outline-primary mt-1" data-dalsi="{{ dalsi.dalsi_cislo }}" title="Přidá pod formulář další {{ dalsi.co }}, uloží se všechno najednou"
+ onclick="const n=this.dataset.dalsi++,d=document.createElement('div');d.innerHTML=document.getElementById('bm-dalsi-vzor').innerHTML.replaceAll('__N__',n);const k=d.firstElementChild;document.getElementById('bm-dalsi').appendChild(k);k.scrollIntoView({block:'nearest'})">+ Přidat</button>{% endif %}</form>{% endblock %}

@@ -1057,3 +1057,49 @@ class PracePrepinaStavZakazkyTest(TestCase):
         self.assertEqual(Zakazka.objects.latest("pk").stav.nazev, "Rozpracováno")
         self.client.post(reverse("zakazka_nova"), {"zakaznik": self.k.pk})
         self.assertEqual(Zakazka.objects.latest("pk").stav.nazev, "Nová")
+
+
+class VicePolozekNajednouTest(TestCase):
+    """Tlačítko Přidat ve formuláři práce a materiálu: víc položek se uloží najednou, nevyplněná kopie se přeskočí."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka, TypUkonu, Material
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis", vychozi_dph=Decimal("21"))
+        self.client.force_login(User.objects.create_user("admin", password="x", is_staff=True))
+        self.k = Zakaznik.objects.create(jmeno="Jan"); self.t = TypUkonu.objects.create(nazev="Diagnostika"); self.t2 = TypUkonu.objects.create(nazev="Čištění")
+        self.m = Material.objects.create(nazev="Kabel", posledni_cena=Decimal("50")); self.m2 = Material.objects.create(nazev="Šroub", posledni_cena=Decimal("2"))
+        self.z = Zakazka.objects.create(zakaznik=self.k, stav=StavZakazky.objects.create(nazev="Nová"))
+        self.url = lambda s: reverse("create", args=[s]) + f"?zakazka={self.z.pk}"
+
+    def test_formular_ma_tlacitko_pridat(self):
+        for s in ("provedenyukon", "pouzitymaterial"):
+            r = self.client.get(self.url(s)); self.assertContains(r, "+ Přidat"); self.assertContains(r, 'id="bm-dalsi-vzor"'); self.assertContains(r, 'name="d__N__-')
+            self.assertNotContains(r, 'name="d__N__-zakazka"')
+        from .models import ProvedenyUkon
+        u = ProvedenyUkon.objects.create(zakazka=self.z, typ_ukonu=self.t)
+        self.assertNotContains(self.client.get(reverse("edit", args=["provedenyukon", u.pk])), "bm-dalsi-vzor")  # úprava jedné práce bez kopií
+
+    def test_vice_praci_najednou(self):
+        from .models import ProvedenyUkon, HistorieZmen
+        r = self.client.post(self.url("provedenyukon"), {"zakazka": self.z.pk, "typ_ukonu": self.t.pk, "cena": "100", "sazba_dph": "21", "dalsi": ["1", "2", "3"],
+                                                        "d1-typ_ukonu": self.t2.pk, "d1-cena": "200", "d1-sazba_dph": "21",
+                                                        "d2-sazba_dph": "21",  # přidaná, ale nevyplněná
+                                                        "d3-typ_ukonu": self.t.pk, "d3-cena": "50", "d3-sazba_dph": "12"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(sorted(ProvedenyUkon.objects.filter(zakazka=self.z).values_list("cena", flat=True)), [Decimal("50"), Decimal("100"), Decimal("200")])
+        self.assertEqual(HistorieZmen.objects.filter(typ_objektu="provedenyukon", akce="Vytvoření").count(), 3)
+        self.z.refresh_from_db(); self.assertEqual(self.z.stav.nazev, "Rozpracováno")
+
+    def test_chyba_v_kopii_neulozi_nic(self):
+        from .models import ProvedenyUkon
+        r = self.client.post(self.url("provedenyukon"), {"zakazka": self.z.pk, "typ_ukonu": self.t.pk, "cena": "100", "sazba_dph": "21", "dalsi": ["1"],
+                                                        "d1-cena": "200", "d1-sazba_dph": "21"})  # chybí typ úkonu
+        self.assertEqual(r.status_code, 200); self.assertFalse(ProvedenyUkon.objects.exists())
+        self.assertContains(r, 'name="d1-cena"'); self.assertContains(r, 'value="200"'); self.assertContains(r, 'data-dalsi="2"')
+
+    def test_vice_materialu_najednou(self):
+        from .models import PouzityMaterial
+        r = self.client.post(self.url("pouzitymaterial"), {"zakazka": self.z.pk, "material": self.m.pk, "mnozstvi": "2", "sazba_dph": "21", "dalsi": ["1"],
+                                                          "d1-material": self.m2.pk, "d1-mnozstvi": "10", "d1-sazba_dph": "21"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(sorted((p.material.nazev, p.mnozstvi, p.jednotkova_cena) for p in PouzityMaterial.objects.filter(zakazka=self.z)),
+                         [("Kabel", Decimal("2"), Decimal("50")), ("Šroub", Decimal("10"), Decimal("2"))])
