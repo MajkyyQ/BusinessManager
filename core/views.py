@@ -371,6 +371,7 @@ def detail(request, slug, pk):
     nahradni = reverse("detail", args=["zakazka", z.pk]) if isinstance(z, Zakazka) else _mimo_seznam(request, slug) if slug in SKRYTE_SEZNAMY else reverse("list", args=[slug])
     zaplaceno = o.platba_set.filter(stav="Zaplaceno").order_by("-datum_zaplaceni").first() if slug == "faktura" else None
     return R(request, "detail", slug=slug, M=M, o=o, fields=fields, rel=rel, hist=hist, ro=slug in READONLY, nahradni=nahradni, zaplaceno=zaplaceno)
+VICE = {"provedenyukon", "pouzitymaterial"}  # při přidání jde tlačítkem Přidat vyplnit víc položek najednou
 DETAIL_BEZ = {"kalendarudalost", "platba"}  # události jsou v Kalendáři; platba faktury se řídí tlačítkem Zaplaceno, platby zakázky jsou na její stránce
 BEZ_PRIDANI = {"polozkafaktury": "faktura", "polozkanabidky": "nabidka"}  # položky dokladů vznikají jen při vystavení ze zakázky, ručně se nepřidávají
 DETAIL_NAZEV = {"polozkafaktury": "Položky faktury", "polozkanabidky": "Položky nabídky"}
@@ -411,10 +412,19 @@ def edit(request, slug, pk=None):
     init = {} if o else request.GET.dict()
     if slug == "platba" and not o: init.update(zakazka=zak.pk, zpusob=init.get("zpusob", "Hotově"), datum_zaplaceni=timezone.localtime().strftime("%Y-%m-%dT%H:%M"))
     form = Form(request.POST or None, request.FILES or None, instance=o, initial=init or None)
+    dalsi = None  # další práce / materiál vyplněné ve stejném formuláři (tlačítko Přidat), každá kopie má vlastní prefix d<číslo>
+    if slug in VICE and not o:
+        cisla = [n for n in dict.fromkeys(request.POST.getlist("dalsi")) if n.isdigit()][:50]
+        data = request.POST.copy() if request.method == "POST" else None
+        init_d = dict(init, zakazka=data.get("zakazka", "") if data else init.get("zakazka", ""))  # zakázka je pro všechny kopie stejná jako v prvním formuláři
+        for n in cisla: data[f"d{n}-zakazka"] = init_d["zakazka"]
+        dalsi = [(n, Form(data, prefix=f"d{n}", initial=init_d, empty_permitted=True, use_required_attribute=False)) for n in cisla]
+        prazdny = Form(prefix="d__N__", initial=init_d, use_required_attribute=False)
     if slug == "platba" and "zakazka" in form.fields and (zak or (o and o.faktura_id)): form.fields["zakazka"].disabled = True  # zakázka (a faktura) se ve formuláři nemění
     if slug == "zamestnanec": form.prihlaseny = request.user
     nx = safe_next(request); zpet = zpet_url(request)
-    if request.method == "POST" and form.is_valid() and _kontrola(request, slug, form, o, zak):
+    dalsi_ok = all([f.is_valid() for _, f in dalsi or []])  # seznam, ať se zkontrolují (a ukážou chyby) všechny kopie
+    if request.method == "POST" and form.is_valid() and _kontrola(request, slug, form, o, zak) and dalsi_ok:
         changed = [n for n in (form.changed_data if o else []) if n not in getattr(form, "UCET", ())]  # údaje účtu (heslo!) se do historie nepíší
         old = {n: form.initial.get(n) for n in changed}
         with transaction.atomic():
@@ -426,6 +436,13 @@ def edit(request, slug, pk=None):
                 if slug == "platba": o.stav = "Zaplaceno"; o.zakazka = zak; o.datum_zaplaceni = o.datum_zaplaceni or timezone.now()
             o.save(); form.save_m2m()
             if zak and slug == "zarizeni": zak.zarizeni.add(o)
+            ulozene = []
+            for _, f in dalsi or []:
+                if not f.has_changed(): continue  # přidaná, ale nevyplněná kopie se přeskočí
+                d = f.save(commit=False)
+                for n in AUTO_UZIVATEL:
+                    if hasattr(d, n + "_id"): setattr(d, n, request.user)
+                d.save(); f.save_m2m(); ulozene.append(d)
             if slug == "provedenyukon" and not pk: prace_pridana(request, o.zakazka)
             if slug == "zamestnanec" and not pk and not o.role.exists():  # nový zaměstnanec bez vybrané role dostane základní přístup
                 o.role.add(*Role.objects.filter(nazev=P.VYCHOZI_ROLE)[:1])
@@ -436,13 +453,18 @@ def edit(request, slug, pk=None):
             for n in changed:  # vybrané záznamy (zaměstnanci, zákazník…) jménem, ne číslem nebo QuerySetem
                 log(request, o, "Úprava", n, hodnota_text(old[n], form.fields[n]), hodnota_text(form.cleaned_data[n], form.fields[n]))
         else: log(request, o, "Vytvoření" if not pk else "Úprava", popis_z=zak if slug == "zarizeni" else None)
-        messages.success(request, "Uloženo.")
+        for d in ulozene: log(request, d, "Vytvoření")
+        messages.success(request, f"Uloženo ({len(ulozene) + 1} položky)." if 1 <= len(ulozene) <= 3 else f"Uloženo ({len(ulozene) + 1} položek)." if ulozene else "Uloženo.")
         return redirect(nx or zpet or reverse("detail", args=[slug, o.pk]))
     uvod, sekce = sekce_formulare(slug, form)
     zrusit = nx or zpet or (reverse("detail", args=[slug, o.pk]) if o else reverse("list", args=[slug]))
     if zak and slug == "zarizeni": uvod = f"Zařízení zákazníka {zak.zakaznik}, přidá se k zakázce {zak.cislo_zakazky}."
     if zak and slug == "platba": uvod = f"Zaplacená částka k zakázce {zak.cislo_zakazky} bez faktury, např. hotově při vyzvednutí. Platbu faktury označíte tlačítkem Zaplaceno v detailu faktury."
-    return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit,
+    if dalsi is not None:  # kopie formuláře bez pole zakázka (to je společné v prvním formuláři)
+        bez_zak = lambda f: [(t, [(x, w) for x, w in pp if x.name != "zakazka"]) for t, pp in sekce_formulare(slug, f)[1]]
+        dalsi = dict(kopie=[(n, f.non_field_errors(), bez_zak(f)) for n, f in dalsi], vzor=bez_zak(prazdny), dalsi_cislo=max([int(n) for n, _ in dalsi] + [0]) + 1,
+                     co="práci" if slug == "provedenyukon" else "materiál", nazev="Další práce" if slug == "provedenyukon" else "Další materiál")
+    return R(request, "form_sekce", slug=slug, M=M, o=o, form=form, multipart=form.is_multipart(), sekce=sekce, zrusit=zrusit, dalsi=dalsi,
              nadpis=f"Úprava: {o}" if o else nadpis_novy(slug, M), uvod=None if o and not zak else uvod)
 
 def _kontrola(request, slug, form, o, zak):
