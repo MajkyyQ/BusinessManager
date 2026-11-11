@@ -30,6 +30,7 @@ from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, Zakazk
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada, Role, Opravneni)
 from . import cislovani
+from .historie import hodnota_text
 from .models import formatuj_telefon, TEL_PRIKLAD
 from .navigace import zpet as zpet_url
 from . import prava as P
@@ -248,7 +249,7 @@ def cb(f, **k):
 
 def log(request, obj, akce, pole="", old="", new="", popis_z=None):
     HistorieZmen.objects.create(uzivatel=request.user, typ_objektu=obj._meta.model_name, id_objektu=obj.pk, akce=akce,
-                                pole=pole, puvodni_hodnota=str(old), nova_hodnota=str(new), popis=(str(obj) + (f" ze zakázky {popis_z.cislo_zakazky}" if popis_z else ""))[:200])
+                                pole=pole, puvodni_hodnota=hodnota_text(old), nova_hodnota=hodnota_text(new), popis=(str(obj) + (f" ze zakázky {popis_z.cislo_zakazky}" if popis_z else ""))[:200])
 def val(o, f):
     if f.choices: return o._get_FIELD_display(f) or "–"
     v = getattr(o, f.name)
@@ -427,7 +428,8 @@ def edit(request, slug, pk=None):
                 zprava = form.uloz_ucet(o)
                 if zprava: log(request, o, "Účet", "uzivatel", "", zprava)
         if changed:
-            for n in changed: log(request, o, "Úprava", n, old[n], form.cleaned_data[n])
+            for n in changed:  # vybrané záznamy (zaměstnanci, zákazník…) jménem, ne číslem nebo QuerySetem
+                log(request, o, "Úprava", n, hodnota_text(old[n], form.fields[n]), hodnota_text(form.cleaned_data[n], form.fields[n]))
         else: log(request, o, "Vytvoření" if not pk else "Úprava", popis_z=zak if slug == "zarizeni" else None)
         messages.success(request, "Uloženo.")
         return redirect(nx or zpet or reverse("detail", args=[slug, o.pk]))
