@@ -225,6 +225,26 @@ class HlavniAkceZakazkyTest(TestCase):
         self.nastav("Vydáno"); self.assertEqual(self.zvyraznene(), [])
 
 
+class ZamestnanciZakazkyTest(TestCase):
+    """Karta Zaměstnanci u zakázky ukazuje všechny zapojené: kdo zakázku převzal i kdo na ní dělal práci."""
+    def test_prijemce_i_pracovnici(self):
+        import re
+        from .models import ProvedenyUkon, StavZakazky, TypUkonu, Zakazka, Zamestnanec
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(uzivatel("u"))
+        z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Nová"))
+        sekretarka = Zamestnanec.objects.create(jmeno="Barunka", prijmeni="Placková", pracovni_pozice="Sekretářka")
+        technik = Zamestnanec.objects.create(jmeno="Antonín", prijmeni="Otras")
+        z.zamestnanci.add(sekretarka)
+        for nazev in ("Oprava", "Diagnostika", "Měření"):
+            ProvedenyUkon.objects.create(zakazka=z, typ_ukonu=TypUkonu.objects.create(nazev=nazev)).zamestnanci.add(technik)
+        ProvedenyUkon.objects.create(zakazka=z, typ_ukonu=TypUkonu.objects.get(nazev="Oprava")).zamestnanci.add(technik)
+        html = self.client.get(reverse("plocha", args=[z.pk])).content.decode()
+        karta = re.search(r'<div class="tp d-none" data-tab="zam">(.*?)</div>', html, re.S).group(1)
+        self.assertIn("Barunka Placková", karta); self.assertIn("přiřazen(a) k zakázce", karta)
+        self.assertIn("Antonín Otras", karta); self.assertIn("práce: Oprava (2×)", karta); self.assertIn("práce: Měření", karta)
+        self.assertEqual(karta.count("Antonín Otras"), 1)  # každý jen jednou
+
 class OpravneniNastaveniTest(TestCase):
     """Nastavení (včetně šablon dokumentů) vidí jen ten, kdo má oprávnění Nastavení."""
     STRANKY = [("nastaveni", []), ("nastaveni_firma", []), ("nastaveni_zaloha", []), ("list", ["sazbadph"]), ("create", ["zamestnanec"]), ("list", ["historiezmen"])]
