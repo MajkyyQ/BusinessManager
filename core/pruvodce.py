@@ -12,7 +12,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import NastaveniFirmy
+from .models import NastaveniFirmy, TEL_PRIKLAD
 
 VOLNE = ("/static/", "/media/", "/pruvodce/", "/logout/")  # adresy, které průvodce nepřesměrovává
 
@@ -52,7 +52,7 @@ class FirmaForm(forms.ModelForm):
         model = NastaveniFirmy; fields = ("nazev_firmy", "ico", "dic", "adresa", "telefon", "email", "web")
         labels = {"nazev_firmy": "Název organizace", "ico": "IČ", "dic": "DIČ", "adresa": "Adresa", "telefon": "Telefon", "email": "E-mail", "web": "Web"}
         help_texts = {"dic": "Jen pokud je firma plátce DPH, např. CZ12345678.", "web": "Nepovinné, např. www.mojefirma.cz"}
-        widgets = {"adresa": forms.Textarea(attrs={"rows": 2})}
+        widgets = {"adresa": forms.Textarea(attrs={"rows": 2}), "telefon": forms.TextInput(attrs={"placeholder": TEL_PRIKLAD})}
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)

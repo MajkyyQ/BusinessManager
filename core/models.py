@@ -26,7 +26,22 @@ def validuj_ico(v):
     z = sum(int(v[i]) * (8 - i) for i in range(7)) % 11
     if (11 - z) % 10 != int(v[7]): raise ValidationError("IČO nemá platný kontrolní součet.")
 validuj_dic = RegexValidator(r"^[A-Z]{2}[0-9A-Z]{2,12}$", "DIČ zadejte jako kód země a číslo bez mezer, např. CZ12345678.")
-validuj_telefon = RegexValidator(r"^\+?[0-9 ]{6,19}$", "Telefon smí obsahovat jen číslice, mezery a úvodní +.")
+TEL_PRIKLAD = "např. 604 851 237 nebo +420 604 851 237"  # nápověda v prázdném políčku Telefon
+def validuj_telefon(v):
+    """Telefon: české číslo má 9 číslic (s předvolbou +420 i bez ní), zahraniční se píše s předvolbou (+49 …, 0049 …).
+
+    U zahraničních čísel se hlídá jen rozumná délka (8–15 číslic včetně předvolby, mezinárodní maximum je 15),
+    protože každý stát má jinou délku čísla. Mezery jsou povolené kdekoli.
+    """
+    if not v: return
+    s = re.sub(r"\s+", "", v)
+    if not re.fullmatch(r"\+?[0-9]+", s): raise ValidationError("Telefon smí obsahovat jen číslice, mezery a předvolbu začínající +, např. +420 604 851 237.")
+    if s.startswith("00"): s = "+" + s[2:]
+    if not s.startswith("+"):
+        if len(s) != 9: raise ValidationError(f"Telefon musí mít 9 číslic (zadáno {len(s)}), např. 604 851 237. Zahraniční číslo zadejte s předvolbou (+49 …).")
+    elif s.startswith("+420"):
+        if len(s) != 13: raise ValidationError(f"Číslo s předvolbou +420 musí mít za předvolbou 9 číslic (zadáno {len(s) - 4}), např. +420 604 851 237.")
+    elif not 8 <= len(s) - 1 <= 15: raise ValidationError("Zahraniční číslo musí mít s předvolbou 8 až 15 číslic, např. +49 30 1234 5678.")
 def formatuj_telefon(v):
     """Jednotný zápis telefonu po trojicích: 604 851 237, +420 604 851 237. Jiný tvar čísla se nechá, jak je."""
     s = re.sub(r"\s+", "", v or "")

@@ -781,3 +781,38 @@ class PrevodLibreOfficeTest(TestCase):
                 r = sablona_miniatura(rq, s.pk)
             self.assertIn(text, r.content.decode()); self.assertEqual(r["Cache-Control"], "no-store")
             s.refresh_from_db(); self.assertFalse(s.nahled)
+
+
+class KontrolaEmailuATelefonuTest(TestCase):
+    """Špatný e-mail a telefon: srozumitelná česká hláška ze serveru místo anglické bubliny prohlížeče."""
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis", vychozi_dph=Decimal("21"))
+        self.admin = User.objects.create_user("admin", password="x", is_staff=True); self.client.force_login(self.admin)
+
+    def test_validator_telefonu(self):
+        from django.core.exceptions import ValidationError
+        from .models import validuj_telefon
+        for ok in ("", "604851237", "604 851 237", "+420 604 851 237", "00420604851237", "+421 905 123 456", "+49 30 1234 5678", "0049301234567"):
+            validuj_telefon(ok)
+        for spatne in ("45214536", "6048512370", "+420 45214536", "+420 6048512370", "+49 123", "+1 2345 6789 0123 4567", "604-851-237", "abc"):
+            with self.assertRaises(ValidationError, msg=spatne): validuj_telefon(spatne)
+
+    def test_novy_zakaznik_cesky_chyby(self):
+        r = self.client.post(reverse("create", args=["zakaznik"]), {"typ_zakaznika": "Soukromá osoba", "jmeno": "Barunka", "telefon": "45214536", "email": "barca.plagmail.com"})
+        self.assertEqual(r.status_code, 200); self.assertFalse(Zakaznik.objects.exists())
+        self.assertContains(r, "Zadejte platný e-mail"); self.assertContains(r, "musí mít 9 číslic")
+
+    def test_novy_zakaznik_z_vyhledavani(self):
+        r = self.client.post(reverse("lookup_new", args=["zakaznik"]), {"typ_zakaznika": "Firma", "firma": "Elektro", "telefon": "+420 604851237", "email": "x@"})
+        self.assertContains(r, "Zadejte platný e-mail", status_code=400)
+        r = self.client.post(reverse("lookup_new", args=["zakaznik"]), {"typ_zakaznika": "Firma", "firma": "Elektro", "telefon": "+420604851237", "email": "info@elektro.cz"})
+        self.assertEqual(Zakaznik.objects.get().telefon, "+420 604 851 237")
+
+    def test_zamestnanec_cesky_chyby(self):
+        r = self.client.post(reverse("create", args=["zamestnanec"]), {"jmeno": "Barunka", "prijmeni": "Placková", "telefon": "45214536", "email": "barca.plagmail.com"})
+        self.assertContains(r, "Zadejte platný e-mail"); self.assertContains(r, "musí mít 9 číslic")
+
+    def test_pruvodce_ucet_cesky_email(self):
+        User.objects.all().delete()
+        r = self.client.post(reverse("pruvodce_ucet"), {"username": "sef", "first_name": "", "last_name": "", "email": "sef.firma.cz", "password1": "Heslo-12345", "password2": "Heslo-12345"})
+        self.assertContains(r, "Zadejte platný e-mail")
