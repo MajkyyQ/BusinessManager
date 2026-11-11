@@ -426,6 +426,7 @@ def edit(request, slug, pk=None):
                 if slug == "platba": o.stav = "Zaplaceno"; o.zakazka = zak; o.datum_zaplaceni = o.datum_zaplaceni or timezone.now()
             o.save(); form.save_m2m()
             if zak and slug == "zarizeni": zak.zarizeni.add(o)
+            if slug == "provedenyukon" and not pk: prace_pridana(request, o.zakazka)
             if slug == "zamestnanec" and not pk and not o.role.exists():  # nový zaměstnanec bez vybrané role dostane základní přístup
                 o.role.add(*Role.objects.filter(nazev=P.VYCHOZI_ROLE)[:1])
             if hasattr(form, "uloz_ucet"):
@@ -995,6 +996,7 @@ def zakazka_nova(request):
                 for m, mn, c, d in zip(P.getlist("mat_id"), P.getlist("mat_mn"), P.getlist("mat_cena"), P.getlist("mat_dph")):
                     if m.isdigit(): PouzityMaterial.objects.create(zakazka=o, material_id=m, mnozstvi=_dec(mn) or Decimal(1), jednotkova_cena=_dec(c), sazba_dph=_dec(d))  # cena se uloží k použití
                 log(request, o, "Vytvoření")
+                if o.provedenyukon_set.exists(): prace_pridana(request, o)
             messages.success(request, f"Zakázka {o.cislo_zakazky} vytvořena.")
             return redirect(safe_next(request) or reverse("detail", args=["zakazka", o.pk]))
     W = lambda n, s, val, multi=False, dep="": LookupWidget(s, MODELS[s], multi, dep).render(n, val)
@@ -1080,6 +1082,9 @@ def stav_ctx(request, z):
     for k in FLOW.get(n, ["zahajit", "zrusit"]):
         l, _, s = ACTIONS[k]; akce.append((k, {("Čeká na schválení", "zahajit"): "Schváleno – zahájit práci", ("Čeká na díl", "zahajit"): "Díl dorazil – zahájit práci"}.get((n, k), l), s))
     return dict(akce=akce, moze_stav=can_set_stav(request.user), stavy=StavZakazky.objects.filter(aktivni=True), stav_css=STAV_CSS.get(n, "info text-dark"))
+def prace_pridana(request, z):
+    """Přidáním práce se na zakázce začalo pracovat: nová zakázka přejde do stavu Rozpracováno (změna se zapíše do historie). Jiné stavy se nemění."""
+    if z and z.stav and z.stav.nazev == "Nová": set_stav(request, z, "Rozpracováno")
 def set_stav(request, z, nazev):
     stary = z.stav; novy = stav_by_name(nazev)
     if stary and stary.pk == novy.pk: return
