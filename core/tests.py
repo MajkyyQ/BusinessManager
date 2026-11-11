@@ -12,6 +12,15 @@ from .sablony import isdoc
 NS = {"i": isdoc.NS}
 
 
+def uzivatel(jmeno="u", role="Administrativa"):
+    """Přihlašovací účet zaměstnance s výchozí rolí (Zaměstnanec, Technik, Administrativa, Administrátor)."""
+    from .models import Role, Zamestnanec
+    u = User.objects.create_user(jmeno, password="x")
+    z = Zamestnanec.objects.create(jmeno=jmeno, uzivatel=u)
+    if role: z.role.add(Role.objects.get(nazev=role))
+    return u
+
+
 class RozdeleniAdresyTest(TestCase):
     def test_ulice_cislo_psc_mesto(self):
         self.assertEqual(isdoc.rozdel_adresu("Hlavní 123, 400 01 Ústí nad Labem"), ("Hlavní", "123", "Ústí nad Labem", "40001"))
@@ -67,7 +76,7 @@ class ExportISDOCTest(TestCase):
         self.assertEqual(x.findtext("i:LegalMonetaryTotal/i:PayableAmount", namespaces=NS), "1000.00")
 
     def test_stazeni_pres_adresu(self):
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         r = self.client.get(reverse("dokument_isdoc", args=["faktura", self.f.pk]))
         self.assertEqual(r.status_code, 200)
         self.assertIn(".isdoc", r["Content-Disposition"])
@@ -87,7 +96,7 @@ class PrijateFakturyTest(TestCase):
         f.refresh_from_db(); self.cislo = f.cislo_faktury
         self.obsah = isdoc.faktura_isdoc(f)
         NastaveniFirmy.objects.update(nazev_firmy="Můj servis s.r.o.", ico="12345679", dic="", cislo_uctu="")
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
 
     def _nahraj(self, obsah, jmeno="faktura.isdoc"):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -192,7 +201,7 @@ class HlavniAkceZakazkyTest(TestCase):
     def setUp(self):
         from .models import StavZakazky, Zakazka
         NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Nová"))
 
     def zvyraznene(self):
@@ -217,17 +226,17 @@ class HlavniAkceZakazkyTest(TestCase):
 
 
 class OpravneniNastaveniTest(TestCase):
-    """Nastavení vidí jen administrátor, šablony dokumentů kdokoli."""
+    """Nastavení (včetně šablon dokumentů) vidí jen ten, kdo má oprávnění Nastavení."""
     STRANKY = [("nastaveni", []), ("nastaveni_firma", []), ("nastaveni_zaloha", []), ("list", ["sazbadph"]), ("create", ["zamestnanec"]), ("list", ["historiezmen"])]
 
     def test_bezny_uzivatel_nastaveni_neotevre(self):
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         for nazev, args in self.STRANKY:
             r = self.client.get(reverse(nazev, args=args))
             self.assertRedirects(r, reverse("dashboard"), fetch_redirect_response=False, msg_prefix=nazev)
         r = self.client.get(reverse("dashboard"))
         self.assertNotContains(r, reverse("nastaveni"))
-        self.assertEqual(self.client.get(reverse("sablony")).status_code, 200)
+        self.assertRedirects(self.client.get(reverse("sablony")), reverse("dashboard"), fetch_redirect_response=False)
         self.assertEqual(self.client.get(reverse("list", args=["zakazka"])).status_code, 200)
 
     def test_admin_nastaveni_otevre(self):
@@ -239,7 +248,7 @@ class OpravneniNastaveniTest(TestCase):
         self.assertEqual(self.client.get(reverse("nastaveni")).status_code, 200)
 
     def test_styly_jsou_pribalene(self):
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         r = self.client.get(reverse("dashboard"))
         self.assertNotContains(r, "cdn.jsdelivr.net"); self.assertNotContains(r, "unpkg.com")
         self.assertContains(r, "vendor/bootstrap.min.css"); self.assertContains(r, "vendor/htmx.min.js")
@@ -270,7 +279,7 @@ class PruvodcePrvnimSpustenimTest(TestCase):
         self.assertContains(self.client.get(reverse("nastaveni")), "Firmu založil Jan Novák")
 
     def test_bezny_uzivatel_firmu_nezaklada(self):
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertRedirects(self.client.get(reverse("pruvodce_firma")), reverse("dashboard"), fetch_redirect_response=False)
 
@@ -370,7 +379,7 @@ class TvorbaDokladuZeZakazkyTest(TestCase):
     def setUp(self):
         from .models import StavZakazky, Zakazka
         NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Nová"))
 
     def test_tlacitka_v_dokumentech(self):
@@ -420,7 +429,7 @@ class PrijataFakturaRucneTest(TestCase):
     def setUp(self):
         from .models import Dodavatel
         NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         self.dod = Dodavatel.objects.create(nazev="Elektro Díly s.r.o.", ico="11223344")
 
     def test_tlacitko_a_presmerovani(self):
@@ -449,7 +458,7 @@ class NovyVzhledFormularuTest(TestCase):
     """Nový zákazník a nová událost používají formulář se sekcemi; uložení funguje dál."""
     def setUp(self):
         NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
 
     def test_novy_zakaznik(self):
         r = self.client.get(reverse("create", args=["zakaznik"]))
@@ -522,9 +531,10 @@ class UcetZamestnanceTest(TestCase):
         self.assertNotContains(self.client.get(reverse("nastaveni")), "/admin/auth/user/")
 
     def test_vsechny_formulare_v_novem_vzhledu(self):
-        for slug in ("stavzakazky", "typukonu", "material", "dodavatel", "zamestnanec", "role", "opravneni", "sazbadph"):
+        for slug in ("stavzakazky", "typukonu", "material", "dodavatel", "zamestnanec", "role", "sazbadph"):
             r = self.client.get(reverse("create", args=[slug]))
             self.assertTemplateUsed(r, "core/form_sekce.html"); self.assertEqual(r.status_code, 200, slug)
+        self.assertEqual(self.client.get(reverse("create", args=["opravneni"])).status_code, 404)  # oprávnění určuje aplikace
 
 
 class CislovaniDokladuTest(TestCase):
@@ -595,7 +605,7 @@ class CislovaniDokladuTest(TestCase):
         self.assertEqual(CiselnaRada.objects.get(typ="faktura").format, "Fa{N4}")
 
     def test_bezny_uzivatel_nastaveni_neotevre(self):
-        self.client.force_login(User.objects.create_user("u", password="x"))
+        self.client.force_login(uzivatel("u"))
         self.assertRedirects(self.client.get(reverse("nastaveni_cislovani")), reverse("dashboard"), fetch_redirect_response=False)
 
 
@@ -816,3 +826,97 @@ class KontrolaEmailuATelefonuTest(TestCase):
         User.objects.all().delete()
         r = self.client.post(reverse("pruvodce_ucet"), {"username": "sef", "first_name": "", "last_name": "", "email": "sef.firma.cz", "password1": "Heslo-12345", "password2": "Heslo-12345"})
         self.assertContains(r, "Zadejte platný e-mail")
+
+
+class RoleAOpravneniTest(TestCase):
+    """Zaměstnanec → Role → Oprávnění: co smí technik, administrativa a účet bez role (core/prava.py)."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka, Zamestnanec, KalendarUdalost
+        self.k = Zakaznik.objects.create(jmeno="Jan Novák")
+        self.z = Zakazka.objects.create(zakaznik=self.k, stav=StavZakazky.objects.get(nazev="Nová"))
+        self.Zam, self.Ud = Zamestnanec, KalendarUdalost
+
+    def prihlas(self, role, jmeno="t"):
+        u = uzivatel(jmeno, role); self.client.force_login(u); return u
+
+    def test_vychozi_role_a_opravneni(self):
+        from .models import Opravneni, Role
+        from . import prava
+        self.assertEqual(set(Opravneni.objects.values_list("kod", flat=True)), set(prava.VSE))
+        self.assertEqual(set(Role.objects.get(nazev="Technik").opravneni.values_list("kod", flat=True)), {prava.PRISTUP, prava.STAV, prava.KALENDAR})
+        self.assertTrue(Role.objects.get(nazev="Administrátor").je_administrator)
+
+    def test_ucet_bez_role_nema_pristup(self):
+        self.prihlas(None)
+        r = self.client.get(reverse("dashboard")); self.assertEqual(r.status_code, 403); self.assertContains(r, "Nemáte přístup", status_code=403)
+        self.assertEqual(self.client.get(reverse("list", args=["zakazka"])).status_code, 403)
+
+    def test_technik_neni_u_dokladu(self):
+        self.prihlas("Technik")
+        r = self.client.get(reverse("plocha", args=[self.z.pk]))
+        self.assertEqual(r.status_code, 200); self.assertContains(r, "Přidat práci")
+        self.assertNotContains(r, "Vytvořit fakturu"); self.assertNotContains(r, "Vytvořit nabídku"); self.assertNotContains(r, "Přidat platbu")
+        self.assertNotContains(r, reverse("dokumenty"))  # Dokumenty nejsou v menu
+        for url in (reverse("faktura_nova"), reverse("nabidka_nova"), reverse("dokumenty"), reverse("list", args=["faktura"]), reverse("prijata_faktura_rucne")):
+            self.assertRedirects(self.client.get(url), reverse("dashboard"), fetch_redirect_response=False, msg_prefix=url)
+        self.assertEqual(self.client.get(reverse("dokument", args=["zakazkovy_list", self.z.pk])).status_code, 200)
+
+    def test_administrativa_vystavi_doklady(self):
+        self.prihlas("Administrativa")
+        r = self.client.get(reverse("plocha", args=[self.z.pk])); self.assertContains(r, "Vytvořit fakturu"); self.assertContains(r, "Vytvořit nabídku")
+        self.assertEqual(self.client.get(reverse("faktura_nova")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("dokumenty")).status_code, 200)
+
+    def test_jen_faktury_bez_nabidek(self):
+        from .models import Role, Opravneni
+        r = Role.objects.create(nazev="Účetní"); r.opravneni.set(Opravneni.objects.filter(kod__in=["aplikace.pristup", "faktury.spravovat"]))
+        u = uzivatel("ucetni", None); self.Zam.objects.get(uzivatel=u).role.add(r); self.client.force_login(u)
+        r = self.client.get(reverse("dokumenty")); self.assertContains(r, "+ Faktura"); self.assertNotContains(r, "+ Nabídka")
+        self.assertRedirects(self.client.get(reverse("nabidka_nova")), reverse("dashboard"), fetch_redirect_response=False)
+
+    def test_mazani_jen_s_opravnenim(self):
+        self.prihlas("Administrativa")
+        url = reverse("delete", args=["zakaznik", self.k.pk])
+        self.assertRedirects(self.client.post(url), reverse("dashboard"), fetch_redirect_response=False)
+        self.k.refresh_from_db(); self.assertTrue(self.k.aktivni)
+        self.assertNotContains(self.client.get(reverse("detail", args=["zakaznik", self.k.pk])), "Deaktivovat")
+        self.assertNotIn("aktivni", self.client.get(reverse("edit", args=["zakaznik", self.k.pk])).context["form"].fields)
+        self.client.force_login(uzivatel("admin", "Administrátor"))
+        self.client.post(url); self.k.refresh_from_db(); self.assertFalse(self.k.aktivni)
+
+    def test_uprava_zakaznika(self):
+        self.prihlas("Technik")
+        url = reverse("edit", args=["zakaznik", self.k.pk])
+        self.assertRedirects(self.client.get(url), reverse("dashboard"), fetch_redirect_response=False)
+        self.assertNotContains(self.client.get(reverse("detail", args=["zakaznik", self.k.pk])), url)
+        self.assertEqual(self.client.get(reverse("create", args=["zakaznik"])).status_code, 200)  # nového zákazníka založí každý
+        self.client.force_login(uzivatel("a", "Administrativa"))
+        self.assertEqual(self.client.get(url).status_code, 200)
+
+    def test_vlastni_udalost_v_kalendari(self):
+        from django.utils import timezone
+        u = self.prihlas("Zaměstnanec"); jiny = uzivatel("jiny", "Zaměstnanec")
+        moje = self.Ud.objects.create(nazev="Moje", datum=timezone.now(), vytvoril=u)
+        cizi = self.Ud.objects.create(nazev="Cizí", datum=timezone.now(), vytvoril=jiny)
+        self.assertEqual(self.client.get(reverse("edit", args=["kalendarudalost", moje.pk])).status_code, 200)
+        self.assertRedirects(self.client.get(reverse("edit", args=["kalendarudalost", cizi.pk])), reverse("dashboard"), fetch_redirect_response=False)
+        self.client.force_login(uzivatel("tech", "Technik"))
+        self.assertEqual(self.client.get(reverse("edit", args=["kalendarudalost", cizi.pk])).status_code, 200)
+
+    def test_rucni_zmena_stavu(self):
+        from .models import StavZakazky
+        self.prihlas("Zaměstnanec")
+        vydano = StavZakazky.objects.get(nazev="Vydáno")
+        self.assertNotContains(self.client.get(reverse("plocha", args=[self.z.pk])), "Změnit ručně")
+        self.client.post(reverse("stav_akce", args=[self.z.pk]), {"akce": "rucne", "stav": vydano.pk})
+        self.z.refresh_from_db(); self.assertEqual(self.z.stav.nazev, "Nová")
+        self.client.force_login(uzivatel("tech", "Technik"))
+        self.client.post(reverse("stav_akce", args=[self.z.pk]), {"akce": "rucne", "stav": vydano.pk})
+        self.z.refresh_from_db(); self.assertEqual(self.z.stav.nazev, "Vydáno")
+
+    def test_novy_zamestnanec_dostane_zakladni_roli(self):
+        self.client.force_login(User.objects.create_user("sef", password="x", is_staff=True))
+        self.client.post(reverse("create", args=["zamestnanec"]), {"jmeno": "Petr", "prijmeni": "Nový"})
+        self.assertEqual(list(self.Zam.objects.get(jmeno="Petr").role.values_list("nazev", flat=True)), ["Zaměstnanec"])
+        r = self.client.get(reverse("create", args=["role"])); self.assertContains(r, "Faktury a platby"); self.assertContains(r, 'type="checkbox"')
+        self.assertContains(self.client.get(reverse("list", args=["opravneni"])), "Mazání a deaktivace")

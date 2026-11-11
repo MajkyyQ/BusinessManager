@@ -54,7 +54,7 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `IntegritniOmezeniTest` | 4 | integritní omezení databáze (jméno nebo firma, unikátní kontakt, povolené hodnoty výčtů) a jejich hlášení ve formuláři |
 | `UdalostiKalendareTest` | 2 | automatické události kalendáře a jejich posun při změně zakázky nebo faktury |
 | `HlavniAkceZakazkyTest` | 1 | zvýraznění doporučeného dalšího kroku na stránce zakázky podle jejího stavu |
-| `OpravneniNastaveniTest` | 3 | Nastavení vidí jen administrátor, šablony všichni; styly se nenačítají z internetu |
+| `OpravneniNastaveniTest` | 3 | Nastavení a šablony vidí jen uživatel s oprávněním Nastavení; styly se nenačítají z internetu |
 | `PruvodcePrvnimSpustenimTest` | 2 | průvodce prvním spuštěním: založení administrátora a firmy |
 | `SQLInjectionTest` | 5 | odolnost přihlášení, vyhledávání a řazení proti SQL injection |
 | `JednotneSeznamyTest` | 4 | seznamy: filtr stavů s počty, přepínač tabulka / kanban, jednotná hlavička, souhrn dokladů |
@@ -65,7 +65,8 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `CislovaniDokladuTest` | 6 | vlastní číslování zakázek, nabídek a faktur, výchozí čísla, přeskočení obsazeného čísla |
 | `OpravyZProchazeniTest` | 9 | opravy z procházení aplikace: telefony, více fotek, práce více zaměstnanců, platby, tlačítka Zpět |
 | `TmavyRezimTest` | 2 | přepínač vzhledu v horní liště, tmavý režim i na přihlašovací stránce |
-| **Celkem** | **68** | |
+| `RoleAOpravneniTest` | 10 | role a oprávnění: technik bez dokladů, administrativa s doklady, mazání, úprava zákazníka, vlastní události, účet bez role |
+| **Celkem** | **88** | |
 
 ## Úprava databáze
 

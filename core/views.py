@@ -28,13 +28,14 @@ from django.views.decorators.http import require_POST
 from django.urls import reverse
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
-                     Dodavatel, PrijataFaktura, Priloha, CiselnaRada)
+                     Dodavatel, PrijataFaktura, Priloha, CiselnaRada, Role, Opravneni)
 from . import cislovani
 from .models import formatuj_telefon, TEL_PRIKLAD
 from .navigace import zpet as zpet_url
+from . import prava as P
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
-READONLY = {"historiezmen"}
+READONLY = {"historiezmen", "opravneni"}  # oprávnění určuje aplikace (core/prava.py), měnit se dají jen jejich přiřazení rolím
 SECT = [("plocha", "🖥 Pracovní plocha", "dashboard", []), ("zakazky", "📋 Zakázky", "list", ["zakazka"]), ("zakaznici", "👥 Zákazníci", "list", ["zakaznik"]),
         ("zarizeni", "🔧 Zařízení", "zarizeni_prehled", []),
         ("dokumenty", "📄 Dokumenty", "dokumenty", []), ("kalendar", "📅 Kalendář", "kalendar", []), ("nastaveni", "⚙ Nastavení", "nastaveni", [])]
@@ -49,9 +50,9 @@ for _s, _g in (("nastavenifirmy", "Firma"), ("sazbadph", "DPH"), ("zamestnanec",
 SEC["ciselnarada"] = ("nastaveni", "Dokumenty")
 SEC["sablonadokumentu"] = ("dokumenty", None)  # šablony smí upravovat každý uživatel, nejsou součástí Nastavení
 
-def je_admin(user): return user.is_staff or user.is_superuser
+def je_admin(user): return P.ma(user, P.NASTAVENI)
 def jen_admin_ok(request, slug=None):
-    """Nastavení (údaje firmy, DPH, uživatelé, katalogy, systém) smí otevřít jen administrátor."""
+    """Nastavení (údaje firmy, DPH, uživatelé, katalogy, systém) smí otevřít jen ten, kdo má oprávnění Nastavení (hlídá i core.prava.PravaMiddleware)."""
     if slug is not None and SEC.get(slug, (None,))[0] != "nastaveni": return True
     if je_admin(request.user): return True
     messages.error(request, "Nastavení může otevřít jen administrátor."); return False
@@ -64,7 +65,9 @@ def get(slug):
     return MODELS[slug]
 def R(request, tpl, sec=None, crumbs=None, **c):
     if "M" in c: c["vn"], c["vnp"] = c["M"]._meta.verbose_name, c["M"]._meta.verbose_name_plural
-    sect = SECT if je_admin(request.user) else [x for x in SECT if x[0] != "nastaveni"]  # běžný uživatel Nastavení v menu nevidí
+    skryt = set() if je_admin(request.user) else {"nastaveni"}  # menu jen se sekcemi, na které má uživatel oprávnění
+    if not P.finance(request.user): skryt.add("dokumenty")
+    sect = [x for x in SECT if x[0] not in skryt]
     nav = [(k, l, reverse(u, args=a)) for k, l, u, a in sect]; sl = {k: (l, reverse(u, args=a)) for k, l, u, a in SECT}; g = None; slug = c.get("slug")
     if slug in SEC and not sec: sec, g = SEC[slug]
     if crumbs is None and slug in SEC:
@@ -197,6 +200,7 @@ class BaseForm(forms.ModelForm):
                 ted = list(self.instance.zamestnanci.values_list("pk", flat=True)) if self.instance.pk and hasattr(self.instance, "zamestnanci") else []
                 f.queryset = Zamestnanec.objects.filter(Q(aktivni=True) | Q(pk__in=ted)).order_by("prijmeni", "jmeno")
                 f.widget = forms.CheckboxSelectMultiple(attrs={"class": "bm-volby"}); f.widget.choices = f.choices; continue
+            if s in ("opravneni", "role") and isinstance(f, forms.ModelMultipleChoiceField): zaskrtavatka(f, s); continue
             if n == "sazba_dph":
                 f.widget = SazbaDPHWidget()
                 if not self.instance.pk and not self.initial.get(n): self.initial[n] = vychozi_dph()
@@ -209,6 +213,13 @@ class BaseForm(forms.ModelForm):
         for n in ("telefon",):  # telefon se ukládá jednotně po trojicích (604 851 237)
             if n in self.cleaned_data: self.cleaned_data[n] = formatuj_telefon(self.cleaned_data[n])
         super()._post_clean()
+def zaskrtavatka(f, s):
+    """Role a oprávnění jako zaškrtávací políčka s názvem (místo seznamu s Ctrl)."""
+    f.queryset = Opravneni.objects.order_by("pk") if s == "opravneni" else Role.objects.filter(aktivni=True).order_by("nazev")
+    f.label_from_instance = lambda o: o.nazev or str(o)
+    f.widget = forms.CheckboxSelectMultiple(attrs={"class": "bm-volby"}); f.widget.choices = f.choices
+    if s == "opravneni": f.help_text = "Co role smí. Popis jednotlivých oprávnění najdete v Nastavení → Oprávnění."
+    else: f.help_text = "Co zaměstnanec v aplikaci smí, určují jeho role (Nastavení → Role)."
 class ZakazkaChoice(forms.ModelChoiceField):
     def label_from_instance(self, z): return f"{z.cislo_zakazky} – {z.zakaznik}"
 class ZakaznikForm(BaseForm):
@@ -278,7 +289,6 @@ def _mimo_seznam(request, slug):
 def lst(request, slug):
     if not jen_admin_ok(request, slug): return redirect("dashboard")
     if slug in SKRYTE_SEZNAMY: return redirect(_mimo_seznam(request, slug))
-    if slug == "platba" and not je_admin(request.user): messages.error(request, "Přehled plateb může otevřít jen administrátor."); return redirect("dokumenty")
     M = get(slug); q = request.GET.get("q", ""); qs = M.objects.all(); flt = {}; o = ""
     if q:
         f = Q()
@@ -308,6 +318,7 @@ def lst(request, slug):
         sloupce = [dict(s=s, css=STAV_CSS.get(s, "light"), items=[z for z in zz if z.stav and z.stav.nazev == s], sbaleno=not st and s in CLOSED, url=_url(request, st=s)) for s in sl]
         if not st and any(not z.stav for z in zz): sloupce.append(dict(s="Bez stavu", css="light", items=[z for z in zz if not z.stav], sbaleno=False, url=""))
     if slug == "platba": qs = qs.select_related("faktura", "zakazka").order_by("-pk")
+    if slug == "opravneni": qs = qs.prefetch_related("role_set").order_by("pk")
     page = Paginator(qs if qs.ordered else qs.order_by("pk"), 50).get_page(request.GET.get("page"))
     if slug == "zakaznik":
         heads = [dict(l=x) for x in ["Jméno", "Firma", "Adresa", "Telefon", "E-mail", "Poslední změna"]]
@@ -321,6 +332,9 @@ def lst(request, slug):
         heads = [dict(l=x) for x in ["Číslo faktury", "Dodavatel", "Doručeno", "Splatnost", "K úhradě", "Stav"]]
         rows = [(o, [o.cislo_faktury, o.dodavatel, o.datum_doruceni.strftime("%d.%m.%Y"), o.datum_splatnosti.strftime("%d.%m.%Y") if o.datum_splatnosti else "–",
                      f"{o.cena_s_dph} {o.mena}" if o.cena_s_dph is not None else "–", "Po splatnosti" if o.po_splatnosti else o.stav], None) for o in page]
+    elif slug == "opravneni":
+        heads = [dict(l=x, w=w) for x, w in (("Oprávnění", 20), ("Popis", 45), ("Role", 20), ("Kód", 15))]
+        rows = [(o, [o.nazev or o.kod, o.popis or "–", ", ".join(r.nazev for r in o.role_set.all() if r.aktivni) or "–", o.kod], None) for o in page]
     elif slug == "zakazka":
         sk = {"Číslo zakázky": "cislo", "Datum přijetí": "prijeti", "Datum vydání": "vydani"}
         sirka = {"Číslo zakázky": 13, "Zákazník": 23, "Stav": 18, "Datum přijetí": 15, "Datum vydání": 15, "Identifikační číslo": 16}  # pevné šířky: tabulka se po filtru nepřeskupí
@@ -386,7 +400,8 @@ def edit(request, slug, pk=None):
     exclude = {"zakazka": ["stav", "datum_vydani"], "zamestnanec": ["uzivatel"], "priloha": ["typ_souboru"], "zarizeni": [] if o else ["zakaznik"],
                "platba": ["faktura"] + ([] if o else ["stav"])}.get(slug, [])  # stav se mění jen akcemi workflow, účet zaměstnance má vlastní sekci, typ souboru se pozná z přípony
     exclude += [n for n in AUTO_UZIVATEL if n in {f.name for f in M._meta.fields}]  # kdo záznam vytvořil, se doplní sám
-    if not o and any(f.name == "aktivni" for f in M._meta.fields): exclude.append("aktivni")  # nový záznam je vždy aktivní, deaktivovat jde v úpravě
+    if any(f.name == "aktivni" for f in M._meta.fields) and (not o or (not P.ma(request.user, P.MAZAT) and slug not in P.T_NASTAVENI)):
+        exclude.append("aktivni")  # nový záznam je vždy aktivní; deaktivovat smí jen ten, kdo má oprávnění Mazání a deaktivace
     Form = modelform_factory(M, form=ZamestnanecForm if slug == "zamestnanec" else ZakaznikForm if slug == "zakaznik" else BaseForm, fields="__all__", formfield_callback=cb, exclude=exclude)
     init = {} if o else request.GET.dict()
     if slug == "platba" and not o: init.update(zakazka=zak.pk, zpusob=init.get("zpusob", "Hotově"), datum_zaplaceni=timezone.localtime().strftime("%Y-%m-%dT%H:%M"))
@@ -406,6 +421,8 @@ def edit(request, slug, pk=None):
                 if slug == "platba": o.stav = "Zaplaceno"; o.zakazka = zak; o.datum_zaplaceni = o.datum_zaplaceni or timezone.now()
             o.save(); form.save_m2m()
             if zak and slug == "zarizeni": zak.zarizeni.add(o)
+            if slug == "zamestnanec" and not pk and not o.role.exists():  # nový zaměstnanec bez vybrané role dostane základní přístup
+                o.role.add(*Role.objects.filter(nazev=P.VYCHOZI_ROLE)[:1])
             if hasattr(form, "uloz_ucet"):
                 zprava = form.uloz_ucet(o)
                 if zprava: log(request, o, "Účet", "uzivatel", "", zprava)
@@ -505,7 +522,7 @@ class ZamestnanecForm(forms.ModelForm):
     ucet_heslo = forms.CharField(label="Heslo", required=False, strip=False, widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
                                  help_text="U existujícího účtu nechte prázdné, pokud heslo neměníte.")
     ucet_heslo2 = forms.CharField(label="Heslo znovu", required=False, strip=False, widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}))
-    ucet_admin = forms.BooleanField(label="Administrátor (vidí Nastavení a může spravovat účty)", required=False)
+    ucet_admin = forms.BooleanField(label="Hlavní administrátor (smí všechno bez ohledu na role, včetně Django adminu)", required=False)
     prihlaseny = None
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -513,6 +530,7 @@ class ZamestnanecForm(forms.ModelForm):
             if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]
             w = f.widget; w.attrs["class"] = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
             if n == "telefon": w.attrs.setdefault("placeholder", TEL_PRIKLAD)
+        if "role" in self.fields: zaskrtavatka(self.fields["role"], "role")
         u = self.instance.uzivatel if self.instance.pk else None
         if u: self.initial.update(ucet_aktivni=u.is_active, ucet_jmeno=u.username, ucet_admin=u.is_staff or u.is_superuser)
     def clean(self):
@@ -562,9 +580,10 @@ ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])
                  [("Zaměstnanec", [("jmeno", 4), ("prijmeni", 4), ("pracovni_pozice", 4)]), ("Kontakt", [("telefon", 4), ("email", 8)]),
                   ("Role", [("role", 12), ("aktivni", 12)]),
                   ("Přihlašovací účet", [("ucet_aktivni", 12), ("ucet_jmeno", 4), ("ucet_heslo", 4), ("ucet_heslo2", 4), ("ucet_admin", 12)])]),
-    "role": ("Role sdružuje oprávnění. Zaměstnancům role přiřadíte v jejich kartě.",
+    "role": ("Role je svazek oprávnění, např. Technik nebo Administrativa. Zaškrtněte, co role smí, a pak ji přiřaďte zaměstnancům v jejich kartě. "
+             "Role s volbou „Je administrátor“ smí všechno.",
                  [("Role", [("nazev", 6), ("popis", 12), ("opravneni", 12)]), ("Nastavení", [("je_administrator", 12), ("aktivni", 12)])]),
-    "opravneni": ("Oprávnění je konkrétní akce, kterou může role povolit (např. změna stavu zakázky). Kód používá aplikace, proto ho po založení neměňte.",
+    "opravneni": ("Oprávnění je konkrétní akce, kterou může role povolit (např. vystavení faktury). Seznam oprávnění určuje aplikace, přiřazují se rolím.",
                  [("Oprávnění", [("kod", 6), ("nazev", 6), ("popis", 12)])]),
     "stavzakazky": ("Stavy, kterými zakázka prochází. Pořadí určuje, jak jdou stavy za sebou v přehledech.",
                  [("Stav zakázky", [("nazev", 6), ("poradi", 3), ("popis", 12), ("aktivni", 12)])]),
@@ -637,14 +656,15 @@ def plocha(request, pk):
     def dok_add(group, typ, o, title=None):  # zobrazí se ve výchozí šabloně, stažení = PDF
         it = add(group, title or o, "html", reverse("dokument_obsah", args=[typ, o.pk])); it["dl"] = reverse("dokument_pdf", args=[typ, o.pk]); dok.append(it)
     dok_add("Zakázkový list", "zakazkovy_list", z, f"Zakázkový list {z.cislo_zakazky}")
-    for n in z.nabidka_set.all(): dok_add("Nabídky", "nabidka", n)
-    for f in z.faktura_set.all(): dok_add("Faktury", "faktura", f)
-    for o in z.objednavka_set.select_related("priloha"):
+    pr = P.prava(request.user)  # doklady vidí jen ten, kdo s nimi smí pracovat
+    for n in (z.nabidka_set.all() if P.NABIDKY in pr else ()): dok_add("Nabídky", "nabidka", n)
+    for f in (z.faktura_set.all() if P.FAKTURY in pr else ()): dok_add("Faktury", "faktura", f)
+    for o in (z.objednavka_set.select_related("priloha") if P.NABIDKY in pr else ()):
         if o.priloha and o.priloha.soubor: dok.append(add("Objednávky", o, kind_of(o.priloha.soubor.name), o.priloha.soubor.url))
         else: dok.append(dict(group="Objednávky", title=str(o), kind="link", url=reverse("detail", args=["objednavka", o.pk])))
     ukony = z.provedenyukon_set.select_related("typ_ukonu").prefetch_related("zamestnanci"); mat = z.pouzitymaterial_set.select_related("material")
     sum_u = sum((u.cena or 0) for u in ukony); sum_m = sum(m.mnozstvi * (m.jednotkova_cena or 0) for m in mat)
-    platby = Platba.objects.filter(Q(zakazka=z) | Q(faktura__zakazky=z)).distinct()
+    platby = Platba.objects.filter(Q(zakazka=z) | Q(faktura__zakazky=z)).distinct() if P.FAKTURY in pr else Platba.objects.none()
     request.session["recent"] = ([pk] + [x for x in request.session.get("recent", []) if x != pk])[:8]
     tabs = [("info", "Přehled"), ("prace", "Práce"), ("mat", "Materiál"), ("foto", f"Fotografie ({len(foto)})"), ("pril", f"Přílohy ({len(pril)})"),
             ("dok", f"Dokumenty ({len(dok)})"), ("kont", "Kontakty"), ("zar", "Zařízení"), ("zam", "Zaměstnanci"), ("hist", "Historie")]
@@ -783,9 +803,12 @@ def nabidka_nahled(request):
 def zakaznik_detail(request, pk):
     z = get_object_or_404(Zakaznik, pk=pk)
     tabs = [("info", "Informace"), ("kont", "Kontaktní osoby"), ("zar", "Zařízení"), ("zak", "Zakázky"), ("dok", "Dokumenty"), ("hist", "Historie")]
+    pr = P.prava(request.user); prazdne = Nabidka.objects.none()
+    if not P.finance(request.user): tabs = [t for t in tabs if t[0] != "dok"]  # doklady a ceny jen s oprávněním Nabídky nebo Faktury
     return R(request, "zakaznik_detail", sec="zakaznici", crumbs=[("👥 Zákazníci", reverse("list", args=["zakaznik"])), (str(z), None)], z=z, tabs=tabs, nxt=request.path,
         kontakty=z.zakaznikkontakt_set.select_related("kontakt"), zarizeni=z.zarizeni_set.annotate(n=Count("zakazka")), zakazky=z.zakazka_set.select_related("stav"),
-        nabidky=z.nabidka_set.all(), objednavky=z.objednavka_set.all(), faktury=z.faktura_set.all(), hist=HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=pk)[:60])
+        nabidky=z.nabidka_set.all() if P.NABIDKY in pr else prazdne, objednavky=z.objednavka_set.all() if P.NABIDKY in pr else prazdne,
+        faktury=z.faktura_set.all() if P.FAKTURY in pr else prazdne, hist=HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=pk)[:60])
 
 # ---------------- Dokumenty ----------------
 DOK_TYPY = [("nabidka", "Nabídky"), ("objednavka", "Objednávky"), ("faktura", "Faktury"), ("prijatafaktura", "Přijaté faktury")]
@@ -796,10 +819,12 @@ def dokumenty(request):
     rows += [dict(typ="Faktura", slug="faktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.zakaznik, datum=f.datum_vystaveni, castka=f.cena_s_dph) for f in Faktura.objects.select_related("zakaznik")]
     rows += [dict(typ="Přijatá faktura", slug="prijatafaktura", pk=f.pk, cislo=f.cislo_faktury, zakaznik=f.dodavatel, datum=f.datum_doruceni, castka=f.cena_s_dph, mena=f.mena,
                   stav="Po splatnosti" if f.po_splatnosti else f.stav) for f in PrijataFaktura.objects.select_related("dodavatel")]
+    pr = P.prava(request.user); smi = {"nabidka": P.NABIDKY in pr, "objednavka": P.NABIDKY in pr, "faktura": P.FAKTURY in pr, "prijatafaktura": P.FAKTURY in pr}
+    rows = [r for r in rows if smi[r["slug"]]]  # jen doklady, na které má uživatel oprávnění
     if ql: rows = [r for r in rows if ql in (r["cislo"] + " " + str(r["zakaznik"])).lower()]
     pocty = {}
     for r in rows: pocty[r["slug"]] = pocty.get(r["slug"], 0) + 1
-    chips = _chips(request, "typ", [(k, l, pocty.get(k, 0), "") for k, l in DOK_TYPY], typ, len(rows))
+    chips = _chips(request, "typ", [(k, l, pocty.get(k, 0), "") for k, l in DOK_TYPY if smi[k]], typ, len(rows))
     if typ: rows = [r for r in rows if r["slug"] == typ]
     rows.sort(key=lambda r: (str(r["datum"] or "")[:10], r["pk"]), reverse=True)
     # souhrn pod tabulkou (inspirace ABRA Flexi): počet a součet částek, zvlášť podle měny
@@ -1014,10 +1039,7 @@ FLOW = {"Nová": ["zahajit", "cekat_schv", "cekat_dil", "zrusit"], "Rozpracován
 STAV_CSS = {"Nová": "secondary", "Rozpracováno": "primary", "Čeká na schválení": "warning text-dark", "Čeká na díl": "warning text-dark", "Opraveno": "success",
             "Připraveno k vyzvednutí": "success", "Vydáno": "dark", "Zrušeno": "danger"}
 def stav_by_name(n): return StavZakazky.objects.filter(nazev=n).first() or StavZakazky.objects.create(nazev=n, poradi=99)
-def can_set_stav(user):
-    if user.is_superuser or user.is_staff: return True
-    e = Zamestnanec.objects.filter(uzivatel=user).first()
-    return bool(e) and e.role.filter(Q(je_administrator=True) | Q(opravneni__kod="zakazky.zmenit_stav"), aktivni=True).exists()
+def can_set_stav(user): return P.ma(user, P.STAV)
 def stav_ctx(request, z):
     n = z.stav.nazev if z.stav else ""; akce = []
     for k in FLOW.get(n, ["zahajit", "zrusit"]):

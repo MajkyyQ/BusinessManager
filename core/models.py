@@ -99,7 +99,7 @@ class Zamestnanec(models.Model):
 class Opravneni(models.Model):
     class Meta: verbose_name = "oprávnění"; verbose_name_plural = "Oprávnění"
     kod = models.CharField(max_length=100, unique=True); nazev = C(); popis = T()
-    def __str__(self): return self.kod
+    def __str__(self): return self.nazev or self.kod
 class Role(models.Model):
     class Meta: verbose_name = "role"; verbose_name_plural = "Role"
     nazev = models.CharField(max_length=100); popis = T(); je_administrator = models.BooleanField(default=False); aktivni = A()

@@ -42,7 +42,7 @@ Backend je projekt Django složený ze dvou částí: konfigurace projektu ve sl
 
 1.  Gunicorn přijme požadavek HTTP a předá ho aplikaci Django přes rozhraní WSGI (`config/wsgi.py`).
 
-2.  Požadavek projde řetězcem *middleware*: kontrolou bezpečnosti, obsluhou statických souborů (WhiteNoise), načtením relace, ochranou proti CSRF, průvodcem prvním spuštěním (`PrvniSpusteniMiddleware` přesměruje na průvodce, dokud chybí účet administrátora nebo firma), ověřením přihlášení (`LoginRequiredMiddleware` přesměruje nepřihlášeného uživatele na přihlašovací stránku), zprávami pro uživatele a zápisem navštívené stránky pro tlačítka Zpět a Zrušit (`StopaMiddleware`).
+2.  Požadavek projde řetězcem *middleware*: kontrolou bezpečnosti, obsluhou statických souborů (WhiteNoise), načtením relace, ochranou proti CSRF, průvodcem prvním spuštěním (`PrvniSpusteniMiddleware` přesměruje na průvodce, dokud chybí účet administrátora nebo firma), ověřením přihlášení (`LoginRequiredMiddleware` přesměruje nepřihlášeného uživatele na přihlašovací stránku), kontrolou oprávnění (`PravaMiddleware` v `core/prava.py` podle adresy pozná, které oprávnění stránka potřebuje, a bez něj uživatele vrátí na plochu), zprávami pro uživatele a zápisem navštívené stránky pro tlačítka Zpět a Zrušit (`StopaMiddleware`).
 
 3.  URL směrování (`config/urls.py`, `core/urls.py`) podle adresy vybere pohled.
 
@@ -140,4 +140,4 @@ Při vývoji se aplikace spouští přímo: ve virtuálním prostředí jazyka P
 
 ### Inicializace dat
 
-Po každém spuštění migrací se automaticky (signál `post_migrate` v `core/apps.py`) vytvoří chybějící výchozí data: stavy zakázek v pořadí pracovního postupu, oprávnění pro ruční změnu stavu, sazby DPH 21 %, 12 % a 0 % a vestavěné šablony dokumentů pro každý typ dokumentu (Excelová „firemní“ a „standardní“ a HTML „jednoduchá“). Údaje o firmě se automaticky nezakládají, vyplní je administrátor v průvodci prvním spuštěním. Databáze je po instalaci jinak prázdná. Pro vývoj a předvádění slouží příkaz `python manage.py seed_data`, který vytvoří testovací zákazníky, zařízení, zakázky, zaměstnance, práce a materiál.
+Po každém spuštění migrací se automaticky (signál `post_migrate` v `core/apps.py`) vytvoří chybějící výchozí data: stavy zakázek v pořadí pracovního postupu, oprávnění aplikace (výchozí role zakládá migrace 0018), sazby DPH 21 %, 12 % a 0 % a vestavěné šablony dokumentů pro každý typ dokumentu (Excelová „firemní“ a „standardní“ a HTML „jednoduchá“). Údaje o firmě se automaticky nezakládají, vyplní je administrátor v průvodci prvním spuštěním. Databáze je po instalaci jinak prázdná. Pro vývoj a předvádění slouží příkaz `python manage.py seed_data`, který vytvoří testovací zákazníky, zařízení, zakázky, zaměstnance, práce a materiál.

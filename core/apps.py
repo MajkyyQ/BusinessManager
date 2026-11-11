@@ -7,7 +7,9 @@ def seed(sender, **k):
         if StavZakazky.objects.filter(nazev=old).exists() and not StavZakazky.objects.filter(nazev=new).exists(): StavZakazky.objects.filter(nazev=old).update(nazev=new)  # převod starých výchozích názvů
     for i, n in enumerate(["Nová", "Rozpracováno", "Čeká na schválení", "Čeká na díl", "Opraveno", "Připraveno k vyzvednutí", "Vydáno", "Zrušeno"]):
         StavZakazky.objects.get_or_create(nazev=n, defaults={"poradi": i})
-    Opravneni.objects.get_or_create(kod="zakazky.zmenit_stav", defaults={"nazev": "Ruční změna stavu zakázky"})
+    from .prava import PRAVA
+    for kod, nazev, popis in PRAVA:  # oprávnění, která aplikace kontroluje (core/prava.py); výchozí role zakládá migrace 0018
+        Opravneni.objects.get_or_create(kod=kod, defaults={"nazev": nazev, "popis": popis})
     if not SazbaDPH.objects.exists():
         for s in (21, 12, 0): SazbaDPH.objects.create(sazba=s)
     # údaje o firmě se nezakládají automaticky, vyplní je administrátor v průvodci prvním spuštěním (core/pruvodce.py)

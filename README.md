@@ -69,9 +69,23 @@ Vlastní Excel: do buněk napište značky, např. `{{dokument.cislo}}`, řádek
 Bez značek se pole zkusí rozpoznat podle popisků. Vestavěné vzory se generují příkazem `python manage.py vytvor_vzory_sablon`.
 
 ## Oprávnění
-- **Nastavení** (údaje o firmě, DPH, zaměstnanci a role, katalogy, historie změn, zálohování) vidí a mění jen administrátor
-  (uživatel s příznakem *Staff* nebo *Superuser*). Ostatním se položka v menu nezobrazí a přímý odkaz je vrátí na plochu.
-- **Šablony dokumentů** jsou v sekci Dokumenty a upravovat je může každý přihlášený uživatel.
+Co kdo smí, určují **role**: zaměstnanci se v jeho kartě přiřadí role a role je svazek oprávnění (Nastavení → Role).
+Tlačítka, na která uživatel nemá oprávnění, se mu nezobrazí, a server stejnou kontrolu dělá i při přímém zadání adresy (`core/prava.py`).
+
+| Oprávnění | Co povoluje |
+|---|---|
+| Základní přístup | pracovní plocha, zakázky, zápis práce, materiálu a fotek, nový zákazník/zařízení, vlastní události v kalendáři |
+| Ruční změna stavu zakázky | přepnutí zakázky do libovolného stavu mimo běžný postup |
+| Úprava zákazníků a zařízení | úprava už založených zákazníků, kontaktů a zařízení |
+| Úprava kalendáře | úprava a mazání i cizích událostí |
+| Nabídky a objednávky | nabídky, přijaté objednávky, sekce Dokumenty a ceny v dokladech |
+| Faktury a platby | faktury, platby, přijaté faktury, sekce Dokumenty a ceny v dokladech |
+| Mazání a deaktivace | mazání a deaktivace záznamů |
+| Nastavení | firma, DPH, číslování a šablony dokumentů, katalogy, zaměstnanci, role, zálohy |
+
+Výchozí role: **Zaměstnanec** (jen základní přístup, dostane ji každý nový zaměstnanec), **Technik**, **Administrativa**
+a **Administrátor** (smí všechno). Všechno smí také účet s příznakem *Staff* nebo *Superuser* (např. účet z průvodce prvním spuštěním).
+Účet bez role nebo bez karty zaměstnance se přihlásí, ale uvidí jen hlášku, že nemá přístup.
 
 ## Provoz bez internetu
 Bootstrap a htmx jsou přibalené v `core/static/vendor/`, aplikace se proto nenačítá z cizích serverů.
