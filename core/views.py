@@ -346,7 +346,7 @@ def lst(request, slug):
         cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
         heads = [dict(l=capfirst(c.verbose_name)) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
     keep = urlencode({k: x for k, x in {"q": q, **flt}.items() if x})
-    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, bez_noveho=slug == "platba", flt=flt, keep=keep, o=o,
+    return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, bez_noveho=slug == "platba" or slug in BEZ_PRIDANI, flt=flt, keep=keep, o=o,
              keep_o=urlencode({k: x for k, x in {"q": q, **flt, "o": o}.items() if x}), chips=chips, pohled=pohled, pohledy=pohledy, sloupce=sloupce,
              kanban_max=KANBAN_MAX, ph={"zakazka": "Číslo zakázky, zákazník, závada…", "zakaznik": "Jméno, firma, telefon, e-mail…"}.get(slug, "Hledat…"))
 
@@ -372,7 +372,7 @@ def detail(request, slug, pk):
     zaplaceno = o.platba_set.filter(stav="Zaplaceno").order_by("-datum_zaplaceni").first() if slug == "faktura" else None
     return R(request, "detail", slug=slug, M=M, o=o, fields=fields, rel=rel, hist=hist, ro=slug in READONLY, nahradni=nahradni, zaplaceno=zaplaceno)
 DETAIL_BEZ = {"kalendarudalost", "platba"}  # události jsou v Kalendáři; platba faktury se řídí tlačítkem Zaplaceno, platby zakázky jsou na její stránce
-BEZ_PRIDANI = {"polozkafaktury"}  # položky faktury vznikají jen při vystavení faktury ze zakázky, ručně se nepřidávají
+BEZ_PRIDANI = {"polozkafaktury": "faktura", "polozkanabidky": "nabidka"}  # položky dokladů vznikají jen při vystavení ze zakázky, ručně se nepřidávají
 DETAIL_NAZEV = {"polozkafaktury": "Položky faktury", "polozkanabidky": "Položky nabídky"}
 
 def edit(request, slug, pk=None):
@@ -385,6 +385,9 @@ def edit(request, slug, pk=None):
     if slug in ("faktura", "objednavka") and not pk:  # faktura i objednávka se vždy zakládají ze zakázky (starý obecný formulář se už nepoužívá)
         q = {"zakazka": request.GET.get("zakazky") or request.GET.get("zakazka") or "", "next": request.GET.get("next", "")}
         return redirect(reverse(f"{slug}_nova") + "?" + urlencode({k: x for k, x in q.items() if x}))
+    if slug in BEZ_PRIDANI and not pk:  # formulář na novou položku faktury/nabídky neexistuje, vrátí se na doklad
+        d = BEZ_PRIDANI[slug]; dpk = request.GET.get(d, "")
+        return redirect(reverse("detail", args=[d, int(dpk)]) if dpk.isdigit() else reverse("list", args=[d]))
     if slug == "prijatafaktura" and not pk:  # přijatá faktura ručně má vlastní přehledný formulář
         return redirect(reverse("prijata_faktura_rucne") + ("?" + request.GET.urlencode() if request.GET else ""))
     if slug == "zakazka" and not pk:  # nová zakázka = zakázkový list
