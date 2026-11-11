@@ -1,0 +1,42 @@
+<style>/* Výběr souborů v češtině: původní pole prohlížeče („Browse… No files selected.“) leží průhledně nad vlastním tlačítkem a textem.
+   Kliknutí, klávesnice (Tab, Enter, mezerník) i přetažení souborů myší dál obsluhuje prohlížeč sám. */
+.bm-soubor{position:relative;display:flex;align-items:stretch;width:100%}
+.bm-soubor>input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:3;font-size:0}
+.bm-soubor>input[type=file]:disabled{cursor:not-allowed}
+.bm-soubor-tl{flex:0 0 auto;display:flex;align-items:center;padding:.375rem .75rem;border:var(--bs-border-width) solid var(--bs-border-color);border-right:0;border-radius:var(--bs-border-radius) 0 0 var(--bs-border-radius);background:var(--bs-tertiary-bg);color:var(--bs-body-color);white-space:nowrap}
+.bm-soubor-tx{flex:1 1 auto;min-width:0;display:flex;align-items:center;padding:.375rem .75rem;border:var(--bs-border-width) solid var(--bs-border-color);border-radius:0 var(--bs-border-radius) var(--bs-border-radius) 0;background:var(--bs-body-bg);color:var(--bs-secondary-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm-soubor-tx span{overflow:hidden;text-overflow:ellipsis}
+.bm-soubor.vybrano .bm-soubor-tx{color:var(--bs-body-color)}
+.bm-soubor:hover .bm-soubor-tl{background:var(--bs-secondary-bg)}
+.bm-soubor:focus-within .bm-soubor-tl,.bm-soubor:focus-within .bm-soubor-tx{border-color:#86b7fe}
+.bm-soubor:focus-within{border-radius:var(--bs-border-radius);box-shadow:0 0 0 .25rem rgba(13,110,253,.25)}
+.bm-soubor.dis{opacity:.65}
+.bm-soubor.chyba .bm-soubor-tl,.bm-soubor.chyba .bm-soubor-tx{border-color:var(--bs-form-invalid-border-color)}
+.bm-soubor.sm .bm-soubor-tl,.bm-soubor.sm .bm-soubor-tx{padding:.25rem .5rem;font-size:.875rem}</style>
+<script>/* Každé pole <input type="file"> na stránce (i to, které přibude později) dostane český popisek. */
+(function(){if(window.bmSoubory)return;
+function pocet(n){return n==1?'1 soubor':(n>=2&&n<=4?n+' soubory':n+' souborů')}
+function popis(inp){var f=inp.files,n=f?f.length:0;
+  if(!n)return '';if(n==1)return f[0].name;
+  var j=[];for(var i=0;i<n;i++)j.push(f[i].name);return 'Vybráno '+pocet(n)+': '+j.join(', ')}
+function obnov(inp){var w=inp.parentNode,t=w.querySelector('.bm-soubor-tx span'),s=popis(inp);
+  t.textContent=s||(inp.multiple?'Nevybrány žádné soubory':'Nevybrán žádný soubor');
+  inp.title=s||(inp.multiple?'Vybrat soubory':'Vybrat soubor');
+  w.classList.toggle('vybrano',!!s);w.classList.toggle('dis',inp.disabled);
+  w.classList.toggle('chyba',inp.classList.contains('is-invalid')||inp.getAttribute('aria-invalid')=='true')}
+function uprav(inp){if(inp.dataset.bmSoubor||inp.closest('.bm-soubor'))return;inp.dataset.bmSoubor='1';
+  var w=document.createElement('div');w.className='bm-soubor'+(inp.classList.contains('form-control-sm')?' sm':'');
+  var tl=document.createElement('span');tl.className='bm-soubor-tl';tl.setAttribute('aria-hidden','true');
+  tl.textContent=inp.multiple?'Vybrat soubory…':'Vybrat soubor…';
+  var tx=document.createElement('span');tx.className='bm-soubor-tx';tx.setAttribute('aria-live','polite');tx.appendChild(document.createElement('span'));
+  inp.parentNode.insertBefore(w,inp);w.appendChild(inp);w.appendChild(tl);w.appendChild(tx);
+  inp.addEventListener('change',function(){obnov(inp)});
+  if(inp.form)inp.form.addEventListener('reset',function(){setTimeout(function(){obnov(inp)},0)});
+  obnov(inp)}
+function projdi(root){if(!root.querySelectorAll)return;
+  if(root.matches&&root.matches('input[type=file]'))uprav(root);
+  root.querySelectorAll('input[type=file]').forEach(uprav)}
+window.bmSoubory={projdi:projdi,obnov:obnov};
+function start(){projdi(document);
+  new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){if(n.nodeType==1)projdi(n)})})}).observe(document.body,{childList:true,subtree:true})}
+if(document.readyState=='loading')document.addEventListener('DOMContentLoaded',start);else start()})();</script>

@@ -1,6 +1,6 @@
 <!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BusinessManager</title>
-{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet">{% include "core/_motiv.html" %}
+{% load static %}<link href="{% static 'vendor/bootstrap.min.css' %}" rel="stylesheet">{% include "core/_motiv.html" %}{% include "core/_soubory.html" %}
 <script src="{% static 'vendor/htmx.min.js' %}"></script>{% block head %}{% endblock %}<script>try{if(localStorage.getItem('bm-nav-mini')=='1')document.documentElement.classList.add('nav-mini')}catch(e){}</script>
 <style>/* WCAG 2.2: kontrast textu aspoň 4,5 : 1 (1.4.3) a klikací prvky aspoň 24 × 24 px (2.5.8) */
 :root:not([data-bs-theme=dark]){--bs-link-color:#0a58ca;--bs-link-color-rgb:10,88,202}

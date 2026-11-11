@@ -5,7 +5,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dev-zmen-v-produkci")
 DEBUG = os.getenv("DEBUG", "1") == "1"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
-    "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "core"]
+    "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "core", "django.forms"]
+# Vlastní šablony formulářových prvků (core/templates/django/forms/...) mají přednost před vestavěnými.
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware", "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware", "core.pruvodce.PrvniSpusteniMiddleware", "django.contrib.auth.middleware.LoginRequiredMiddleware",
