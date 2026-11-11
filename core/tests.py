@@ -1024,3 +1024,36 @@ class PolozkyDokladuBezPridaniTest(TestCase):
             self.assertRedirects(r, reverse("detail", args=[d, self.f.pk]), fetch_redirect_response=False)
             self.assertRedirects(self.client.get(reverse("create", args=[s])), reverse("list", args=[d]), fetch_redirect_response=False)
         self.assertEqual(PolozkaFaktury.objects.count(), 1)
+
+
+class PracePrepinaStavZakazkyTest(TestCase):
+    """Přidáním práce se nová zakázka přepne na Rozpracováno a změna se zapíše do historie; jiné stavy se nemění."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka, TypUkonu
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis", vychozi_dph=Decimal("21"))
+        self.client.force_login(User.objects.create_user("admin", password="x", is_staff=True))
+        self.k = Zakaznik.objects.create(jmeno="Jan"); self.t = TypUkonu.objects.create(nazev="Diagnostika")
+        self.z = Zakazka.objects.create(zakaznik=self.k, stav=StavZakazky.objects.create(nazev="Nová"))
+
+    def pridej_praci(self):
+        self.client.post(reverse("create", args=["provedenyukon"]) + f"?zakazka={self.z.pk}",
+                         {"zakazka": self.z.pk, "typ_ukonu": self.t.pk, "cena": "100", "sazba_dph": "21"})
+        self.z.refresh_from_db()
+
+    def test_nova_zakazka_prejde_na_rozpracovano(self):
+        from .models import HistorieZmen
+        self.pridej_praci(); self.assertEqual(self.z.stav.nazev, "Rozpracováno")
+        h = HistorieZmen.objects.get(typ_objektu="zakazka", id_objektu=self.z.pk, akce="Změna stavu")
+        self.assertEqual((h.puvodni_hodnota, h.nova_hodnota), ("Nová", "Rozpracováno"))
+
+    def test_jiny_stav_se_nemeni(self):
+        from .models import StavZakazky
+        self.z.stav = StavZakazky.objects.create(nazev="Čeká na díl"); self.z.save()
+        self.pridej_praci(); self.assertEqual(self.z.stav.nazev, "Čeká na díl")
+
+    def test_zakazkovy_list_s_praci(self):
+        from .models import Zakazka
+        self.client.post(reverse("zakazka_nova"), {"zakaznik": self.k.pk, "ukon_typ": [self.t.pk], "ukon_cena": ["100"], "ukon_dph": ["21"]})
+        self.assertEqual(Zakazka.objects.latest("pk").stav.nazev, "Rozpracováno")
+        self.client.post(reverse("zakazka_nova"), {"zakaznik": self.k.pk})
+        self.assertEqual(Zakazka.objects.latest("pk").stav.nazev, "Nová")
