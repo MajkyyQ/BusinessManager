@@ -365,13 +365,14 @@ def detail(request, slug, pk):
         s = r.related_model._meta.model_name
         if s in MODELS and s not in DETAIL_BEZ and (r.one_to_many or r.many_to_many):
             rel.append((DETAIL_NAZEV.get(s, r.related_model._meta.verbose_name_plural), s, list(getattr(o, r.get_accessor_name()).all()[:50]),
-                        r.field.name if r.one_to_many else None))
+                        r.field.name if r.one_to_many and s not in BEZ_PRIDANI else None))
     hist = HistorieZmen.objects.filter(typ_objektu=slug, id_objektu=pk)[:30]
     z = getattr(o, "zakazka", None) if slug in SKRYTE_SEZNAMY else None  # práce, materiál, foto… patří k zakázce
     nahradni = reverse("detail", args=["zakazka", z.pk]) if isinstance(z, Zakazka) else _mimo_seznam(request, slug) if slug in SKRYTE_SEZNAMY else reverse("list", args=[slug])
     zaplaceno = o.platba_set.filter(stav="Zaplaceno").order_by("-datum_zaplaceni").first() if slug == "faktura" else None
     return R(request, "detail", slug=slug, M=M, o=o, fields=fields, rel=rel, hist=hist, ro=slug in READONLY, nahradni=nahradni, zaplaceno=zaplaceno)
 DETAIL_BEZ = {"kalendarudalost", "platba"}  # události jsou v Kalendáři; platba faktury se řídí tlačítkem Zaplaceno, platby zakázky jsou na její stránce
+BEZ_PRIDANI = {"polozkafaktury"}  # položky faktury vznikají jen při vystavení faktury ze zakázky, ručně se nepřidávají
 DETAIL_NAZEV = {"polozkafaktury": "Položky faktury", "polozkanabidky": "Položky nabídky"}
 
 def edit(request, slug, pk=None):

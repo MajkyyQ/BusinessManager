@@ -1002,14 +1002,14 @@ class CitelnaHistorieTest(TestCase):
         self.assertEqual(zmena(HistorieZmen(puvodni_hodnota="[poznámka]", nova_hodnota="True")), "[poznámka] → Ano")
 
 
-class PolozkyZaplaceneFakturyTest(TestCase):
-    """Po zaplacení faktury už detail nenabízí „+ přidat“ u položek faktury."""
+class PolozkyFakturyBezPridaniTest(TestCase):
+    """Detail faktury nenabízí „+ přidat“ u položek faktury, ty vznikají jen ze zakázky."""
     def setUp(self):
         self.client.force_login(uzivatel())
         self.f = Faktura.objects.create(zakaznik=Zakaznik.objects.create(firma="Odběratel a.s."))
-        self.odkaz = reverse("create", args=["polozkafaktury"]) + f"?faktura={self.f.pk}"
+        PolozkaFaktury.objects.create(faktura=self.f, popis="Oprava", mnozstvi=Decimal("1"), jednotka="ks", jednotkova_cena=Decimal("100"), sazba_dph=Decimal("21"))
 
-    def test_pridat_jen_u_nezaplacene(self):
-        self.assertContains(self.client.get(reverse("detail", args=["faktura", self.f.pk])), self.odkaz)
-        self.client.post(reverse("faktura_zaplaceno", args=[self.f.pk]))
-        self.assertNotContains(self.client.get(reverse("detail", args=["faktura", self.f.pk])), self.odkaz)
+    def test_bez_tlacitka_pridat(self):
+        r = self.client.get(reverse("detail", args=["faktura", self.f.pk]))
+        self.assertContains(r, "Položky faktury")
+        self.assertNotContains(r, reverse("create", args=["polozkafaktury"]))
