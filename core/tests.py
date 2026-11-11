@@ -1000,3 +1000,16 @@ class CitelnaHistorieTest(TestCase):
         self.assertEqual(zmena(h), "— → SPL92456"); self.assertEqual(pole_nazev(h), "Identifikační číslo")
         self.assertEqual(zmena(HistorieZmen(typ_objektu="zakazka")), "")  # vytvoření: žádná osamocená šipka
         self.assertEqual(zmena(HistorieZmen(puvodni_hodnota="[poznámka]", nova_hodnota="True")), "[poznámka] → Ano")
+
+
+class PolozkyZaplaceneFakturyTest(TestCase):
+    """Po zaplacení faktury už detail nenabízí „+ přidat“ u položek faktury."""
+    def setUp(self):
+        self.client.force_login(uzivatel())
+        self.f = Faktura.objects.create(zakaznik=Zakaznik.objects.create(firma="Odběratel a.s."))
+        self.odkaz = reverse("create", args=["polozkafaktury"]) + f"?faktura={self.f.pk}"
+
+    def test_pridat_jen_u_nezaplacene(self):
+        self.assertContains(self.client.get(reverse("detail", args=["faktura", self.f.pk])), self.odkaz)
+        self.client.post(reverse("faktura_zaplaceno", args=[self.f.pk]))
+        self.assertNotContains(self.client.get(reverse("detail", args=["faktura", self.f.pk])), self.odkaz)
