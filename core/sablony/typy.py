@@ -153,7 +153,7 @@ def _seznamy(zk):
                     "material.cena_s_dph": round(bez * (1 + dph / 100), 2), "material.poznamka": m.poznamka})
     for i, u in enumerate(zk.provedenyukon_set.select_related("typ_ukonu").prefetch_related("zamestnanci"), 1):
         bez = Decimal(u.cena or 0); dph = Decimal(u.sazba_dph or 0); lide = ", ".join(str(e) for e in u.zamestnanci.all())
-        nazev = u.typ_ukonu.nazev + (" – " + u.poznamka.splitlines()[0] if u.poznamka.strip() else "")
+        nazev = u.typ_ukonu.nazev  # interní poznámka k úkonu se do názvu nepropisuje (je jen v poli prace.poznamka)
         pr.append({"prace.poradi": i, "prace.nazev": nazev, "prace.pracovnici": lide, "prace.popis": f"{lide}: {nazev}" if lide else nazev,
                    "prace.poznamka": u.poznamka, "prace.sazba_dph": dph, "prace.cena_bez_dph": bez, "prace.cena_s_dph": round(bez * (1 + dph / 100), 2)})
     return mat, pr

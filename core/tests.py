@@ -245,6 +245,18 @@ class ZamestnanciZakazkyTest(TestCase):
         self.assertIn("Antonín Otras", karta); self.assertIn("práce: Oprava (2×)", karta); self.assertIn("práce: Měření", karta)
         self.assertEqual(karta.count("Antonín Otras"), 1)  # každý jen jednou
 
+class PoznamkaPraceTest(TestCase):
+    """Interní poznámka k úkonu se nepropisuje do zakázkového listu ani do nabídky."""
+    def test_poznamka_neni_v_nazvu(self):
+        from .models import ProvedenyUkon, StavZakazky, TypUkonu, Zakazka
+        from .sablony.typy import _seznamy
+        from .views import nabidka_polozky
+        z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Nová"))
+        ProvedenyUkon.objects.create(zakazka=z, typ_ukonu=TypUkonu.objects.create(nazev="Oprava"), poznamka="Opraveno")
+        _, pr = _seznamy(z)
+        self.assertEqual(pr[0]["prace.nazev"], "Oprava"); self.assertNotIn("Opraveno", pr[0]["prace.popis"])
+        self.assertEqual(nabidka_polozky(z)[0]["popis"], "Oprava")
+
 class OpravneniNastaveniTest(TestCase):
     """Nastavení (včetně šablon dokumentů) vidí jen ten, kdo má oprávnění Nastavení."""
     STRANKY = [("nastaveni", []), ("nastaveni_firma", []), ("nastaveni_zaloha", []), ("list", ["sazbadph"]), ("create", ["zamestnanec"]), ("list", ["historiezmen"])]
