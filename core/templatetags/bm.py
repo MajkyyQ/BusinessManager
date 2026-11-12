@@ -29,3 +29,14 @@ def pole_nazev(h):
     """Záznam historie: název pole česky, jako ve formuláři."""
     from ..historie import pole_nazev as _p
     return _p(h)
+
+
+@register.simple_tag
+def barvy_stavu():
+    """Styly štítků stavů zakázek (.bg-stav-<pk>) podle barev z Nastavení → Stavy zakázek; text černý nebo bílý podle kontrastu."""
+    from django.utils.html import format_html_join
+    from django.utils.safestring import mark_safe
+    from ..models import StavZakazky
+    pravidla = format_html_join("", ".bg-stav-{0}{{background-color:{1}!important;color:{2}!important}}",
+                                ((s.pk, s.barva, s.barva_textu) for s in StavZakazky.objects.only("pk", "barva") if s.barva and s.barva[0] == "#"))
+    return mark_safe(f"<style>{pravidla}</style>")

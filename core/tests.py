@@ -1132,3 +1132,38 @@ class VicePolozekNajednouTest(TestCase):
         self.assertEqual(r.status_code, 302)
         self.assertEqual(sorted((p.material.nazev, p.mnozstvi, p.jednotkova_cena) for p in PouzityMaterial.objects.filter(zakazka=self.z)),
                          [("Kabel", Decimal("2"), Decimal("50")), ("Šroub", Decimal("10"), Decimal("2"))])
+
+
+class BarvaStavuTest(TestCase):
+    """Barvu stavu zakázky si uživatel nastaví v Nastavení → Stavy zakázek; štítky stavu ji pak používají všude."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(uzivatel("u", "Administrátor"))
+        self.s = StavZakazky.objects.create(nazev="Reklamace", poradi=9)
+        self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=self.s)
+
+    def test_vychozi_barvy(self):
+        from .models import StavZakazky
+        self.assertEqual(StavZakazky.objects.get(nazev="Rozpracováno").barva, "#0d6efd")
+        self.assertEqual(self.s.barva, "#0dcaf0")
+
+    def test_zmena_barvy_a_stitky(self):
+        r = self.client.post(reverse("edit", args=["stavzakazky", self.s.pk]), {"nazev": "Reklamace", "poradi": 9, "barva": "#fd7e14", "aktivni": "on"})
+        self.assertEqual(r.status_code, 302); self.s.refresh_from_db(); self.assertEqual(self.s.barva, "#fd7e14")
+        pravidlo = f".bg-stav-{self.s.pk}{{background-color:#fd7e14!important;color:#212529!important}}"
+        for url in (reverse("plocha", args=[self.z.pk]), reverse("list", args=["zakazka"]) + "?v=kan", reverse("list", args=["zakazka"]) + "?v=tab", reverse("zarizeni_prehled")):
+            html = self.client.get(url).content.decode()
+            self.assertIn(pravidlo, html, url)
+        self.assertIn(f"bg-stav-{self.s.pk}", self.client.get(reverse("plocha", args=[self.z.pk])).content.decode())
+        self.assertIn('type="color"', self.client.get(reverse("edit", args=["stavzakazky", self.s.pk])).content.decode())
+
+    def test_neplatna_barva(self):
+        r = self.client.post(reverse("edit", args=["stavzakazky", self.s.pk]), {"nazev": "Reklamace", "poradi": 9, "barva": "oranžová", "aktivni": "on"})
+        self.assertEqual(r.status_code, 200); self.s.refresh_from_db(); self.assertEqual(self.s.barva, "#0dcaf0")
+
+    def test_kontrast_textu(self):
+        from .models import StavZakazky
+        self.assertEqual(StavZakazky(barva="#ffc107").barva_textu, "#212529")
+        self.assertEqual(StavZakazky(barva="#212529").barva_textu, "#fff")
+        self.assertEqual(StavZakazky(barva="#0d6efd").barva_textu, "#fff"); self.assertEqual(StavZakazky(barva="#198754").barva_textu, "#fff")

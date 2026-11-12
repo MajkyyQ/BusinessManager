@@ -86,10 +86,25 @@ class Zarizeni(models.Model):
     zakaznik = models.ForeignKey(Zakaznik, on_delete=models.PROTECT)
     vyrobce = C(100); typ = C(100); seriove_cislo = C(100, db_index=True); popis = T(); aktivni = A(); datum_vytvoreni = DV()
     def __str__(self): return f"{self.vyrobce} {self.typ} {self.seriove_cislo}".strip()
+validuj_barvu = RegexValidator(r"^#[0-9a-fA-F]{6}$", "Barvu zadejte jako #RRGGBB, např. #fd7e14.")
+# Výchozí barvy stavů (barvy Bootstrapu, které stavy měly dřív napevno); nový vlastní stav dostane modrozelenou (info)
+BARVY_STAVU = {"Nová": "#6c757d", "Rozpracováno": "#0d6efd", "Čeká na schválení": "#ffc107", "Čeká na díl": "#ffc107", "Opraveno": "#198754",
+               "Připraveno k vyzvednutí": "#198754", "Vydáno": "#212529", "Zrušeno": "#dc3545"}
+BARVA_STAVU_VYCHOZI = "#0dcaf0"
 class StavZakazky(models.Model):
     class Meta: verbose_name = "stav zakázky"; verbose_name_plural = "Stavy zakázek"; ordering = ["poradi"]
     nazev = models.CharField(max_length=100); popis = T(); aktivni = A(); poradi = models.IntegerField(default=0); datum_vytvoreni = DV()
+    barva = models.CharField("barva", max_length=7, default=BARVA_STAVU_VYCHOZI, validators=[validuj_barvu],
+                             help_text="Barva štítku stavu v přehledech, kanbanu a na pracovní ploše zakázky.")
     def __str__(self): return self.nazev
+    @property
+    def barva_textu(self):
+        """Bílý nebo tmavý text podle světlosti barvy, aby byl štítek čitelný (WCAG kontrast)."""
+        try: r, g, b = (int(self.barva[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        except (TypeError, ValueError): return "#fff"
+        l = lambda c: c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+        y = 0.2126 * l(r) + 0.7152 * l(g) + 0.0722 * l(b)
+        return "#fff" if y < 0.2 else "#212529"  # bílá, dokud má kontrast zhruba 4,5 : 1 (jako Bootstrap u modré a zelené)
 class Zamestnanec(models.Model):
     class Meta: verbose_name = "zaměstnanec"; verbose_name_plural = "Zaměstnanci"
     jmeno = C(100); prijmeni = C(100); telefon = TEL(); email = models.EmailField(blank=True); pracovni_pozice = C(100); aktivni = A()

@@ -209,6 +209,7 @@ class BaseForm(forms.ModelForm):
             w = f.widget; c = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
             w.attrs["class"] = c
             if isinstance(w, forms.Textarea): w.attrs["rows"] = 3
+            if n == "barva": w.input_type = "color"; w.attrs["class"] = "form-control form-control-color"; w.attrs["title"] = "Vyberte barvu"
             if n == "telefon": w.attrs.setdefault("placeholder", TEL_PRIKLAD)
     def _post_clean(self):
         for n in ("telefon",):  # telefon se ukládá jednotně po trojicích (604 851 237)
@@ -253,6 +254,8 @@ def log(request, obj, akce, pole="", old="", new="", popis_z=None):
 def val(o, f):
     if f.choices: return o._get_FIELD_display(f) or "–"
     v = getattr(o, f.name)
+    if isinstance(o, StavZakazky) and f.name == "barva":  # ukázka barvy místo kódu #RRGGBB
+        return mark_safe(f'<span class="badge bg-stav-{o.pk}">{escape(o.nazev)}</span> <small class="text-muted">{escape(v)}</small>')
     return "–" if v in (None, "") else "✓" if v is True else "✗" if v is False else v
 
 # ---------- Společné části seznamů (jednotné rozložení) ----------
@@ -302,7 +305,7 @@ def lst(request, slug):
         st = request.GET.get("st", "")
         stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True))
         cnt = dict(qs.order_by().values("stav__nazev").annotate(n=Count("pk")).values_list("stav__nazev", "n"))
-        chips = _chips(request, "st", [(s, s, cnt.get(s, 0), STAV_CSS.get(s, "light")) for s in stavy], st, sum(cnt.values()))
+        css = stav_css(); chips = _chips(request, "st", [(s, s, cnt.get(s, 0), css.get(s, "light")) for s in stavy], st, sum(cnt.values()))
         if st: flt["st"] = st; qs = qs.filter(stav__nazev=st)
         o = request.GET.get("o", "-cislo"); key = o.lstrip("-") if o.lstrip("-") in ZAK_RAZENI else "cislo"; desc = o.startswith("-"); o = ("-" if desc else "") + key
         pole = models.F(ZAK_RAZENI[key]); qs = qs.select_related("zakaznik", "stav").order_by(pole.desc(nulls_last=True) if desc else pole.asc(nulls_last=True), "-pk")
@@ -316,7 +319,7 @@ def lst(request, slug):
     if slug == "zakazka" and pohled == "kan":  # kanban zakázek: sloupec = stav, karty bez stránkování
         zz = list(qs.prefetch_related("zarizeni")[:KANBAN_MAX]); sl = [st] if st else stavy
         # uzavřené stavy (Vydáno, Zrušeno) jsou ve výchozím kanbanu sbalené jen na počet; rozbalí se kliknutím na stav
-        sloupce = [dict(s=s, css=STAV_CSS.get(s, "light"), items=[z for z in zz if z.stav and z.stav.nazev == s], sbaleno=not st and s in CLOSED, url=_url(request, st=s)) for s in sl]
+        sloupce = [dict(s=s, css=css.get(s, "light"), items=[z for z in zz if z.stav and z.stav.nazev == s], sbaleno=not st and s in CLOSED, url=_url(request, st=s)) for s in sl]
         if not st and any(not z.stav for z in zz): sloupce.append(dict(s="Bez stavu", css="light", items=[z for z in zz if not z.stav], sbaleno=False, url=""))
     if slug == "platba": qs = qs.select_related("faktura", "zakazka").order_by("-pk")
     if slug == "opravneni": qs = qs.prefetch_related("role_set").order_by("pk")
@@ -341,7 +344,7 @@ def lst(request, slug):
         sirka = {"Číslo zakázky": 13, "Zákazník": 23, "Stav": 18, "Datum přijetí": 15, "Datum vydání": 15, "Identifikační číslo": 16}  # pevné šířky: tabulka se po filtru nepřeskupí
         heads = [dict(l=x, w=sirka[x], ord=sk.get(x) and ("" if desc or sk[x] != key else "-") + sk[x], ar=(("▼" if desc else "▲") if sk.get(x) == key else ("↕" if x in sk else "")))
                  for x in sirka]
-        rows = [(o, [o.cislo_zakazky, o.zakaznik, o.stav or "–", _dt(o.datum_prijeti), _dt(o.datum_vydani), o.identifikacni_cislo or "–"], None) for o in page]
+        rows = [(o, [o.cislo_zakazky, o.zakaznik, mark_safe(f'<span class="badge bg-stav-{o.stav_id}">{escape(o.stav)}</span>') if o.stav else "–", _dt(o.datum_prijeti), _dt(o.datum_vydani), o.identifikacni_cislo or "–"], None) for o in page]
     else:
         cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
         heads = [dict(l=capfirst(c.verbose_name)) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
@@ -615,7 +618,7 @@ ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])
     "opravneni": ("Oprávnění je konkrétní akce, kterou může role povolit (např. vystavení faktury). Seznam oprávnění určuje aplikace, přiřazují se rolím.",
                  [("Oprávnění", [("kod", 6), ("nazev", 6), ("popis", 12)])]),
     "stavzakazky": ("Stavy, kterými zakázka prochází. Pořadí určuje, jak jdou stavy za sebou v přehledech.",
-                 [("Stav zakázky", [("nazev", 6), ("poradi", 3), ("popis", 12), ("aktivni", 12)])]),
+                 [("Stav zakázky", [("nazev", 6), ("poradi", 3), ("barva", 3), ("popis", 12), ("aktivni", 12)])]),
     "typukonu": ("Typy prací, ze kterých se vybírá při zápisu práce na zakázce.", [("Typ úkonu", [("nazev", 6), ("popis", 12), ("aktivni", 12)])]),
     "material": ("Katalog materiálu. Poslední cena se nabídne při přidání materiálu na zakázku.",
                  [("Materiál", [("nazev", 6), ("jednotka", 3), ("posledni_cena", 3), ("aktivni", 12)])]),
@@ -1056,7 +1059,7 @@ def zarizeni_prehled(request):
                            | Q(zakaznik__jmeno__icontains=w) | Q(zakaznik__telefon__icontains=w) | Q(zakazka__cislo_zakazky__icontains=w))
         qs = qs.distinct()
     hist = dict(HistorieZmen.objects.filter(typ_objektu="zarizeni").values_list("id_objektu").annotate(m=models.Max("datum")).values_list("id_objektu", "m"))
-    rows = []; pocty = {}; celkem = 0
+    rows = []; pocty = {}; celkem = 0; css = stav_css()
     for d in qs:
         z = d.zz[0] if d.zz else None; st = z.stav.nazev if z and z.stav else ""; otevrena = bool(z) and st not in CLOSED
         if not {"firma": otevrena, "oprava": st in ("Rozpracováno", "Opraveno"), "dil": st == "Čeká na díl", "zakaznik": bool(z) and not otevrena, "bez": not z}.get(f, True): continue
@@ -1064,7 +1067,7 @@ def zarizeni_prehled(request):
         if (fi == "ano" and not otevrena) or (fi == "ne" and otevrena): continue
         pocty[stav] = pocty.get(stav, 0) + 1; celkem += 1  # počty pro rychlý filtr stavu se berou před filtrem stavu
         if fs and stav != fs: continue
-        rows.append(dict(d=d, z=z, stav=stav, css=STAV_CSS.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
+        rows.append(dict(d=d, z=z, stav=stav, css=css.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
                          prijeti=z.datum_prijeti if z else None, akce=_zar_posledni_akce(d, hist)))
     far = timezone.make_aware(datetime(1900, 1, 1))
     sk = {"zarizeni": lambda r: f"{r['d'].vyrobce} {r['d'].typ}".lower(), "zakaznik": lambda r: str(r["d"].zakaznik).lower(), "telefon": lambda r: r["d"].zakaznik.telefon or "",
@@ -1073,7 +1076,7 @@ def zarizeni_prehled(request):
     sirka = {"zarizeni": 22, "zakaznik": 17, "telefon": 11, "stav": 20, "prijeti": 11, "akce": 12}  # pevné šířky sloupců (zbytek: Zakázek)
     heads = [(k, l, ("" if desc or k != key else "-") + k, ("▼" if desc else "▲") if k == key else "", sirka[k]) for k, l in ZAR_RAZENI.items()]
     stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True)) + ["Bez zakázky"]
-    chips = _chips(request, "st", [(s, s, pocty.get(s, 0), STAV_CSS.get(s, "light")) for s in stavy], fs, celkem)
+    chips = _chips(request, "st", [(s, s, pocty.get(s, 0), css.get(s, "light")) for s in stavy], fs, celkem)
     keep = urlencode({k: x for k, x in (("q", q), ("f", f), ("st", fs), ("fi", fi)) if x})
     pohled, pohledy = _pohled(request, "zarizeni")
     return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtry=ZAR_FILTRY, fs=fs, fi=fi, keep=keep,
@@ -1083,7 +1086,7 @@ def zarizeni_detail(request, pk):
     zak = list(d.zakazka_set.select_related("stav").prefetch_related("zamestnanci", Prefetch("provedenyukon_set", queryset=ProvedenyUkon.objects.select_related("typ_ukonu").prefetch_related("zamestnanci")),
                Prefetch("pouzitymaterial_set", queryset=PouzityMaterial.objects.select_related("material")), "zakazkakontakt_set__kontakt").order_by("-datum_prijeti", "-datum_vytvoreni"))
     for z in zak:
-        z.css = STAV_CSS.get(z.stav.nazev if z.stav else "", "info text-dark"); z.otevrena = not (z.stav and z.stav.nazev in CLOSED)
+        z.css = f"stav-{z.stav.pk}" if z.stav else "light text-dark border"; z.otevrena = not (z.stav and z.stav.nazev in CLOSED)
         z.cena_prace = sum((u.cena or 0) for u in z.provedenyukon_set.all())
         z.cena_mat = sum((m.jednotkova_cena or 0) * m.mnozstvi for m in z.pouzitymaterial_set.all())
     akt = next((z for z in zak if z.otevrena), None)
@@ -1101,15 +1104,16 @@ ACTIONS = {"zahajit": ("Zahájit práci", "Rozpracováno", "primary"), "cekat_sc
            "otevrit": ("Znovu otevřít", "Rozpracováno", "outline-secondary"), "obnovit": ("Obnovit zakázku", "Nová", "outline-secondary")}
 FLOW = {"Nová": ["zahajit", "cekat_schv", "cekat_dil", "zrusit"], "Rozpracováno": ["dokoncit", "cekat_dil", "cekat_schv", "zrusit"], "Čeká na schválení": ["zahajit", "zrusit"],
         "Čeká na díl": ["zahajit", "zrusit"], "Opraveno": ["pripravit", "zahajit"], "Připraveno k vyzvednutí": ["vydat", "zahajit"], "Vydáno": ["otevrit"], "Zrušeno": ["obnovit"]}
-STAV_CSS = {"Nová": "secondary", "Rozpracováno": "primary", "Čeká na schválení": "warning text-dark", "Čeká na díl": "warning text-dark", "Opraveno": "success",
-            "Připraveno k vyzvednutí": "success", "Vydáno": "dark", "Zrušeno": "danger"}
+def stav_css():
+    """Třída štítku pro každý stav: bg-stav-<pk>. Barvu určuje uživatel v Nastavení → Stavy zakázek (styly vypisuje {% barvy_stavu %} v base.html)."""
+    return {s.nazev: f"stav-{s.pk}" for s in StavZakazky.objects.order_by("aktivni", "-poradi", "-pk")}  # při shodném názvu vyhrává aktivní stav
 def stav_by_name(n): return StavZakazky.objects.filter(nazev=n).first() or StavZakazky.objects.create(nazev=n, poradi=99)
 def can_set_stav(user): return P.ma(user, P.STAV)
 def stav_ctx(request, z):
     n = z.stav.nazev if z.stav else ""; akce = []
     for k in FLOW.get(n, ["zahajit", "zrusit"]):
         l, _, s = ACTIONS[k]; akce.append((k, {("Čeká na schválení", "zahajit"): "Schváleno – zahájit práci", ("Čeká na díl", "zahajit"): "Díl dorazil – zahájit práci"}.get((n, k), l), s))
-    return dict(akce=akce, moze_stav=can_set_stav(request.user), stavy=StavZakazky.objects.filter(aktivni=True), stav_css=STAV_CSS.get(n, "info text-dark"))
+    return dict(akce=akce, moze_stav=can_set_stav(request.user), stavy=StavZakazky.objects.filter(aktivni=True), stav_css=f"stav-{z.stav.pk}" if z.stav else "light text-dark border")
 def prace_pridana(request, z):
     """Přidáním práce se na zakázce začalo pracovat: nová zakázka přejde do stavu Rozpracováno (změna se zapíše do historie). Jiné stavy se nemění."""
     if z and z.stav and z.stav.nazev == "Nová": set_stav(request, z, "Rozpracováno")

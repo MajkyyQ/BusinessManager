@@ -1,12 +1,12 @@
 from django.apps import AppConfig
 from django.db.models.signals import post_migrate
 def seed(sender, **k):
-    from .models import StavZakazky, SazbaDPH
+    from .models import StavZakazky, SazbaDPH, BARVY_STAVU
     from .models import Opravneni
     for old, new in (("V opravě", "Rozpracováno"), ("Hotová", "Opraveno"), ("Připravena k vyzvednutí", "Připraveno k vyzvednutí"), ("Vydaná", "Vydáno"), ("Zrušená", "Zrušeno")):
         if StavZakazky.objects.filter(nazev=old).exists() and not StavZakazky.objects.filter(nazev=new).exists(): StavZakazky.objects.filter(nazev=old).update(nazev=new)  # převod starých výchozích názvů
     for i, n in enumerate(["Nová", "Rozpracováno", "Čeká na schválení", "Čeká na díl", "Opraveno", "Připraveno k vyzvednutí", "Vydáno", "Zrušeno"]):
-        StavZakazky.objects.get_or_create(nazev=n, defaults={"poradi": i})
+        StavZakazky.objects.get_or_create(nazev=n, defaults={"poradi": i, "barva": BARVY_STAVU[n]})
     from .prava import PRAVA
     for kod, nazev, popis in PRAVA:  # oprávnění, která aplikace kontroluje (core/prava.py); výchozí role zakládá migrace 0018
         Opravneni.objects.get_or_create(kod=kod, defaults={"nazev": nazev, "popis": popis})
