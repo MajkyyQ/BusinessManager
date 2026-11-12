@@ -755,6 +755,12 @@ class NabidkaForm(forms.Form):
         super().__init__(*a, **k)
         self.fields["zakazka"].widget.attrs.update({"class": "form-select", "hx-get": reverse("nabidka_nahled"), "hx-target": "#nahled", "hx-trigger": "change"})
 
+def nahled_noveho(request, typ, pk):
+    """Po vytvoření dokladu rovnou jeho náhled; `nove=1` místo tlačítka Zpět nabídne Pokračovat (doklad už existuje)."""
+    q = {"nove": 1}; nx = safe_next(request)
+    if nx: q["next"] = nx
+    return reverse("dokument", args=[typ, pk]) + "?" + urlencode(q)
+
 def nabidka_nova(request):
     z0 = Zakazka.objects.filter(pk=request.GET.get("zakazka") or 0).first()
     form = NabidkaForm(request.POST or None, initial={"zakazka": z0, "datum": timezone.localtime().strftime("%Y-%m-%dT%H:%M")})
@@ -769,7 +775,7 @@ def nabidka_nova(request):
             log(request, n, "Vytvoření", popis_z=z)
         if z.stav and z.stav.nazev == "Nová": set_stav(request, z, "Čeká na schválení")  # nabídka čeká na schválení zákazníkem
         messages.success(request, f"Nabídka {n.cislo_nabidky} vytvořena ze zakázky {z.cislo_zakazky}.")
-        nx = safe_next(request); return redirect(reverse("dokument", args=["nabidka", n.pk]) + ("?" + urlencode({"next": nx}) if nx else ""))  # rovnou náhled dokumentu
+        return redirect(nahled_noveho(request, "nabidka", n.pk))
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "nabidka_nova", sec="dokumenty", form=form, nahled=nahled_ctx(z) if z else None)
 
@@ -804,7 +810,7 @@ def faktura_nova(request):
             f.refresh_from_db(); Platba.objects.create(faktura=f, zakazka=z, stav="Čeká na zaplacení", castka=f.cena_s_dph)  # vystavená faktura čeká na zaplacení
             log(request, f, "Vytvoření", popis_z=z)
         messages.success(request, f"Faktura {f.cislo_faktury} vytvořena ze zakázky {z.cislo_zakazky}.")
-        nx = safe_next(request); return redirect(reverse("dokument", args=["faktura", f.pk]) + ("?" + urlencode({"next": nx}) if nx else ""))  # rovnou náhled dokumentu
+        return redirect(nahled_noveho(request, "faktura", f.pk))
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "faktura_nova", sec="dokumenty", form=form, nahled=dict(nahled_ctx(z), doklad="faktura") if z else None)
 
