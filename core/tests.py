@@ -1227,3 +1227,52 @@ class NovaRoleVeFormulariZamestnanceTest(TestCase):
         self.client.force_login(uzivatel("u"))
         r = self.client.post(reverse("lookup_new", args=["role"]), {"nazev": "Šéf", "je_administrator": "on"})
         self.assertIn(r.status_code, (302, 403)); self.assertFalse(Role.objects.filter(nazev="Šéf").exists())
+
+
+class PrvniNastaveniTest(TestCase):
+    """Nastavení → První nastavení: kroky pro administrátora po prvním spuštění a upozornění na pracovní ploše."""
+    def setUp(self):
+        from .pruvodce import PrvniSpusteniMiddleware
+        PrvniSpusteniMiddleware.hotovo = False
+        NastaveniFirmy.objects.all().delete()
+
+    def _pruvodce(self):
+        self.client.post(reverse("pruvodce_ucet"), {"username": "sef", "first_name": "Jan", "last_name": "Novák", "email": "",
+                                                    "password1": "Tajne-heslo-123", "password2": "Tajne-heslo-123"})
+        self.client.post(reverse("pruvodce_firma"), {"nazev_firmy": "Servis Novák"})
+        return User.objects.get(username="sef")
+
+    def test_pruvodce_zalozi_kartu_administratora(self):
+        from .models import Zamestnanec
+        u = self._pruvodce(); z = Zamestnanec.objects.get(uzivatel=u)
+        self.assertEqual((z.jmeno, z.prijmeni), ("Jan", "Novák")); self.assertTrue(z.role.filter(nazev="Administrátor").exists())
+
+    def test_kroky_a_upozorneni(self):
+        from .models import TypUkonu
+        self._pruvodce()
+        r = self.client.get(reverse("nastaveni"))
+        for t in ("První nastavení aplikace", "0 z 4 povinných kroků", "Typy úkonů", "Číslování dokladů"): self.assertContains(r, t)
+        self.assertContains(self.client.get("/"), "Dokončete první nastavení")
+        TypUkonu.objects.create(nazev="Diagnostika"); f = NastaveniFirmy.objects.get()
+        f.ico, f.adresa, f.cislo_uctu = "12345678", "Hlavní 1, Praha", "123456789/0100"; f.save()
+        self.client.post(reverse("create", args=["zamestnanec"]), {"jmeno": "Petr", "prijmeni": "Dvořák", "role": [], "ucet_aktivni": "on",
+                                                                    "ucet_jmeno": "petr", "ucet_heslo": "Tajne-heslo-456", "ucet_heslo2": "Tajne-heslo-456"})
+        self.assertContains(self.client.get(reverse("nastaveni")), "3 z 4 povinných kroků")  # role Zaměstnanec se za úpravu rolí nepočítá
+        from .models import Role, Zamestnanec
+        Zamestnanec.objects.get(jmeno="Petr").role.add(Role.objects.get(nazev="Technik"))
+        self.assertContains(self.client.get(reverse("nastaveni")), "4 z 4 povinných kroků")
+        self.assertNotContains(self.client.get("/"), "Dokončete první nastavení")
+
+    def test_skryti_upozorneni(self):
+        self._pruvodce()
+        self.assertRedirects(self.client.post(reverse("nastaveni_prvni") + "?next=/", {"skryt": "1"}), "/", fetch_redirect_response=False)
+        self.assertTrue(NastaveniFirmy.objects.get().prvni_nastaveni_skryto)
+        self.assertNotContains(self.client.get("/"), "Dokončete první nastavení")
+        self.assertContains(self.client.get(reverse("nastaveni")), "Znovu zobrazit upozornění")
+
+    def test_zamestnanec_upozorneni_nevidi(self):
+        self._pruvodce(); self.client.logout()
+        self.client.force_login(uzivatel("t", role="Technik"))
+        self.assertNotContains(self.client.get("/"), "Dokončete první nastavení")
+        self.assertRedirects(self.client.post(reverse("nastaveni_prvni"), {"skryt": "1"}), reverse("dashboard"), fetch_redirect_response=False)
+        self.assertFalse(NastaveniFirmy.objects.get().prvni_nastaveni_skryto)

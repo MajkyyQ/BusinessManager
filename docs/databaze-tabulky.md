@@ -115,6 +115,7 @@ Tabulka `core_stavzakazky` – stav zakázky.
 | `aktivni` | logická hodnota | ano | aktivní (výchozí ano) |
 | `poradi` | celé číslo | ano |  (výchozí 0) |
 | `datum_vytvoreni` | datum a čas | ne | datum vytvoření |
+| `barva` | text (7) | ano | Barva štítku stavu v přehledech, kanbanu a na pracovní ploše zakázky. (výchozí #0dcaf0) |
 
 ## Zamestnanec
 
@@ -501,6 +502,7 @@ Tabulka `core_nastavenifirmy` – nastavení firmy.
 | `datum_upravy` | datum a čas | ne |  |
 | `vytvoril_id` | FK → auth_user (SET_NULL) | ne | vytvořil |
 | `datum_vytvoreni` | datum a čas | ne | datum vytvoření |
+| `prvni_nastaveni_skryto` | logická hodnota | ano | první nastavení skryto (výchozí ne) |
 
 **Integritní omezení:**
 

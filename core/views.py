@@ -29,7 +29,7 @@ from django.urls import reverse
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada, Role, Opravneni)
-from . import cislovani
+from . import cislovani, prvni_nastaveni
 from .historie import hodnota_text
 from .models import formatuj_telefon, TEL_PRIKLAD
 from .navigace import zpet as zpet_url
@@ -681,7 +681,9 @@ def plocha_home(request):
         res = Zakazka.objects.select_related("zakaznik", "stav").filter(Q(cislo_zakazky__icontains=q) | Q(zakaznik__firma__icontains=q) | Q(zakaznik__jmeno__icontains=q)
             | Q(popis_zavady__icontains=q) | Q(zarizeni__seriove_cislo__icontains=q) | Q(zarizeni__typ__icontains=q)).distinct().order_by("-datum_vytvoreni")[:30]
     ids = request.session.get("recent", []); by = Zakazka.objects.select_related("zakaznik", "stav").in_bulk(ids)
-    return R(request, "plocha_home", sec="plocha", q=q, res=res, recent=[by[i] for i in ids if i in by],
+    prvni = prvni_nastaveni.souhrn(request.user) if je_admin(request.user) else None  # upozornění jen pro administrátora, dokud nejsou povinné kroky hotové
+    if prvni and (prvni["vse"] or prvni["skryto"]): prvni = None
+    return R(request, "plocha_home", sec="plocha", q=q, res=res, recent=[by[i] for i in ids if i in by], prvni=prvni,
         otevrene=Zakazka.objects.exclude(stav__nazev__in=CLOSED).select_related("zakaznik", "stav").order_by("-datum_vytvoreni")[:15],
         dnes=KalendarUdalost.objects.filter(datum__date=timezone.localdate()).order_by("datum"))
 
@@ -976,7 +978,15 @@ def nastaveni(request):
           "Jak vypadají čísla zakázkových listů, nabídek a faktur. Změnit je můžete kdykoli, vystavené doklady si čísla nechají."),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
-    return R(request, "nastaveni", sec="nastaveni", groups=g)
+    return R(request, "nastaveni", sec="nastaveni", groups=g, prvni=prvni_nastaveni.souhrn(request.user))
+def nastaveni_prvni(request):
+    """Skrýt / znovu zobrazit upozornění „Dokončete první nastavení“ na pracovní ploše."""
+    if not jen_admin_ok(request): return redirect("dashboard")
+    if request.method == "POST":
+        f = NastaveniFirmy.objects.first()
+        if f: f.prvni_nastaveni_skryto = request.POST.get("skryt") == "1"; f.save(update_fields=["prvni_nastaveni_skryto"])
+        if f and f.prvni_nastaveni_skryto: messages.info(request, "Upozornění na pracovní ploše je skryté. Seznam kroků najdete kdykoli v Nastavení → První nastavení.")
+    return redirect(safe_next(request) or reverse("nastaveni") + "#prvni-nastaveni")
 def nastaveni_firma(request):
     if not jen_admin_ok(request): return redirect("dashboard")
     o = NastaveniFirmy.objects.first() or NastaveniFirmy.objects.create(nazev_firmy="Moje firma")

@@ -1,0 +1,4 @@
+{# Seznam kroků prvního nastavení (core/prvni_nastaveni.py); proměnná prvni = souhrn() #}
+<ol class="bm-prvni">{% for k in prvni.povinne %}<li class="bm-prvni-krok">{% include "core/_prvni_krok.html" %}</li>{% endfor %}</ol>
+<h6 class="mt-3 mb-1">Volitelné – podle potřeby</h6>
+<ul class="bm-prvni">{% for k in prvni.volitelne %}<li class="bm-prvni-krok">{% include "core/_prvni_krok.html" %}</li>{% endfor %}</ul>

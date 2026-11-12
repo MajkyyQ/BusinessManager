@@ -339,6 +339,8 @@ class NastaveniFirmy(models.Model):
     # kdo a kdy firmu založil v průvodci prvním spuštěním (u starších instalací prázdné)
     vytvoril = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, editable=False, related_name="+", verbose_name="vytvořil")
     datum_vytvoreni = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="datum vytvoření")
+    # administrátor skryl upozornění „Dokončete první nastavení“ na pracovní ploše (core/prvni_nastaveni.py)
+    prvni_nastaveni_skryto = models.BooleanField(default=False, editable=False, verbose_name="první nastavení skryto")
     def __str__(self): return self.nazev_firmy or "Nastavení"
 def _den(d):
     """Datum dokladu jako date (pole může být datetime, text z formuláře nebo prázdné)."""

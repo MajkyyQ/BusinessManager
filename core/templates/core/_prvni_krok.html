@@ -1,0 +1,2 @@
+<div><strong>{{ k.nazev }}</strong>{% if k.hotovo %} <span class="badge text-bg-success">✓ hotovo</span>{% elif k.hotovo is False and k.povinny %} <span class="badge text-bg-warning">zbývá</span>{% endif %}</div>
+<div class="small text-muted">{{ k.popis }}</div><a class="small" href="{{ k.url }}">{{ k.odkaz }} →</a>

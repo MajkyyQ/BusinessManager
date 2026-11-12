@@ -23,10 +23,12 @@ BusinessManager je webová aplikace pro malou servisní firmu: eviduje zákazní
 | [Přehled tabulek a sloupců](databaze-tabulky.md) | úplný seznam sloupců, datových typů a integritních omezení (generuje se z modelů) |
 | [8. Šablony dokumentů, PDF a ISDOC](08-sablony-dokumentu.md) | Excelové a HTML šablony, značky, editor šablon, převod do PDF, export a import ISDOC |
 | [9. Vývoj a testování](09-vyvoj-a-testovani.md) | spuštění pro vývoj, proměnné prostředí, automatické testy, úprava databáze |
+| [10. První nastavení po instalaci](10-prvni-nastaveni.md) | co musí administrátor nastavit po prvním spuštění: údaje o firmě, role, zaměstnanci, typy úkonů a volitelné kroky |
 
 ## Rychlá orientace
 
 - **Chci aplikaci nainstalovat:** [README](../README.md#rychlá-instalace-windows), potom [INSTALACE.md](../INSTALACE.md).
+- **Mám nainstalováno, co dál?** [První nastavení po instalaci](10-prvni-nastaveni.md): firma, role, zaměstnanci, typy úkonů.
 - **Chci vědět, co aplikace umí:** [Popis aplikace](01-popis-aplikace.md) a [Funkce aplikace](02-funkce.md).
 - **Chci si udělat vlastní šablonu faktury:** [Šablony dokumentů](08-sablony-dokumentu.md); seznam značek je i přímo v aplikaci (Dokumenty → Šablony dokumentů → Značky pro vlastní šablony).
 - **Chci upravit kód:** [Architektura](04-architektura.md), [Struktura projektu](05-struktura-projektu.md), [Databáze](07-databaze.md) a [Vývoj a testování](09-vyvoj-a-testovani.md).
