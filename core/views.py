@@ -413,6 +413,7 @@ def edit(request, slug, pk=None):
         exclude.append("aktivni")  # nový záznam je vždy aktivní; deaktivovat smí jen ten, kdo má oprávnění Mazání a deaktivace
     Form = modelform_factory(M, form=ZamestnanecForm if slug == "zamestnanec" else ZakaznikForm if slug == "zakaznik" else BaseForm, fields="__all__", formfield_callback=cb, exclude=exclude)
     init = {} if o else request.GET.dict()
+    if slug == "stavzakazky" and not o: init.setdefault("poradi", StavZakazky.dalsi_poradi())  # nový stav jako další v řadě (lze přepsat)
     if slug == "platba" and not o: init.update(zakazka=zak.pk, zpusob=init.get("zpusob", "Hotově"), datum_zaplaceni=timezone.localtime().strftime("%Y-%m-%dT%H:%M"))
     form = Form(request.POST or None, request.FILES or None, instance=o, initial=init or None)
     dalsi = None  # další práce / materiál vyplněné ve stejném formuláři (tlačítko Přidat), každá kopie má vlastní prefix d<číslo>
@@ -617,7 +618,8 @@ ROZVRH = {  # slug -> (úvodní text, [(nadpis sekce, [(pole, šířka 1–12)])
                  [("Role", [("nazev", 6), ("popis", 12), ("opravneni", 12)]), ("Nastavení", [("je_administrator", 12), ("aktivni", 12)])]),
     "opravneni": ("Oprávnění je konkrétní akce, kterou může role povolit (např. vystavení faktury). Seznam oprávnění určuje aplikace, přiřazují se rolím.",
                  [("Oprávnění", [("kod", 6), ("nazev", 6), ("popis", 12)])]),
-    "stavzakazky": ("Stavy, kterými zakázka prochází. Pořadí určuje, jak jdou stavy za sebou v přehledech.",
+    "stavzakazky": ("Stavy, kterými zakázka prochází. Pořadí určuje, jak jdou stavy za sebou v přehledech. Nový stav se zařadí na konec; "
+                    "zvolíte-li obsazené pořadí, ostatní stavy se posunou.",
                  [("Stav zakázky", [("nazev", 6), ("poradi", 3), ("barva", 3), ("popis", 12), ("aktivni", 12)])]),
     "typukonu": ("Typy prací, ze kterých se vybírá při zápisu práce na zakázce.", [("Typ úkonu", [("nazev", 6), ("popis", 12), ("aktivni", 12)])]),
     "material": ("Katalog materiálu. Poslední cena se nabídne při přidání materiálu na zakázku.",

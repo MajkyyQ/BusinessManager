@@ -97,6 +97,24 @@ class StavZakazky(models.Model):
     barva = models.CharField("barva", max_length=7, default=BARVA_STAVU_VYCHOZI, validators=[validuj_barvu],
                              help_text="Barva štítku stavu v přehledech, kanbanu a na pracovní ploše zakázky.")
     def __str__(self): return self.nazev
+    def save(self, *a, **k):
+        """Pořadí bez kolizí: když zvolené místo už má jiný stav, ostatní stavy se posunou (nový stav na 4. místo odsune 4, 5, 6… o jedno dál;
+        přesun existujícího stavu z 2. na 5. místo posune 3–5 o jedno zpět). Vlastní číslování s mezerami (10, 20, 30) zůstane, dokud se čísla nestřetnou."""
+        from django.db import transaction
+        with transaction.atomic():
+            ostatni = StavZakazky.objects.exclude(pk=self.pk) if self.pk else StavZakazky.objects.all()
+            novy = self.poradi; stary = StavZakazky.objects.filter(pk=self.pk).values_list("poradi", flat=True).first() if self.pk else None
+            if novy is not None and ostatni.filter(poradi=novy).exists():
+                if stary is not None and stary != novy and not ostatni.filter(poradi=stary).exists():  # přesun v řadě: místo po stavu se zaplní
+                    if stary < novy: ostatni.filter(poradi__gt=stary, poradi__lte=novy).update(poradi=models.F("poradi") - 1)
+                    else: ostatni.filter(poradi__gte=novy, poradi__lt=stary).update(poradi=models.F("poradi") + 1)
+                else: ostatni.filter(poradi__gte=novy).update(poradi=models.F("poradi") + 1)
+            super().save(*a, **k)
+    @classmethod
+    def dalsi_poradi(cls):
+        """Pořadí pro nový stav: další číslo za posledním stavem (0–7 → 8)."""
+        m = cls.objects.aggregate(m=models.Max("poradi"))["m"]
+        return 0 if m is None else m + 1
     @property
     def barva_textu(self):
         """Bílý nebo tmavý text podle světlosti barvy, aby byl štítek čitelný (WCAG kontrast)."""

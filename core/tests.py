@@ -1167,3 +1167,33 @@ class BarvaStavuTest(TestCase):
         self.assertEqual(StavZakazky(barva="#ffc107").barva_textu, "#212529")
         self.assertEqual(StavZakazky(barva="#212529").barva_textu, "#fff")
         self.assertEqual(StavZakazky(barva="#0d6efd").barva_textu, "#fff"); self.assertEqual(StavZakazky(barva="#198754").barva_textu, "#fff")
+
+
+class PoradiStavuTest(TestCase):
+    """Nový stav dostane pořadí jako další v řadě; zvolené obsazené místo posune ostatní stavy."""
+    def setUp(self):
+        from .models import StavZakazky
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(uzivatel("u", "Administrátor"))
+        self.S = StavZakazky
+
+    def poradi(self): return list(self.S.objects.order_by("poradi").values_list("nazev", "poradi"))
+
+    def test_predvyplneni_dalsiho_poradi(self):
+        self.assertEqual(self.S.dalsi_poradi(), 8)
+        html = self.client.get(reverse("create", args=["stavzakazky"])).content.decode()
+        self.assertRegex(html, r'name="poradi" value="8"')
+
+    def test_vlozeni_na_obsazene_misto(self):
+        self.client.post(reverse("create", args=["stavzakazky"]), {"nazev": "Reklamace", "poradi": 4, "barva": "#fd7e14", "aktivni": "on"})
+        p = self.poradi()
+        self.assertEqual(p[4], ("Reklamace", 4)); self.assertEqual(p[5], ("Opraveno", 5)); self.assertEqual(p[-1], ("Zrušeno", 8))
+        self.assertEqual([x for _, x in p], list(range(9)))
+
+    def test_presun_existujiciho(self):
+        s = self.S.objects.get(nazev="Čeká na schválení"); s.poradi = 5; s.save()  # z 2 na 5
+        self.assertEqual([x for _, x in self.poradi()], list(range(8)))
+        self.assertEqual(self.poradi()[5], ("Čeká na schválení", 5)); self.assertEqual(self.poradi()[2], ("Čeká na díl", 2))
+        s.poradi = 0; s.save()  # z 5 na 0
+        self.assertEqual(self.poradi()[0], ("Čeká na schválení", 0)); self.assertEqual(self.poradi()[1], ("Nová", 1))
+        self.assertEqual([x for _, x in self.poradi()], list(range(8)))
