@@ -23,7 +23,7 @@ Tato část popisuje hlavní funkce aplikace z pohledu uživatele i z pohledu to
 | Vyhledávání                | všechny formuláře a seznamy                      | podle typu záznamu                                                                      |
 | Správa záznamů a nastavení | Nastavení, administrace                          | číselníky, NastaveniFirmy, SazbaDPH, Zamestnanec, Role                                  |
 | Průvodce prvním spuštěním  | první otevření aplikace                          | auth_user, NastaveniFirmy                                                               |
-| Historie změn              | záložka Historie, Nastavení                      | HistorieZmen                                                                            |
+| Historie změn              | záložka Historie změn, Nastavení                      | HistorieZmen                                                                            |
 | Tmavý režim                | tlačítko v horní liště                           | žádné (volba se ukládá v prohlížeči)                                                    |
 
 *Přehled hlavních funkcí aplikace*
@@ -86,7 +86,7 @@ stateDiagram-v2
 
 **K čemu slouží.** Udržuje jednotný seznam zákazníků s kontaktními a fakturačními údaji, ze kterého čerpají všechny zakázky a doklady.
 
-**Jak ji uživatel používá.** Sekce Zákazníci zobrazuje seznam zákazníků (jako tabulku nebo jako kartičky v zobrazení kanban) s typem (F = firma, SO = soukromá osoba), kontaktními údaji a datem poslední změny, s vyhledáváním a stránkováním po 50 záznamech. Detail zákazníka je rozdělen do záložek Informace, Kontaktní osoby, Zařízení, Zakázky, Dokumenty a Historie, takže na jednom místě je vidět celá historie spolupráce se zákazníkem.
+**Jak ji uživatel používá.** Sekce Zákazníci zobrazuje seznam zákazníků (jako tabulku nebo jako kartičky v zobrazení kanban) s typem (F = firma, SO = soukromá osoba), kontaktními údaji a datem poslední změny, s vyhledáváním a stránkováním po 50 záznamech. Detail zákazníka je rozdělen do záložek Informace, Kontaktní osoby, Zařízení, Zakázky, Dokumenty a Historie změn, takže na jednom místě je vidět celá historie spolupráce se zákazníkem.
 
 **Co se děje na pozadí.** Při ukládání formuláře se kontroluje formát IČO (osm číslic a kontrolní součet podle algoritmu modulo 11), DIČ a telefonu. Při zakládání zákazníka z dialogového okna aplikace ověří, že je vyplněno jméno nebo firma, a pokud již existuje zákazník se stejným IČO, nový záznam nevytvoří a upozorní na existující. Datum poslední změny v seznamu se zjišťuje poddotazem do historie změn. Smazání zákazníka znamená jeho deaktivaci; zákazník s navázanými zakázkami nebo doklady nemůže být z databáze odstraněn.
 
@@ -206,7 +206,7 @@ stateDiagram-v2
 
 **K čemu slouží.** Pracovní plocha je místo, kde administrativní pracovník tráví většinu času. Úvodní obrazovka slouží k rychlému nalezení zakázky, detail zakázky ke zpracování všeho, co se zakázky týká, na jedné obrazovce.
 
-**Jak ji uživatel používá.** Úvodní pracovní plocha nabízí vyhledávání zakázek (podle čísla, zákazníka, popisu závady, sériového čísla nebo typu zařízení), seznam naposledy otevřených zakázek, seznam otevřených zakázek a dnešní události z kalendáře. Detail zakázky je rozdělen na dvě poloviny. Vlevo jsou záložky Přehled, Práce, Materiál, Fotografie, Přílohy, Dokumenty, Kontakty, Zařízení, Zaměstnanci a Historie a tlačítka akcí. Vpravo je prohlížeč dokumentů, ve kterém se otevírají fotografie, přílohy i vytvořené dokumenty. Prohlížeč umožňuje přibližovat kolečkem myši, posouvat tažením, přecházet mezi soubory stejné skupiny šipkami na klávesnici, soubor stáhnout, vytisknout, otevřít v novém okně nebo smazat a zapnout režim porovnání se dvěma panely vedle sebe (např. fotografie a zakázkový list).
+**Jak ji uživatel používá.** Úvodní pracovní plocha nabízí vyhledávání zakázek (podle čísla, zákazníka, popisu závady, sériového čísla nebo typu zařízení), seznam naposledy otevřených zakázek, seznam otevřených zakázek a dnešní události z kalendáře. Detail zakázky je rozdělen na dvě poloviny. Vlevo jsou záložky Přehled, Práce, Materiál, Fotografie, Přílohy, Dokumenty, Kontakty, Zařízení, Zaměstnanci a Historie změn a tlačítka akcí. Vpravo je prohlížeč dokumentů, ve kterém se otevírají fotografie, přílohy i vytvořené dokumenty. Prohlížeč umožňuje přibližovat kolečkem myši, posouvat tažením, přecházet mezi soubory stejné skupiny šipkami na klávesnici, soubor stáhnout, vytisknout, otevřít v novém okně nebo smazat a zapnout režim porovnání se dvěma panely vedle sebe (např. fotografie a zakázkový list).
 
 **Co se děje na pozadí.** Pohled `plocha` sestaví seznam všech zobrazitelných položek zakázky: fotografie, přílohy, zakázkový list, nabídky, faktury a objednávky. U každé položky určí druh zobrazení (obrázek, PDF, HTML dokument, ostatní soubor) a adresu pro zobrazení a stažení; u dokumentů je adresou zobrazení obsah ve výchozí šabloně a adresou stažení PDF. Seznam se předá do stránky jako JSON a prohlížeč dokumentů s ním pracuje v JavaScriptu. Pohled zároveň uloží zakázku do seznamu naposledy otevřených zakázek v relaci uživatele (nejvýše osm) a spočítá souhrny prací a materiálu.
 
@@ -296,7 +296,7 @@ Administrátor najde postup v Nastavení → Systém → Zálohování. Ve Windo
 
 **K čemu slouží.** Umožňuje zpětně zjistit, kdo, kdy a jak změnil údaje, což je důležité při řešení reklamací a nejasností.
 
-**Jak ji uživatel používá.** Historie se zobrazuje na záložce Historie v detailu zakázky, zákazníka a zařízení, v detailu ostatních záznamů a jako samostatný seznam v nastavení.
+**Jak ji uživatel používá.** Historie se zobrazuje na záložce Historie změn v detailu zakázky, zákazníka a zařízení, v detailu ostatních záznamů a jako samostatný seznam v nastavení.
 
 **Co se děje na pozadí.** Funkce `log` v `core/views.py` se volá při každém vytvoření, úpravě, změně stavu, vydání, deaktivaci a smazání záznamu a ukládá uživatele, čas, typ a id objektu, akci, změněné pole a hodnoty před a po změně. Tabulka historie je jen pro čtení, obecné pohledy pro ni nenabízejí úpravu ani mazání.
 
