@@ -86,7 +86,8 @@ const dep=c=>{const d=c.dataset.dep,f=c.closest('form'),i=d&&f&&f.querySelector(
 async function search(c){const q=Q(c,'.lk-q').value,r=await(await fetch(c.dataset.url+'?q='+encodeURIComponent(q)+'&dep='+dep(c))).json(),dd=Q(c,'.lk-dd');dd.innerHTML='';
  r.forEach(o=>{const a=document.createElement('a');a.href='#';a.className='list-group-item list-group-item-action py-1';a.innerHTML='<div>'+esc(o.label)+'</div><small class="text-muted">'+esc(o.sub)+'</small>';a.onmousedown=e=>{e.preventDefault();pick(c,o)};dd.appendChild(a)});
  const n=document.createElement('a');n.href='#';n.className='list-group-item list-group-item-action py-1 text-primary';n.textContent='+ Vytvořit nového';n.onmousedown=e=>{e.preventDefault();create(c)};dd.appendChild(n);dd.classList.remove('d-none')}
-function pick(c,o){Q(c,'.lk-dd').classList.add('d-none');let ch=false;
+function pick(c,o){if(c.classList.contains('lk-volby')){const v=c.querySelector('div.bm-volby')||c,i=v.querySelector('input[value="'+o.id+'"]');if(i){i.checked=true;return}const d=document.createElement('div');d.innerHTML='<label><input type="checkbox" class="bm-volby" name="'+c.dataset.name+'" value="'+o.id+'" checked> '+esc(o.label)+'</label>';v.appendChild(d);return}
+ Q(c,'.lk-dd').classList.add('d-none');let ch=false;
  if(c.dataset.multi=='1'){if(!c.querySelector('.lk-chip input[value="'+o.id+'"]')){const s=document.createElement('span');s.className='badge bg-secondary me-1 lk-chip';s.innerHTML=esc(o.label)+' <a href="#" class="lk-x text-white text-decoration-none">×</a><input type="hidden" name="'+c.dataset.name+'" value="'+o.id+'">';c.firstElementChild.appendChild(s)}Q(c,'.lk-q').value=''}
  else{const v=Q(c,'.lk-v');ch=v.value!=String(o.id);v.value=o.id;Q(c,'.lk-q').value=o.label}
  if(o.price!=null){const s=c.closest('.mrow')||c.closest('.bm-dalsi')||c.closest('form'),p=s&&s.querySelector('[name=mat_cena],[name$=jednotkova_cena]');if(p&&!p.value)p.value=o.price}
@@ -97,7 +98,7 @@ document.addEventListener('input',e=>{if(e.target.matches('.lk-q')){const c=e.ta
 document.addEventListener('focusin',e=>{if(e.target.matches('.lk-q'))search(e.target.closest('.lk'))});
 document.addEventListener('focusout',e=>{if(e.target.matches('.lk-q')){const c=e.target.closest('.lk');setTimeout(()=>Q(c,'.lk-dd').classList.add('d-none'),150)}});
 document.addEventListener('keydown',e=>{if(e.key=='Enter'&&e.target.matches('.lk-q'))e.preventDefault()});
-document.addEventListener('click',e=>{const t=e.target;if(t.classList.contains('lk-x')){e.preventDefault();t.closest('.lk-chip').remove()}if(t.classList.contains('lk-new'))create(t.closest('.lk'));if(t.classList.contains('lk-cancel'))document.querySelector('.lk-modal').remove()});
+document.addEventListener('click',e=>{const t=e.target;if(t.classList.contains('lk-x')){e.preventDefault();t.closest('.lk-chip').remove()}if(t.classList.contains('lk-new'))create(t.closest('.lk,.lk-volby'));if(t.classList.contains('lk-cancel'))document.querySelector('.lk-modal').remove()});
 document.addEventListener('submit',async e=>{const f=e.target;if(!f.classList.contains('lk-form'))return;e.preventDefault();const r=await fetch(f.action,{method:'POST',body:new FormData(f)});
  if((r.headers.get('content-type')||'').includes('json')){pick(CUR,await r.json());document.querySelector('.lk-modal').remove()}else modal(await r.text())});
 })();</script></body></html>

@@ -1197,3 +1197,33 @@ class PoradiStavuTest(TestCase):
         s.poradi = 0; s.save()  # z 5 na 0
         self.assertEqual(self.poradi()[0], ("Čeká na schválení", 0)); self.assertEqual(self.poradi()[1], ("Nová", 1))
         self.assertEqual([x for _, x in self.poradi()], list(range(8)))
+
+
+class NovaRoleVeFormulariZamestnanceTest(TestCase):
+    """Ve formuláři zaměstnance jde založit novou roli v okně a formulář se neopouští (jako nový zákazník / zařízení u zakázky)."""
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("admin", password="x", is_staff=True))
+
+    def test_tlacitko_ve_formulari(self):
+        r = self.client.get(reverse("create", args=["zamestnanec"]))
+        self.assertContains(r, "+ Nová role"); self.assertContains(r, reverse("lookup_new", args=["role"]))
+
+    def test_zalozeni_role_v_okne(self):
+        from .models import Opravneni, Role
+        r = self.client.get(reverse("lookup_new", args=["role"]))
+        self.assertContains(r, "Nová role"); self.assertContains(r, 'name="opravneni"')
+        op = Opravneni.objects.order_by("pk")[:2]
+        r = self.client.post(reverse("lookup_new", args=["role"]), {"nazev": "Skladník", "popis": "Sklad", "opravneni": [o.pk for o in op]})
+        role = Role.objects.get(nazev="Skladník")
+        self.assertEqual(r.json()["id"], role.pk); self.assertEqual(r.json()["label"], "Skladník")
+        self.assertEqual(set(role.opravneni.all()), set(op)); self.assertTrue(role.aktivni)
+        r = self.client.post(reverse("lookup_new", args=["role"]), {"nazev": "skladník"})  # duplicita se nezaloží
+        self.assertEqual(r.status_code, 400); self.assertContains(r, "už existuje", status_code=400)
+        self.assertEqual(Role.objects.filter(nazev__iexact="skladník").count(), 1)
+
+    def test_bez_nastaveni_roli_nezalozi(self):
+        from .models import Role
+        self.client.force_login(uzivatel("u"))
+        r = self.client.post(reverse("lookup_new", args=["role"]), {"nazev": "Šéf", "je_administrator": "on"})
+        self.assertIn(r.status_code, (302, 403)); self.assertFalse(Role.objects.filter(nazev="Šéf").exists())
