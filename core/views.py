@@ -725,7 +725,7 @@ def plocha(request, pk):
     platby = Platba.objects.filter(Q(zakazka=z) | Q(faktura__zakazky=z)).distinct() if P.FAKTURY in pr else Platba.objects.none()
     request.session["recent"] = ([pk] + [x for x in request.session.get("recent", []) if x != pk])[:8]
     tabs = [("info", "Přehled"), ("prace", "Práce"), ("mat", "Materiál"), ("foto", f"Fotografie ({len(foto)})"), ("pril", f"Přílohy ({len(pril)})"),
-            ("dok", f"Dokumenty ({len(dok)})"), ("kont", "Kontakty"), ("zar", "Zařízení"), ("zam", "Zaměstnanci"), ("hist", "Historie")]
+            ("dok", f"Dokumenty ({len(dok)})"), ("kont", "Kontakty"), ("zar", "Zařízení"), ("zam", "Zaměstnanci"), ("hist", "Historie změn")]
     hist = HistorieZmen.objects.filter(typ_objektu="zakazka", id_objektu=pk)[:60]
     hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), z.faktura_set.exists())
     return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
@@ -860,7 +860,7 @@ def nabidka_nahled(request):
 # ---------------- Zákazníci ----------------
 def zakaznik_detail(request, pk):
     z = get_object_or_404(Zakaznik, pk=pk)
-    tabs = [("info", "Informace"), ("kont", "Kontaktní osoby"), ("zar", "Zařízení"), ("zak", "Zakázky"), ("dok", "Dokumenty"), ("hist", "Historie")]
+    tabs = [("info", "Informace"), ("kont", "Kontaktní osoby"), ("zar", "Zařízení"), ("zak", "Zakázky"), ("dok", "Dokumenty"), ("hist", "Historie změn")]
     pr = P.prava(request.user); prazdne = Nabidka.objects.none()
     if not P.finance(request.user): tabs = [t for t in tabs if t[0] != "dok"]  # doklady a ceny jen s oprávněním Nabídky nebo Faktury
     return R(request, "zakaznik_detail", sec="zakaznici", crumbs=[("👥 Zákazníci", reverse("list", args=["zakaznik"])), (str(z), None)], z=z, tabs=tabs, nxt=request.path,

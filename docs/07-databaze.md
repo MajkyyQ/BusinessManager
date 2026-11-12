@@ -368,7 +368,7 @@ Vazba M:N na Zamestnanec (`core_kalendarudalost_zamestnanci`) umožňuje filtrov
 
 #### HistorieZmen
 
-Tabulka `core_historiezmen` je auditní záznam všech změn provedených uživateli. Sloupce: `uzivatel_id` → auth_user, `datum`, `typ_objektu` (název tabulky, např. `zakazka`), `id_objektu` (id změněného záznamu, velké celé číslo jako primární klíče), `akce` (Vytvoření, Úprava, Změna stavu, Vydání, Deaktivace, Smazání), `pole` (změněný sloupec), `puvodni_hodnota`, `nova_hodnota` a `popis`. Odkaz na změněný záznam není realizován cizím klíčem, ale dvojicí `typ_objektu` a `id_objektu`, aby jedna tabulka mohla zaznamenávat změny ve všech ostatních tabulkách a aby záznam historie zůstal zachován i po smazání objektu. Historie se zobrazuje na záložce Historie u zakázky, zákazníka a zařízení a v nastavení; v aplikaci ji nelze upravovat.
+Tabulka `core_historiezmen` je auditní záznam všech změn provedených uživateli. Sloupce: `uzivatel_id` → auth_user, `datum`, `typ_objektu` (název tabulky, např. `zakazka`), `id_objektu` (id změněného záznamu, velké celé číslo jako primární klíče), `akce` (Vytvoření, Úprava, Změna stavu, Vydání, Deaktivace, Smazání), `pole` (změněný sloupec), `puvodni_hodnota`, `nova_hodnota` a `popis`. Odkaz na změněný záznam není realizován cizím klíčem, ale dvojicí `typ_objektu` a `id_objektu`, aby jedna tabulka mohla zaznamenávat změny ve všech ostatních tabulkách a aby záznam historie zůstal zachován i po smazání objektu. Historie se zobrazuje na záložce Historie změn u zakázky, zákazníka a zařízení a v nastavení; v aplikaci ji nelze upravovat.
 
 ### Zaměstnanci, role a oprávnění
 
