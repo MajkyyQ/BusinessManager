@@ -88,7 +88,11 @@ LOOKUP = {  # slug -> pole pro hledání, závislost (filtr podle zákazníka), 
     "kontaktniosoba": dict(f=["jmeno", "telefon", "email"], dep="zakaznik", new=["jmeno", "telefon", "email", "poznamka"]),
     "dodavatel": dict(f=["nazev", "ico", "email"], dep=None, new=["nazev", "ico", "dic", "adresa", "telefon", "email", "cislo_uctu"]),
 }
+NOVY_V_OKNE = {  # záznamy, které jde založit v okně přímo z jiného formuláře, i když se nevybírají vyhledávacím polem (role v kartě zaměstnance)
+    "role": dict(new=["nazev", "popis", "opravneni", "je_administrator"]),
+}
 def lk_item(slug, o):
+    if slug == "role": return dict(id=o.pk, label=o.nazev, sub="")
     if slug == "zarizeni": return dict(id=o.pk, label=f"{o.vyrobce} {o.typ}".strip() or "Zařízení", sub=f"S/N: {o.seriove_cislo or '–'} · {o.zakaznik} · zakázek: {getattr(o, 'n', 0)}")
     if slug == "material": return dict(id=o.pk, label=o.nazev, sub=f"{o.jednotka} · {o.posledni_cena if o.posledni_cena is not None else '–'} Kč", price=None if o.posledni_cena is None else str(o.posledni_cena))
     return dict(id=o.pk, label=str(o), sub=" · ".join(x for x in (formatuj_telefon(o.telefon), o.email, getattr(o, "adresa", "")) if x))
@@ -119,8 +123,16 @@ def lookup(request, slug):
     if slug == "zarizeni": qs = qs.select_related("zakaznik").annotate(n=Count("zakazka"))
     return JsonResponse([lk_item(slug, o) for o in qs.distinct()[:12]], safe=False)
 
+class VolbySNovym(forms.CheckboxSelectMultiple):
+    """Zaškrtávací políčka (role zaměstnance) s tlačítkem „+ Nová …“: nový záznam se založí v okně a rovnou se zaškrtne, formulář se neopouští."""
+    def __init__(self, slug, text, attrs=None):
+        super().__init__(attrs); self.slug, self.text = slug, text
+    def render(self, name, value, attrs=None, renderer=None):
+        return mark_safe(f'<div class="lk-volby" data-name="{name}" data-new="{reverse("lookup_new", args=[self.slug])}">{super().render(name, value, attrs, renderer)}'
+                         f'<button type="button" class="btn btn-sm btn-outline-primary lk-new mt-1">{escape(self.text)}</button></div>')
+
 def lookup_new(request, slug):
-    c = LOOKUP.get(slug)
+    c = LOOKUP.get(slug) or NOVY_V_OKNE.get(slug)
     if not c: raise Http404
     M = MODELS[slug]; dep = request.GET.get("dep") or request.POST.get("dep") or ""
     form = modelform_factory(M, form=ZakaznikForm if slug == "zakaznik" else BaseForm, fields=c["new"], formfield_callback=cb)(request.POST or None)
@@ -141,6 +153,7 @@ def lookup_new(request, slug):
                         it = lk_item(slug, jiny); it["sub"] = f"Převedeno od zákazníka {stary} · " + it["sub"]; return JsonResponse(it)
             elif slug == "material": dup = Material.objects.filter(nazev__iexact=cd["nazev"]).first()
             elif slug == "dodavatel" and cd["ico"]: dup = Dodavatel.objects.filter(ico=cd["ico"]).first()
+            elif slug == "role": dup = Role.objects.filter(nazev__iexact=cd["nazev"].strip()).first()
             elif slug == "zakaznik":
                 if not (cd["jmeno"] or cd["firma"]): form.add_error(None, "Vyplňte jméno nebo firmu.")
                 elif cd["ico"]: dup = Zakaznik.objects.filter(ico=cd["ico"]).first()
@@ -148,7 +161,7 @@ def lookup_new(request, slug):
             if not form.errors:
                 o = form.save(commit=False)
                 if slug == "zarizeni": o.zakaznik_id = dep
-                o.save(); log(request, o, "Vytvoření")
+                o.save(); form.save_m2m(); log(request, o, "Vytvoření")
                 if slug == "kontaktniosoba" and dep.isdigit(): ZakaznikKontakt.objects.create(zakaznik_id=dep, kontakt=o)
                 return JsonResponse(lk_item(slug, o))
         return render(request, "core/lookup_form.html", ctx, status=400)
@@ -563,7 +576,10 @@ class ZamestnanecForm(forms.ModelForm):
             if n in POPISKY and f.label == n.replace("_", " ").capitalize(): f.label = POPISKY[n]
             w = f.widget; w.attrs["class"] = "form-check-input" if isinstance(w, forms.CheckboxInput) else "form-select" if isinstance(w, forms.Select) else "form-control"
             if n == "telefon": w.attrs.setdefault("placeholder", TEL_PRIKLAD)
-        if "role" in self.fields: zaskrtavatka(self.fields["role"], "role")
+        if "role" in self.fields:
+            f = self.fields["role"]; zaskrtavatka(f, "role")
+            f.widget = VolbySNovym("role", "+ Nová role", attrs={"class": "bm-volby"}); f.widget.choices = f.choices
+            f.help_text += " Chybí vhodná role? Založte ji tlačítkem + Nová role, formulář zůstane rozpracovaný."
         u = self.instance.uzivatel if self.instance.pk else None
         if u: self.initial.update(ucet_aktivni=u.is_active, ucet_jmeno=u.username, ucet_admin=u.is_staff or u.is_superuser)
     def clean(self):

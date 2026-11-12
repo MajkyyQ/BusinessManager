@@ -93,6 +93,7 @@ def potrebna_prava(name, kw, get=None):
         typ = kw.get("typ")
         if typ in DOKLADY: req.append({DOKLADY[typ]})
     elif name == "lookup_new" and slug == "dodavatel": req.append({NASTAVENI, FAKTURY})
+    elif name == "lookup_new" and slug == "role": req.append({NASTAVENI})
     return req
 
 
