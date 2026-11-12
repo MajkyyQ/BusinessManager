@@ -439,6 +439,23 @@ class TvorbaDokladuZeZakazkyTest(TestCase):
         self.assertEqual(list(o.priloha.zakazky.all()), [self.z])
         self.assertContains(self.client.get(reverse("plocha", args=[self.z.pk])), "Objednávka OBJ-7")
 
+    def test_po_vytvoreni_nabidky_pokracovat_misto_zpet(self):
+        """Po vytvoření nabídky už není „Zpět“, ale Pokračovat do zakázky a Pokračovat na fakturu; po faktuře jen Pokračovat."""
+        from urllib.parse import urlencode
+        from django.utils.html import escape
+        from .models import Nabidka
+        det = reverse("detail", args=["zakazka", self.z.pk]); self.client.get(det)
+        r = self.client.post(reverse("nabidka_nova"), {"zakazka": self.z.pk, "datum": "2026-11-05T10:00"}, follow=True)
+        n = Nabidka.objects.get(); self.assertEqual(r.redirect_chain[0][0], reverse("dokument", args=["nabidka", n.pk]) + "?nove=1")
+        self.assertContains(r, f'href="{det}">Pokračovat do zakázky</a>'); self.assertNotContains(r, ">Zpět</a>")
+        fa = reverse("faktura_nova") + "?" + urlencode({"zakazka": self.z.pk, "next": det})
+        self.assertContains(r, f'href="{escape(fa)}">Pokračovat na fakturu →</a>')
+        self.assertContains(self.client.get(reverse("dokument_sablony", args=["nabidka", n.pk]) + "?nove=1"), "nove=1")
+        r = self.client.post(fa, {"zakazka": self.z.pk, "datum": "2026-11-05", "splatnost": "2026-11-19"}, follow=True)
+        self.assertContains(r, f'href="{det}">Pokračovat do zakázky</a>'); self.assertNotContains(r, "Pokračovat na fakturu")
+        r = self.client.get(reverse("dokument", args=["nabidka", n.pk]) + "?nove=1"); self.assertContains(r, "Otevřít fakturu")
+        r = self.client.get(reverse("dokument", args=["nabidka", n.pk])); self.assertContains(r, ">Zpět</a>"); self.assertNotContains(r, "Pokračovat")
+
     def test_zakazky_nesou_zakaznika(self):
         html = self.client.get(reverse("objednavka_nova")).content.decode()
         self.assertIn(f'value="{self.z.pk}" data-zakaznik="{self.z.zakaznik_id}"', html)

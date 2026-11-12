@@ -4,7 +4,7 @@
 .vb-modal>div{background:var(--bs-body-bg);border-radius:.5rem;width:min(1000px,96vw);height:94vh;display:flex;flex-direction:column}</style>{% endblock %}
 {% block content %}<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><div><h4 class="mb-0">Vyberte šablonu</h4><div class="text-muted small">{{ titulek }} – kliknutím na šablonu se dokument zobrazí v ní. Výchozí šablona se tím nemění.</div></div>
 <a class="btn btn-secondary" href="{{ zpet }}">← Zpět bez změny</a></div>
-<div class="row g-3">{% for s in sab %}<div class="col-12 col-sm-6 col-lg-4"><div class="card h-100 vb-card{% if s.pk == akt.pk %} akt{% endif %}" data-href="{% url 'dokument' typ pk %}?sablona={{ s.pk }}{% if nx %}&next={{ nx|urlencode }}{% endif %}">
+<div class="row g-3">{% for s in sab %}<div class="col-12 col-sm-6 col-lg-4"><div class="card h-100 vb-card{% if s.pk == akt.pk %} akt{% endif %}" data-href="{% url 'dokument' typ pk %}?sablona={{ s.pk }}{% if nove %}&nove=1{% endif %}{% if nx %}&next={{ nx|urlencode }}{% endif %}">
 <img class="vb-th" loading="lazy" src="{% url 'sablona_miniatura' s.pk %}?v={{ s.verze }}" alt="Náhled šablony {{ s }}">
 <div class="card-body p-2 d-flex justify-content-between align-items-center gap-2"><div><div class="fw-semibold">{{ s.nazev }}</div>
 <div class="small">{% if s.vychozi %}<span class="badge bg-success">Výchozí</span> {% endif %}{% if s.pk == akt.pk %}<span class="badge bg-primary">Právě použitá</span>{% endif %}</div></div>

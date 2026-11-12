@@ -1,6 +1,6 @@
 """Šablony dokumentů: správa v Nastavení, náhled dokumentu, výběr šablony, PDF a tisk."""
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from django import forms
 from django.contrib import messages
@@ -9,7 +9,7 @@ import json
 
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
+from django.urls import Resolver404, resolve, reverse
 from django.utils.html import escape
 from django.utils.text import slugify
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -248,14 +248,34 @@ def _obsah(s, t, data, jako_pdf=False):
     return resp
 
 
+def _pokracovat_text(url):
+    """Popisek tlačítka po vytvoření dokladu podle toho, kam vede (odkud uživatel přišel)."""
+    try: m = resolve(urlsplit(url).path)
+    except Resolver404: return "Pokračovat"
+    if m.url_name == "plocha": return "Pokračovat na pracovní plochu"
+    if m.url_name == "detail": return {"zakazka": "Pokračovat do zakázky", "zakaznik": "Pokračovat na zákazníka"}.get(m.kwargs.get("slug"), "Pokračovat")
+    return {"dokumenty": "Pokračovat na dokumenty", "list": "Pokračovat na seznam", "dashboard": "Pokračovat na přehled"}.get(m.url_name, "Pokračovat")
+
+
+def _na_fakturu(zak, zpet):
+    """Druhé tlačítko po vytvoření nabídky: rovnou vystavit fakturu ze stejné zakázky (nebo otevřít už vystavenou)."""
+    from .models import Faktura
+    f = Faktura.objects.filter(zakazky=zak).order_by("-pk").first()
+    if f: return {"url": reverse("dokument", args=["faktura", f.pk]) + "?" + urlencode({"next": zpet}), "text": f"Otevřít fakturu {f.cislo_faktury}", "nova": False}
+    return {"url": reverse("faktura_nova") + "?" + urlencode({"zakazka": zak.pk, "next": zpet}), "text": "Pokračovat na fakturu", "nova": True}
+
+
 def dokument(request, typ, pk):
     t, o = _objekt(typ, pk); s = vyber_sablonu(request, typ)
     q = f"?sablona={s.pk}" if s else ""
     nx = safe_next(request) or ""
-    zpet = nx or zpet_url(request) or (reverse("plocha", args=[pk]) if typ == "zakazkovy_list" else reverse("detail", args=[typ, pk]))
+    nove = request.GET.get("nove") == "1" and typ in ("nabidka", "faktura")
+    zak = o.zakazky.order_by("pk").first() if nove else None
+    zpet = nx or zpet_url(request) or (reverse("detail", args=["zakazka", zak.pk]) if zak else reverse("plocha", args=[pk]) if typ == "zakazkovy_list" else reverse("detail", args=[typ, pk]))
     ostatni = S.objects.filter(typ_dokumentu=typ, aktivni=True).count()
     return R(request, "sablony/nahled", sec="zakazky" if typ == "zakazkovy_list" else "dokumenty", crumbs=[(t.titulek(o), zpet), ("Náhled", None)],
-             t=t, o=o, s=s, typ=typ, pk=pk, q=q, zpet=zpet, nx=nx, titulek=t.titulek(o), ostatni=ostatni,
+             t=t, o=o, s=s, typ=typ, pk=pk, q=q, zpet=zpet, nx=nx, titulek=t.titulek(o), ostatni=ostatni, nove=nove,
+             pokracovat=_pokracovat_text(zpet) if nove else None, na_fakturu=_na_fakturu(zak, zpet) if typ == "nabidka" and zak else None,
              je_pdf=bool(s) and renderery.renderer(s).nahled_typ == "application/pdf")
 
 
@@ -291,9 +311,9 @@ def dokument_sablony(request, typ, pk):
     t, o = _objekt(typ, pk); akt = vyber_sablonu(request, typ)
     nx = safe_next(request) or ""
     sab = list(S.objects.filter(typ_dokumentu=typ, aktivni=True).order_by("-vychozi", "nazev"))
-    zpet = reverse("dokument", args=[typ, pk]) + "?" + urlencode({k: v for k, v in (("sablona", akt.pk if akt else ""), ("next", nx)) if v})
+    zpet = reverse("dokument", args=[typ, pk]) + "?" + urlencode({k: v for k, v in (("sablona", akt.pk if akt else ""), ("nove", request.GET.get("nove") == "1" and 1), ("next", nx)) if v})
     return R(request, "sablony/vyber", sec="zakazky" if typ == "zakazkovy_list" else "dokumenty",
-             crumbs=[(t.titulek(o), zpet), ("Změnit šablonu", None)], t=t, o=o, typ=typ, pk=pk, sab=sab, akt=akt, zpet=zpet, nx=nx, titulek=t.titulek(o))
+             crumbs=[(t.titulek(o), zpet), ("Změnit šablonu", None)], t=t, o=o, typ=typ, pk=pk, sab=sab, akt=akt, zpet=zpet, nx=nx, titulek=t.titulek(o), nove=request.GET.get("nove") == "1")
 
 
 # ======================================================== Editor Excelové šablony
