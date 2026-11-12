@@ -739,7 +739,7 @@ def nabidka_polozky(z):
         cena = cena or Decimal(0); dph = dph if dph is not None else dph0; bez = round(mn * cena, 2)
         out.append(dict(popis=popis[:300], mnozstvi=mn, jednotka=j, cena=cena, dph=dph, bez=bez, s=round(bez * (1 + dph / 100), 2)))
     for u in z.provedenyukon_set.select_related("typ_ukonu"):
-        add(u.typ_ukonu.nazev + (" – " + u.poznamka.splitlines()[0] if u.poznamka.strip() else ""), Decimal(1), "ks", u.cena, u.sazba_dph)
+        add(u.typ_ukonu.nazev, Decimal(1), "ks", u.cena, u.sazba_dph)
     for m in z.pouzitymaterial_set.select_related("material"): add(m.material.nazev, m.mnozstvi, m.material.jednotka or "ks", m.jednotkova_cena, m.sazba_dph)
     return out
 def nahled_ctx(z):
