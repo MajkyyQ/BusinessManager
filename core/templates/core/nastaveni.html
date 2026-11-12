@@ -1,2 +1,10 @@
-{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Nastavení</h3></div><div class="row g-3">{% for n,items,note in groups %}<div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body"><h5>{{ n }}</h5>
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Nastavení</h3></div>
+<div class="card mb-3" id="prvni-nastaveni"><div class="card-body"><details{% if not prvni.vse %} open{% endif %}><summary class="h5 mb-0">První nastavení aplikace
+<span class="badge {% if prvni.vse %}text-bg-success{% else %}text-bg-warning{% endif %} align-middle ms-1">{{ prvni.hotovo }} z {{ prvni.pocet }} povinných kroků</span></summary>
+<p class="mt-2 mb-2">Co je potřeba nastavit, aby aplikace ve firmě fungovala. Tyto kroky smí udělat jen administrátor, zaměstnanci Nastavení nevidí.</p>
+{% include "core/_prvni_nastaveni.html" %}
+{% if not prvni.vse %}<form method="post" action="{% url 'nastaveni_prvni' %}" class="mt-2">{% csrf_token %}<input type="hidden" name="skryt" value="{% if prvni.skryto %}0{% else %}1{% endif %}">
+<button class="btn btn-sm btn-outline-secondary">{% if prvni.skryto %}Znovu zobrazit upozornění na pracovní ploše{% else %}Skrýt upozornění na pracovní ploše{% endif %}</button></form>{% endif %}
+</details></div></div>
+<div class="row g-3">{% for n,items,note in groups %}<div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body"><h5>{{ n }}</h5>
 {% for l,u in items %}<a class="d-block" href="{{ u }}">{{ l }}</a>{% endfor %}{% if note %}<div class="small text-muted mt-1">{{ note }}</div>{% endif %}</div></div></div>{% endfor %}</div>{% endblock %}

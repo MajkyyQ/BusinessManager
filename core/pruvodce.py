@@ -12,7 +12,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import NastaveniFirmy, TEL_PRIKLAD
+from .models import NastaveniFirmy, Role, Zamestnanec, TEL_PRIKLAD
 
 VOLNE = ("/static/", "/media/", "/pruvodce/", "/logout/")  # adresy, které průvodce nepřesměrovává
 
@@ -71,6 +71,9 @@ def ucet(request):
     form = UcetForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         u = form.save(commit=False); u.is_staff = u.is_superuser = True; u.save()
+        # karta zaměstnance pro administrátora: objeví se v seznamu zaměstnanců a v zakázkách (kdo zařízení převzal, kdo pracoval)
+        z = Zamestnanec.objects.create(jmeno=u.first_name, prijmeni=u.last_name, email=u.email, uzivatel=u)
+        z.role.add(*Role.objects.filter(nazev="Administrátor", je_administrator=True)[:1])
         login(request, u, backend="django.contrib.auth.backends.ModelBackend")
         return redirect("pruvodce_firma")
     return _stranka(request, 1, form)
@@ -87,6 +90,6 @@ def firma(request):
     if request.method == "POST" and form.is_valid():
         f = form.save(commit=False); f.vychozi_dph = 21; f.vytvoril = request.user; f.datum_vytvoreni = timezone.now(); f.save()
         PrvniSpusteniMiddleware.hotovo = True
-        messages.success(request, f"Vítejte! Firma {f.nazev_firmy} je založená. Další údaje (číslo účtu, logo, DPH) doplníte v Nastavení → Firma.")
+        messages.success(request, f"Vítejte! Firma {f.nazev_firmy} je založená. Co dál nastavit (údaje o firmě, role, zaměstnance, typy úkonů), najdete v Nastavení → První nastavení.")
         return redirect("dashboard")
     return _stranka(request, 2, form)

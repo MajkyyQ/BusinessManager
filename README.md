@@ -28,6 +28,11 @@ přepíše jí soubory aplikace a spustí ji. Data i nastavení (`.env`) zůstan
 na GitHubu (stránka repozitáře, případně **Watch → Custom → Releases**). Složku aplikace před aktualizací nemažte,
 přišli byste o `.env` s heslem k databázi. Přístup z ostatních PC, zálohy, obnova a řešení potíží: [INSTALACE.md](INSTALACE.md).
 
+### Po prvním spuštění
+Průvodce založí jen účet administrátora a název firmy. Administrátor pak musí nastavit **údaje o firmě, role, zaměstnance
+a typy úkonů**, volitelně i číslování dokladů a šablony. Seznam s odkazy je v aplikaci (**Nastavení → První nastavení aplikace**)
+a v [docs/10-prvni-nastaveni.md](docs/10-prvni-nastaveni.md).
+
 ## A) Docker ručně (pro pokročilé)
 Podrobný postup čisté instalace na Windows krok za krokem (Docker Desktop, `.env`, první spuštění,
 přístup z ostatních PC, zálohy a obnova) je v **[INSTALACE.md](INSTALACE.md)**.

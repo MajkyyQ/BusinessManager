@@ -26,6 +26,7 @@ BusinessManager/
     |-- views.py              pohledy evidence
     |-- views_sablony.py      pohledy šablon a dokumentů
     |-- pruvodce.py           průvodce prvním spuštěním
+    |-- prvni_nastaveni.py    co má administrátor nastavit po prvním spuštění
     |-- cislovani.py          číselné řady dokladů
     |-- navigace.py           tlačítka Zpět a Zrušit
     |-- urls.py               URL adresy aplikace
@@ -66,6 +67,7 @@ Složka `config/` obsahuje nastavení celého projektu. Soubor `settings.py` na�
 - `urls.py` – mapuje adresy na pohledy. Specifické adresy (např. `/zakazka/nova/`, `/dokument/<typ>/<id>/pdf/`) jsou uvedeny před obecnými adresami `/<tabulka>/...`, aby měly přednost.
 - `apps.py` – po každé migraci doplní výchozí data (stavy zakázek, oprávnění, sazby DPH, vestavěné šablony).
 - `pruvodce.py` – průvodce prvním spuštěním (účet administrátora a firma) a middleware, který na něj přesměruje.
+- `prvni_nastaveni.py` – kroky, které má administrátor po prvním spuštění nastavit (firma, role, zaměstnanci, typy úkonů a volitelné), včetně poznání, které jsou hotové; zobrazují se v Nastavení a jako upozornění na pracovní ploše.
 - `cislovani.py` – číselné řady: převod vzoru čísla (např. `ZL260001`) na formát se značkami a výpočet dalšího volného čísla.
 - `navigace.py` – middleware, který si pamatuje navštívené stránky, aby tlačítka Zpět a Zrušit vedla tam, odkud uživatel přišel.
 - `tests.py` – automatické testy (68 testů, viz [Testování](09-vyvoj-a-testovani.md)).

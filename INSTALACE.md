@@ -140,10 +140,11 @@ Příkaz `seed_data` (testovací data) **nespouštějte**.
      Tento účet má plná práva (Nastavení, zaměstnanci, Django admin). Heslo si bezpečně uložte.
    - **Krok 2, Údaje o firmě:** povinný je jen název. IČ, DIČ, adresu, číslo účtu, logo a DPH lze doplnit
      později v **Nastavení → Firma**.
-3. Ostatním lidem založte účty v **Nastavení → Zaměstnanci**: v kartě zaměstnance je sekce
-   *Přihlašovací účet* (jméno, heslo, případně administrátor).
-4. Doporučené doplnění: **Nastavení → Firma** (číslo účtu, logo), **Nastavení → Číslování dokladů**,
-   **Dokumenty → Šablony dokumentů**.
+3. Potom administrátor dokončí **první nastavení** (běžní zaměstnanci Nastavení nevidí). Seznam kroků s odkazy je
+   v aplikaci v **⚙ Nastavení → První nastavení aplikace** a podrobně v [docs/10-prvni-nastaveni.md](docs/10-prvni-nastaveni.md):
+   - **Povinné:** údaje o firmě (IČ, adresa, číslo účtu, logo, DPH), **Role**, **Zaměstnanci** (karta, role a přihlašovací účet
+     pro každého, kdo bude aplikaci používat) a **Typy úkonů** (bez nich nejde zapsat práci na zakázku).
+   - **Volitelné:** číslování dokladů, šablony dokumentů, stavy zakázek, materiály a dodavatelé, zálohování.
 
 ## 7. Přístup z ostatních počítačů ve firmě
 
