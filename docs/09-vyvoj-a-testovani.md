@@ -54,19 +54,31 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `IntegritniOmezeniTest` | 4 | integritní omezení databáze (jméno nebo firma, unikátní kontakt, povolené hodnoty výčtů) a jejich hlášení ve formuláři |
 | `UdalostiKalendareTest` | 2 | automatické události kalendáře a jejich posun při změně zakázky nebo faktury |
 | `HlavniAkceZakazkyTest` | 1 | zvýraznění doporučeného dalšího kroku na stránce zakázky podle jejího stavu |
-| `OpravneniNastaveniTest` | 3 | Nastavení a šablony vidí jen uživatel s oprávněním Nastavení; styly se nenačítají z internetu |
+| `ZamestnanciZakazkyTest` | 1 | karta Zaměstnanci u zakázky ukazuje všechny zapojené, nejen toho, kdo zakázku převzal |
+| `PoznamkaPraceTest` | 1 | interní poznámka k práci se nepropisuje do zakázkového listu ani do nabídky |
+| `OpravneniNastaveniTest` | 3 | Nastavení včetně šablon dokumentů vidí jen uživatel s oprávněním Nastavení; styly se nenačítají z internetu |
 | `PruvodcePrvnimSpustenimTest` | 2 | průvodce prvním spuštěním: založení administrátora a firmy |
 | `SQLInjectionTest` | 5 | odolnost přihlášení, vyhledávání a řazení proti SQL injection |
 | `JednotneSeznamyTest` | 4 | seznamy: filtr stavů s počty, přepínač tabulka / kanban, jednotná hlavička, souhrn dokladů |
-| `TvorbaDokladuZeZakazkyTest` | 6 | objednávka a faktura se zakládají ze zakázky; kontrola zákazníka a zakázky |
+| `TvorbaDokladuZeZakazkyTest` | 7 | objednávka a faktura se zakládají ze zakázky; kontrola zákazníka a zakázky; tlačítka Pokračovat po vytvoření dokladu |
 | `PrijataFakturaRucneTest` | 3 | ruční zápis přijaté faktury: dopočet částky, zákaz duplicity |
 | `NovyVzhledFormularuTest` | 4 | formuláře se sekcemi (zákazník, událost, zakázka) a rychlá událost v kalendáři |
 | `UcetZamestnanceTest` | 6 | přihlašovací účet zaměstnance: založení, heslo, vypnutí, ochrana vlastního účtu |
-| `CislovaniDokladuTest` | 6 | vlastní číslování zakázek, nabídek a faktur, výchozí čísla, přeskočení obsazeného čísla |
+| `CislovaniDokladuTest` | 7 | vlastní číslování zakázek, nabídek a faktur, výchozí čísla, přeskočení obsazeného čísla, rok a pořadí na zakázkovém listu, další nabídka s příponou |
 | `OpravyZProchazeniTest` | 9 | opravy z procházení aplikace: telefony, více fotek, práce více zaměstnanců, platby, tlačítka Zpět |
 | `TmavyRezimTest` | 2 | přepínač vzhledu v horní liště, tmavý režim i na přihlašovací stránce |
+| `PrevodLibreOfficeTest` | 5 | převod přes LibreOffice: opakování po nepovedeném pokusu a rozlišení chyb (chybí LibreOffice / převod se nepovedl) |
+| `KontrolaEmailuATelefonuTest` | 5 | česká hláška ze serveru u špatného e-mailu a telefonu místo anglické bubliny prohlížeče |
 | `RoleAOpravneniTest` | 10 | role a oprávnění: technik bez dokladů, administrativa s doklady, mazání, úprava zákazníka, vlastní události, účet bez role |
-| **Celkem** | **88** | |
+| `CitelnaHistorieTest` | 2 | historie změn zapisuje vybrané zaměstnance a jiné vazby jménem, ne jako QuerySet |
+| `PolozkyDokladuBezPridaniTest` | 2 | položky faktury a nabídky se ručně nepřidávají, vznikají jen ze zakázky |
+| `PracePrepinaStavZakazkyTest` | 3 | přidání práce přepne novou zakázku na Rozpracováno a zapíše to do historie; jiné stavy se nemění |
+| `VicePolozekNajednouTest` | 4 | tlačítko Přidat ve formuláři práce a materiálu: víc položek najednou, nevyplněná kopie se přeskočí |
+| `BarvaStavuTest` | 4 | barva stavu zakázky nastavená v Nastavení se použije ve všech štítcích stavu |
+| `PoradiStavuTest` | 3 | nový stav dostane pořadí jako další v řadě, obsazené pořadí posune ostatní stavy |
+| `NovaRoleVeFormulariZamestnanceTest` | 3 | založení nové role v okně formuláře zaměstnance bez jeho opuštění |
+| `PrvniNastaveniTest` | 4 | seznam prvního nastavení pro administrátora a upozornění na pracovní ploše |
+| **Celkem** | **117** | |
 
 ## Úprava databáze
 

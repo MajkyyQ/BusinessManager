@@ -68,7 +68,11 @@ Při výběru technologií byla rozhodující tři kritéria. Aplikace musí bě
 
 - *editor Excelových šablon*, který zobrazuje list šablony jako mřížku buněk a umožňuje přetahovat pole (kapitola [Šablony dokumentů](08-sablony-dokumentu.md)),
 
-- *kalendář* s výběrem měsíce a roku.
+- *kalendář* s výběrem měsíce a roku, okno se všemi událostmi dne a okno pro rychlé přidání události,
+
+- *potvrzovací okna* ve vzhledu aplikace místo systémových dialogů prohlížeče, *české pole pro výběr souborů* a tlačítko pro přidání další práce nebo materiálu do stejného formuláře,
+
+- *přepínač tmavého režimu* v horní liště.
 
 Knihovna htmx (verze 2.0, také přibalená v `core/static/vendor/`) se používá u formulářů nové nabídky a faktury: po výběru zakázky se ze serveru načte náhled položek, které budou do dokladu převzaty, a vloží se do stránky bez jejího znovunačtení.
 

@@ -27,6 +27,8 @@ BusinessManager/
     |-- views_sablony.py      pohledy šablon a dokumentů
     |-- pruvodce.py           průvodce prvním spuštěním
     |-- prvni_nastaveni.py    co má administrátor nastavit po prvním spuštění
+    |-- prava.py              role a oprávnění, kontrola na serveru
+    |-- historie.py           čitelné hodnoty v historii změn
     |-- cislovani.py          číselné řady dokladů
     |-- navigace.py           tlačítka Zpět a Zrušit
     |-- urls.py               URL adresy aplikace
@@ -68,11 +70,14 @@ Složka `config/` obsahuje nastavení celého projektu. Soubor `settings.py` na�
 - `apps.py` – po každé migraci doplní výchozí data (stavy zakázek, oprávnění, sazby DPH, vestavěné šablony).
 - `pruvodce.py` – průvodce prvním spuštěním (účet administrátora a firma) a middleware, který na něj přesměruje.
 - `prvni_nastaveni.py` – kroky, které má administrátor po prvním spuštění nastavit (firma, role, zaměstnanci, typy úkonů a volitelné), včetně poznání, které jsou hotové; zobrazují se v Nastavení a jako upozornění na pracovní ploše.
-- `cislovani.py` – číselné řady: převod vzoru čísla (např. `ZL260001`) na formát se značkami a výpočet dalšího volného čísla.
+- `prava.py` – oprávnění a výchozí role, funkce `potrebna_prava` (které oprávnění potřebuje která stránka), middleware `PravaMiddleware` a filtr `smi` pro skrývání tlačítek.
+- `historie.py` – převod hodnot v historii změn na čitelný text (jména místo čísel záznamů, česká data, ano/ne) a české názvy polí.
+- `cislovani.py` – číselné řady: převod vzoru čísla (např. `ZL260001`) na formát se značkami, výpočet dalšího volného čísla a rozložení hotového čísla na rok a pořadí.
 - `navigace.py` – middleware, který si pamatuje navštívené stránky, aby tlačítka Zpět a Zrušit vedla tam, odkud uživatel přišel.
-- `tests.py` – automatické testy (68 testů, viz [Testování](09-vyvoj-a-testovani.md)).
+- `tests.py` – automatické testy (117 testů, viz [Testování](09-vyvoj-a-testovani.md)).
 - `admin.py` – automaticky zaregistruje všechny modely do administračního rozhraní.
-- `migrations/` – obsahuje migrace, které postupně vytvářejí a upravují databázové schéma (například počáteční schéma, automatické číslování nabídek a faktur, délky polí a validace, šablony dokumentů, přijaté faktury, integritní omezení, číselné řady, vlastní události a platby vystavených faktur).
+- `migrations/` – obsahuje migrace, které postupně vytvářejí a upravují databázové schéma (například počáteční schéma, automatické číslování nabídek a faktur, délky polí a validace, šablony dokumentů, přijaté faktury, integritní omezení, číselné řady, vlastní události, platby vystavených faktur, telefon s předvolbou, oprávnění a výchozí role, barva stavu zakázky a skrytí upozornění prvního nastavení).
+- `templatetags/` – vlastní značky a filtry šablon (`bm.py`): oprávnění (`smi`), barvy stavů (`barvy_stavu`), čitelná historie (`zmena`, `pole_nazev`).
 - `management/commands/` – obsahuje vlastní příkazy: `seed_data` vytvoří testovací data a `vytvor_vzory_sablon` vygeneruje vestavěné Excelové šablony.
 
 ## Generování dokumentů (core/sablony)
@@ -81,7 +86,7 @@ Podsložka `core/sablony/` je samostatný balíček se systémem šablon dokumen
 
 ## Frontend (templates)
 
-Složka `core/templates/core/` obsahuje šablony jednotlivých obrazovek. Šablona `base.html` definuje společné rozvržení, dílčí šablona `_motiv.html` přepínání světlého a tmavého režimu. Obecné šablony `list.html`, `detail.html`, `form_sekce.html` a `delete.html` (a dílčí šablony `_pole.html`, `_pohled.html`, `_stavy.html`, `_hledat.html`) slouží všem tabulkám, které nemají vlastní obrazovku. Specializované šablony odpovídají hlavním obrazovkám aplikace, například `zakazka_nova.html` (přijetí zakázky), `plocha.html` (pracovní plocha zakázky s prohlížečem dokumentů), `zarizeni_prehled.html`, `zakaznik_detail.html`, `kalendar.html`, `nabidka_nova.html`, `faktura_nova.html`, `objednavka_nova.html`, `prijata_faktura_import.html` (nahrání přijaté faktury), `prijata_faktura_rucne.html`, `nastaveni_cislovani.html` a `pruvodce.html`. Podsložka `sablony/` obsahuje obrazovky správy šablon, výběru šablony, náhledu dokumentu a editoru šablon. Složka `templates/sablony_vestavene/` obsahuje vestavěnou HTML šablonu dokumentu, která se nepoužívá k zobrazení obrazovky, ale k tvorbě dokumentu.
+Složka `core/templates/core/` obsahuje šablony jednotlivých obrazovek. Šablona `base.html` definuje společné rozvržení a potvrzovací okno, dílčí šablona `_motiv.html` přepínání světlého a tmavého režimu, `_soubory.html` české pole pro výběr souborů (spolu s `templates/django/forms/widgets/`), `_dalsi.html` přidání další práce nebo materiálu ve stejném formuláři a `_prvni_nastaveni.html` s `_prvni_krok.html` seznam prvního nastavení. Šablona `bez_pristupu.html` se zobrazí účtu bez role. Obecné šablony `list.html`, `detail.html`, `form_sekce.html` a `delete.html` (a dílčí šablony `_pole.html`, `_pohled.html`, `_stavy.html`, `_hledat.html`) slouží všem tabulkám, které nemají vlastní obrazovku. Specializované šablony odpovídají hlavním obrazovkám aplikace, například `zakazka_nova.html` (přijetí zakázky), `plocha.html` (pracovní plocha zakázky s prohlížečem dokumentů), `zarizeni_prehled.html`, `zakaznik_detail.html`, `kalendar.html`, `nabidka_nova.html`, `faktura_nova.html`, `objednavka_nova.html`, `prijata_faktura_import.html` (nahrání přijaté faktury), `prijata_faktura_rucne.html`, `nastaveni_cislovani.html` a `pruvodce.html`. Podsložka `sablony/` obsahuje obrazovky správy šablon, výběru šablony, náhledu dokumentu a editoru šablon. Složka `templates/sablony_vestavene/` obsahuje vestavěnou HTML šablonu dokumentu, která se nepoužívá k zobrazení obrazovky, ale k tvorbě dokumentu.
 
 Knihovny frontendu (Bootstrap, htmx) jsou přibalené ve složce `core/static/vendor/`, takže se nic nenačítá z cizích serverů a aplikace funguje i bez internetu. Drobné vlastní styly a skripty jsou přímo v šablonách. Statické soubory připravuje příkaz `collectstatic` a v provozu je obsluhuje WhiteNoise.
 

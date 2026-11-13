@@ -5,7 +5,8 @@ nabídek a faktur (PDF i ISDOC) z uložených dat.
 
 **Dokumentace:** [docs/](docs/README.md) – [popis aplikace](docs/01-popis-aplikace.md), [funkce](docs/02-funkce.md),
 [technologie](docs/03-technologie.md), [architektura](docs/04-architektura.md), [databáze](docs/07-databaze.md),
-[šablony dokumentů, PDF a ISDOC](docs/08-sablony-dokumentu.md), [vývoj a testování](docs/09-vyvoj-a-testovani.md).
+[šablony dokumentů, PDF a ISDOC](docs/08-sablony-dokumentu.md), [vývoj a testování](docs/09-vyvoj-a-testovani.md),
+[první nastavení po instalaci](docs/10-prvni-nastaveni.md).
 Instalace: níže a podrobně v [INSTALACE.md](INSTALACE.md).
 
 ## Rychlá instalace (Windows)
@@ -29,7 +30,7 @@ na GitHubu (stránka repozitáře, případně **Watch → Custom → Releases**
 přišli byste o `.env` s heslem k databázi. Přístup z ostatních PC, zálohy, obnova a řešení potíží: [INSTALACE.md](INSTALACE.md).
 
 ### Po prvním spuštění
-Průvodce založí jen účet administrátora a název firmy. Administrátor pak musí nastavit **údaje o firmě, role, zaměstnance
+Průvodce založí jen účet administrátora (včetně jeho karty zaměstnance s rolí Administrátor) a název firmy. Administrátor pak musí nastavit **údaje o firmě, role, zaměstnance
 a typy úkonů**, volitelně i číslování dokladů a šablony. Seznam s odkazy je v aplikaci (**Nastavení → První nastavení aplikace**)
 a v [docs/10-prvni-nastaveni.md](docs/10-prvni-nastaveni.md).
 
@@ -59,7 +60,7 @@ Vývoj proti Postgresu v Dockeru: `docker compose up -d db`, v compose dočasně
 a spustit runserver s DB_ENGINE=postgres DB_HOST=localhost DB_NAME/USER/PASSWORD z .env.
 
 ## Šablony dokumentů (zakázkový list, nabídka, faktura)
-Dokumenty → **Šablony dokumentů** (může upravovat každý uživatel). Každý typ dokumentu může mít více šablon (Excel .xlsx nebo HTML), jedna je výchozí.
+Dokumenty → **Šablony dokumentů** (upravovat je smí uživatel s oprávněním *Nastavení*, odkaz je i v Nastavení → Dokumenty). Každý typ dokumentu může mít více šablon (Excel .xlsx nebo HTML), jedna je výchozí.
 Náhled dokumentu: v zakázce tlačítko Zakázkový list, u nabídky/faktury Náhled / PDF / tisk. V náhledu lze dočasně zvolit jinou šablonu (výchozí se tím nemění).
 
 Faktura ISDOC: v náhledu faktury tlačítko **Stáhnout ISDOC** (nebo **ISDOC** v detailu faktury) stáhne fakturu jako soubor `.isdoc` (ISDOC 6.0.2) pro import do účetního programu. Soubor se vždy ověří proti oficiálnímu schématu `core/sablony/schemata/isdoc-invoice-6.0.2.xsd`. Testy: `python manage.py test core`.
