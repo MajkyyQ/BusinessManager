@@ -24,7 +24,7 @@ BusinessManager je webová aplikace pro malou servisní firmu: eviduje zákazní
 | [8. Šablony dokumentů, PDF a ISDOC](08-sablony-dokumentu.md) | Excelové a HTML šablony, značky, editor šablon, převod do PDF, export a import ISDOC |
 | [9. Vývoj a testování](09-vyvoj-a-testovani.md) | spuštění pro vývoj, proměnné prostředí, automatické testy, úprava databáze |
 | [10. První nastavení po instalaci](10-prvni-nastaveni.md) | co musí administrátor nastavit po prvním spuštění: údaje o firmě, role, zaměstnanci, typy úkonů a volitelné kroky |
-| [11. Modul Odesílání e-mailů](11-modul-email.md) | volitelný modul: odeslání dokumentů, fotografií a příloh zakázky e-mailem, nastavení schránky a podpisu |
+| [11. Volitelné moduly](11-moduly.md) | rozšíření, která nejsou součástí aplikace (např. odesílání e-mailů): jak modul přidat, aktualizovat, vypnout a jak napsat nový |
 
 ## Rychlá orientace
 
@@ -32,6 +32,7 @@ BusinessManager je webová aplikace pro malou servisní firmu: eviduje zákazní
 - **Mám nainstalováno, co dál?** [První nastavení po instalaci](10-prvni-nastaveni.md): firma, role, zaměstnanci, typy úkonů.
 - **Chci vědět, co aplikace umí:** [Popis aplikace](01-popis-aplikace.md) a [Funkce aplikace](02-funkce.md).
 - **Chci si udělat vlastní šablonu faktury:** [Šablony dokumentů](08-sablony-dokumentu.md); seznam značek je i přímo v aplikaci (Dokumenty → Šablony dokumentů → Značky pro vlastní šablony).
+- **Chci přidat modul (např. odesílání e-mailů):** [Volitelné moduly](11-moduly.md).
 - **Chci upravit kód:** [Architektura](04-architektura.md), [Struktura projektu](05-struktura-projektu.md), [Databáze](07-databaze.md) a [Vývoj a testování](09-vyvoj-a-testovani.md).
 
 Aplikace je open source pod licencí [MIT](../LICENSE).

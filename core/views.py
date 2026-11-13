@@ -29,15 +29,14 @@ from django.urls import reverse
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada, Role, Opravneni)
-from . import cislovani, prvni_nastaveni
+from . import cislovani, prvni_nastaveni, moduly
 from .historie import hodnota_text
 from .models import formatuj_telefon, TEL_PRIKLAD
 from .navigace import zpet as zpet_url
 from . import prava as P
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
-MODELS.pop("nastaveniemailu")  # obsahuje heslo ke schránce: jen vlastní stránka Nastavení → E-mail, žádný obecný seznam ani detail
-READONLY = {"historiezmen", "opravneni", "odeslanyemail"}  # oprávnění určuje aplikace (core/prava.py), měnit se dají jen jejich přiřazení rolím
+READONLY = {"historiezmen", "opravneni"}  # oprávnění určuje aplikace (core/prava.py), měnit se dají jen jejich přiřazení rolím
 SECT = [("plocha", "🖥 Pracovní plocha", "dashboard", []), ("zakazky", "📋 Zakázky", "list", ["zakazka"]), ("zakaznici", "👥 Zákazníci", "list", ["zakaznik"]),
         ("zarizeni", "🔧 Zařízení", "zarizeni_prehled", []),
         ("dokumenty", "📄 Dokumenty", "dokumenty", []), ("kalendar", "📅 Kalendář", "kalendar", []), ("nastaveni", "⚙ Nastavení", "nastaveni", [])]
@@ -50,7 +49,6 @@ SEC["kalendarudalost"] = ("kalendar", None)
 for _s, _g in (("nastavenifirmy", "Firma"), ("sazbadph", "DPH"), ("zamestnanec", "Uživatelé a oprávnění"), ("role", "Uživatelé a oprávnění"),
                ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("dodavatel", "Katalogy"), ("historiezmen", "Systém")): SEC[_s] = ("nastaveni", _g)
 SEC["ciselnarada"] = ("nastaveni", "Dokumenty")
-SEC["odeslanyemail"] = ("nastaveni", "Moduly")
 SEC["sablonadokumentu"] = ("dokumenty", None)  # šablony smí upravovat každý uživatel, nejsou součástí Nastavení
 
 def je_admin(user): return P.ma(user, P.NASTAVENI)
@@ -80,7 +78,8 @@ def R(request, tpl, sec=None, crumbs=None, **c):
     navx = [(k, *(l.split(" ", 1) if " " in l else ("", l)), u) for k, l, u in nav]  # (klíč, ikona, název, url) pro levou lištu
     if "zpet" not in c: c["zpet"] = zpet_url(request)  # tlačítko Zpět = stránka, ze které uživatel přišel
     c.setdefault("zrusit_url", safe_next(request) or c["zpet"])  # Zrušit ve formuláři = zpět tam, odkud se formulář otevřel
-    return render(request, f"core/{tpl}.html", {"nav": nav, "navx": navx, "sec": sec, "crumbs": crumbs, **c})
+    sablona = tpl if tpl.endswith(".html") else f"core/{tpl}.html"  # moduly předávají celou cestu ke své šabloně
+    return render(request, sablona, {"nav": nav, "navx": navx, "sec": sec, "crumbs": crumbs, **c})
 
 # ---------- Vyhledávací pole s inline vytvářením (místo <select>) ----------
 LOOKUP = {  # slug -> pole pro hledání, závislost (filtr podle zákazníka), pole formuláře "Nový ..."
@@ -753,7 +752,7 @@ def plocha(request, pk):
             ("dok", f"Dokumenty ({len(dok)})"), ("kont", "Kontakty"), ("zar", "Zařízení"), ("zam", "Zaměstnanci"), ("hist", "Historie změn")]
     hist = HistorieZmen.objects.filter(typ_objektu="zakazka", id_objektu=pk)[:60]
     hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), z.faktura_set.exists())
-    return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
+    return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, akce_modulu=moduly.akce_zakazky(request, z), sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
              kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=zapojeni_zamestnanci(z), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby)
 
 # ---------------- Nabídka ze zakázky ----------------
@@ -979,10 +978,8 @@ def nastaveni(request):
          ("Dokumenty", [("Číslování dokladů", reverse("nastaveni_cislovani")), ("Šablony dokumentů", reverse("sablony"))],
           "Jak vypadají čísla zakázkových listů, nabídek a faktur. Změnit je můžete kdykoli, vystavené doklady si čísla nechají."),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
-         ("Moduly", [("E-mail", reverse("nastaveni_email")), ("Odeslané e-maily", L("odeslanyemail"))],
-          "Volitelné moduly. Odesílání e-mailů potřebuje e-mailovou schránku firmy a připojení k internetu, zbytek aplikace funguje i bez internetu."),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
-    return R(request, "nastaveni", sec="nastaveni", groups=g, prvni=prvni_nastaveni.souhrn(request.user))
+    return R(request, "nastaveni", sec="nastaveni", groups=g, prvni=prvni_nastaveni.souhrn(request.user), moduly=moduly.seznam())
 def nastaveni_prvni(request):
     """Skrýt / znovu zobrazit upozornění „Dokončete první nastavení“ na pracovní ploše."""
     if not jen_admin_ok(request): return redirect("dashboard")

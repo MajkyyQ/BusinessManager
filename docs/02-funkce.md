@@ -323,14 +323,3 @@ Hodnoty jsou čitelné: pole se ukazuje českým názvem jako ve formuláři, vy
 **Co se děje na pozadí.** Funkce `log` v `core/views.py` se volá při každém vytvoření, úpravě, změně stavu, vydání, deaktivaci a smazání záznamu a ukládá uživatele, čas, typ a id objektu, akci, změněné pole a hodnoty před a po změně. Převod hodnot na čitelný text zajišťuje modul `core/historie.py` (při zápisu i při zobrazení, takže stejně se zobrazí i starší záznamy). Tabulka historie je jen pro čtení, obecné pohledy pro ni nenabízejí úpravu ani mazání.
 
 **Části systému a data.** Funkce `log`, modul `core/historie.py`, filtry šablon `zmena` a `pole_nazev`; tabulka HistorieZmen.
-
-
-## Odesílání e-mailů (modul)
-
-**K čemu slouží.** Dokumenty, fotografie a přílohy zakázky lze poslat zákazníkovi e-mailem přímo z aplikace. Je to volitelný modul a jediná část aplikace, která potřebuje internet.
-
-**Jak ji uživatel používá.** Administrátor vyplní schránku firmy a podpis v Nastavení → Moduly → E-mail. Zaměstnanec na zakázce klikne na „Odeslat e-mailem“, napíše předmět a text, zaškrtne soubory a odešle.
-
-**Co se děje na pozadí.** Modul `core/email_modul.py` sestaví seznam souborů zakázky podle oprávnění uživatele, vytvoří PDF dokladů, doplní do podpisu údaje zaměstnance a firmy a odešle e-mail přes SMTP. Odeslání zapíše do tabulky OdeslanyEmail a do historie zakázky. Podrobnosti jsou v kapitole [Modul Odesílání e-mailů](11-modul-email.md).
-
-**Části systému a data.** `core/email_modul.py`, adresy `/email/odeslat/` a `/nastaveni/email/`; tabulky NastaveniEmailu a OdeslanyEmail.

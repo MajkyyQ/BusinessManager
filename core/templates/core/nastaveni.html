@@ -7,4 +7,10 @@
 <button class="btn btn-sm btn-outline-secondary">{% if prvni.skryto %}Znovu zobrazit upozornění na pracovní ploše{% else %}Skrýt upozornění na pracovní ploše{% endif %}</button></form>{% endif %}
 </details></div></div>
 <div class="row g-3">{% for n,items,note in groups %}<div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body"><h5>{{ n }}</h5>
-{% for l,u in items %}<a class="d-block" href="{{ u }}">{{ l }}</a>{% endfor %}{% if note %}<div class="small text-muted mt-1">{{ note }}</div>{% endif %}</div></div></div>{% endfor %}</div>{% endblock %}
+{% for l,u in items %}<a class="d-block" href="{{ u }}">{{ l }}</a>{% endfor %}{% if note %}<div class="small text-muted mt-1">{{ note }}</div>{% endif %}</div></div></div>{% endfor %}
+<div class="col-12" id="moduly"><div class="card"><div class="card-body"><h5>Moduly</h5>
+<p class="small text-muted mb-2">Volitelná rozšíření, která nejsou součástí základní aplikace. Modul se přidá zkopírováním jeho složky do složky <code>moduly</code> aplikace a novým spuštěním (<code>aktualizace.bat</code> nebo <code>docker compose up -d --build</code>). Postup je v dokumentaci aplikace (docs/11-moduly.md).</p>
+{% for m in moduly %}<div class="border rounded p-2 mb-2"><div class="d-flex flex-wrap justify-content-between gap-2"><div><b>{{ m.nazev }}</b>{% if m.verze %} <span class="badge text-bg-secondary">verze {{ m.verze }}</span>{% endif %}
+<div class="small">{{ m.popis }}</div>{% if m.pozadavky %}<div class="small text-muted">Potřebuje: {{ m.pozadavky }}</div>{% endif %}</div>
+<div>{% for l, u in m.odkazy %}<a class="d-block" href="{{ u }}">{{ l }}</a>{% endfor %}</div></div></div>
+{% empty %}<p class="mb-0">Není nainstalovaný žádný modul.</p>{% endfor %}</div></div></div></div>{% endblock %}

@@ -213,6 +213,10 @@ Obnova do databáze, ve které už data jsou, skončí chybami. Proto se databá
 **Nikdy nespouštějte `docker compose down -v`.** Přepínač `-v` smaže databázi i nahrané soubory.
 `docker compose down` bez `-v` je bezpečné.
 
+## Volitelné moduly
+
+Další funkce, například odesílání e-mailů, nejsou součástí aplikace a přidávají se zvlášť z repozitáře https://github.com/MajkyyQ/BusinessManager-moduly: složka modulu se zkopíruje do `C:\BusinessManager\moduly` a aplikace se znovu spustí (`aktualizace.bat`). Podrobný postup je v [docs/11-moduly.md](docs/11-moduly.md).
+
 ## 10. Když něco nefunguje
 
 - **Instalace skončila chybou:** skript uloží výpis do souboru `instalace-log.txt` ve složce aplikace

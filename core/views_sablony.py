@@ -18,6 +18,7 @@ from django.views.decorators.http import require_POST
 from .models import SablonaDokumentu as S
 from .sablony import isdoc, prevod, renderery, typy
 from .views import R, log, safe_next, zpet_url
+from . import moduly
 
 CRUMBS = [("⚙ Nastavení", "/nastaveni/"), ("Dokumenty", None)]  # šablony se otevírají z Nastavení → Dokumenty → Šablony dokumentů
 
@@ -276,8 +277,7 @@ def dokument(request, typ, pk):
     return R(request, "sablony/nahled", sec="zakazky" if typ == "zakazkovy_list" else "dokumenty", crumbs=[(t.titulek(o), zpet), ("Náhled", None)],
              t=t, o=o, s=s, typ=typ, pk=pk, q=q, zpet=zpet, nx=nx, titulek=t.titulek(o), ostatni=ostatni, nove=nove,
              pokracovat=_pokracovat_text(zpet) if nove else None, na_fakturu=_na_fakturu(zak, zpet) if typ == "nabidka" and zak else None,
-             je_pdf=bool(s) and renderery.renderer(s).nahled_typ == "application/pdf",
-             email_zak=o if typ == "zakazkovy_list" else o.zakazky.order_by("pk").first())  # modul E-mail: odeslat dokument zákazníkovi
+             je_pdf=bool(s) and renderery.renderer(s).nahled_typ == "application/pdf", akce_modulu=moduly.akce_dokumentu(request, typ, o))
 
 
 @xframe_options_sameorigin

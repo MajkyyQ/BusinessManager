@@ -21,6 +21,7 @@ BusinessManager/
 |   |-- settings.py           nastavení (databáze, middleware, media)
 |   |-- urls.py               hlavní URL, přihlášení, soubory media
 |   `-- wsgi.py               vstupní bod pro Gunicorn
+|-- moduly/                   volitelné moduly (každý ve vlastní podsložce, do Gitu se neukládají), viz 11-moduly.md
 `-- core/                     aplikace BusinessManager
     |-- models.py             datový model (tabulky databáze)
     |-- views.py              pohledy evidence

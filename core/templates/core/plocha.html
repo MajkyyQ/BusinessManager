@@ -9,7 +9,7 @@
 {% if "nabidky.spravovat" in prava %}<a class="btn {% if hlavni == 'nabidka' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'nabidka_nova' %}?zakazka={{ z.pk }}&next={{ nxt }}">Vytvořit nabídku</a>
 {% endif %}{% if "faktury.spravovat" in prava %}<a class="btn {% if hlavni == 'faktura' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'faktura_nova' %}?zakazka={{ z.pk }}&next={{ nxt }}">Vytvořit fakturu</a>
 {% endif %}{% if "nabidky.spravovat" in prava %}<a class="btn btn-outline-success" href="{% url 'objednavka_nova' %}?zakazka={{ z.pk }}&next={{ nxt }}">Přijatá objednávka</a>{% endif %}</div>
-<a class="btn btn-sm btn-outline-primary" href="{% url 'email_odeslat' %}?zakazka={{ z.pk }}&next={{ nxt }}" title="Odeslat dokumenty, fotografie nebo přílohy zakázky e-mailem">✉ Odeslat e-mailem</a>
+{% for a in akce_modulu %}<a class="btn btn-sm btn-outline-primary" href="{{ a.url }}{% if '?' in a.url %}&{% else %}?{% endif %}next={{ nxt }}" title="{{ a.title|default:a.modul }}">{{ a.text }}</a>{% endfor %}
 </div></div>
 <form method="post" action="{% url 'stav_akce' z.pk %}" class="d-flex flex-wrap gap-1 align-items-center mb-3 p-2 border rounded bg-light">{% csrf_token %}
 <span class="small text-muted me-1">Stav zakázky:</span><span class="badge fs-6 bg-{{ stav_css }} me-2">{{ z.stav|default:"–" }}</span>

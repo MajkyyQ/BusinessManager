@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends libreoffice-cal
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
+# volitelné moduly (složka moduly/) mohou mít vlastní knihovny v requirements.txt
+RUN for f in moduly/*/requirements.txt; do if [ -f "$f" ]; then pip install --no-cache-dir -r "$f"; fi; done
 # ochrana proti Windows konců řádků (CRLF) ve skriptu
 RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 EXPOSE 8080

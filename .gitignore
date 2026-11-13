@@ -23,3 +23,8 @@ instalace-log.txt
 Thumbs.db
 .DS_Store
 zalohy/
+
+# Volitelné moduly se do aplikace přidávají zvlášť (docs/11-moduly.md), v repozitáři aplikace jsou jen tyto dva soubory
+moduly/*
+!moduly/__init__.py
+!moduly/README.md

@@ -6,6 +6,11 @@ DEBUG = os.getenv("DEBUG", "1") == "1"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 INSTALLED_APPS = ["django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "core", "django.forms"]
+# Volitelné moduly: každá podsložka moduly/<kod>/ s apps.py se načte jako další aplikace (viz core/moduly.py a docs/11-moduly.md).
+# MODULY_VYPNUTE=email,... v .env modul vypne bez smazání složky.
+from core.moduly import najdi_moduly
+MODULY = najdi_moduly(BASE_DIR, os.getenv("MODULY_VYPNUTE", ""))
+INSTALLED_APPS += [f"moduly.{m}" for m in MODULY]
 # Vlastní šablony formulářových prvků (core/templates/django/forms/...) mají přednost před vestavěnými.
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware", "django.contrib.sessions.middleware.SessionMiddleware",
