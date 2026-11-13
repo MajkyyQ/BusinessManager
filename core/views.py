@@ -29,7 +29,7 @@ from django.urls import reverse
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada, Role, Opravneni)
-from . import cislovani, prvni_nastaveni
+from . import cislovani, prvni_nastaveni, moduly
 from .historie import hodnota_text
 from .models import formatuj_telefon, TEL_PRIKLAD
 from .navigace import zpet as zpet_url
@@ -78,7 +78,8 @@ def R(request, tpl, sec=None, crumbs=None, **c):
     navx = [(k, *(l.split(" ", 1) if " " in l else ("", l)), u) for k, l, u in nav]  # (klíč, ikona, název, url) pro levou lištu
     if "zpet" not in c: c["zpet"] = zpet_url(request)  # tlačítko Zpět = stránka, ze které uživatel přišel
     c.setdefault("zrusit_url", safe_next(request) or c["zpet"])  # Zrušit ve formuláři = zpět tam, odkud se formulář otevřel
-    return render(request, f"core/{tpl}.html", {"nav": nav, "navx": navx, "sec": sec, "crumbs": crumbs, **c})
+    sablona = tpl if tpl.endswith(".html") else f"core/{tpl}.html"  # moduly předávají celou cestu ke své šabloně
+    return render(request, sablona, {"nav": nav, "navx": navx, "sec": sec, "crumbs": crumbs, **c})
 
 # ---------- Vyhledávací pole s inline vytvářením (místo <select>) ----------
 LOOKUP = {  # slug -> pole pro hledání, závislost (filtr podle zákazníka), pole formuláře "Nový ..."
@@ -751,7 +752,7 @@ def plocha(request, pk):
             ("dok", f"Dokumenty ({len(dok)})"), ("kont", "Kontakty"), ("zar", "Zařízení"), ("zam", "Zaměstnanci"), ("hist", "Historie změn")]
     hist = HistorieZmen.objects.filter(typ_objektu="zakazka", id_objektu=pk)[:60]
     hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), z.faktura_set.exists())
-    return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
+    return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, akce_modulu=moduly.akce_zakazky(request, z), sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
              kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=zapojeni_zamestnanci(z), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby)
 
 # ---------------- Nabídka ze zakázky ----------------
@@ -978,7 +979,7 @@ def nastaveni(request):
           "Jak vypadají čísla zakázkových listů, nabídek a faktur. Změnit je můžete kdykoli, vystavené doklady si čísla nechají."),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
-    return R(request, "nastaveni", sec="nastaveni", groups=g, prvni=prvni_nastaveni.souhrn(request.user))
+    return R(request, "nastaveni", sec="nastaveni", groups=g, prvni=prvni_nastaveni.souhrn(request.user), moduly=moduly.seznam())
 def nastaveni_prvni(request):
     """Skrýt / znovu zobrazit upozornění „Dokončete první nastavení“ na pracovní ploše."""
     if not jen_admin_ok(request): return redirect("dashboard")

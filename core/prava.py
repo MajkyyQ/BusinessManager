@@ -76,6 +76,9 @@ def potrebna_prava(name, kw, get=None):
     Prázdný seznam = stačí přihlášení. None = bez kontroly (přihlášení, průvodce)."""
     name = name or ""
     if name in BEZ_KONTROLY: return None
+    if ":" in name:  # stránka volitelného modulu (jmenný prostor modulu), oprávnění určuje modul sám
+        from . import moduly
+        return [{PRISTUP}] + (moduly.potrebna_prava(name) or [])
     req = [{PRISTUP}]; slug = kw.get("slug"); get = get or {}
     if name in ("list", "detail", "create", "edit", "delete"):
         if slug in T_NASTAVENI: req.append({NASTAVENI})
@@ -119,7 +122,7 @@ def smi(user, url):
     try: m = resolve(urlsplit(str(url)).path)
     except Resolver404: return True
     if m.app_name == "admin": return bool(user.is_staff)
-    return smi_stranku(user, m.url_name, m.kwargs)
+    return smi_stranku(user, m.view_name, m.kwargs)
 
 
 def popis_chybejiciho(user, req):
@@ -138,8 +141,8 @@ class PravaMiddleware:
         if not m or m.app_name == "admin" or not request.user.is_authenticated: return None
         if request.path.startswith("/media/"):  # soubory zakázek (fotky, přílohy) jen se základním přístupem
             return None if ma(request.user, PRISTUP) else HttpResponseForbidden("Nemáte přístup.")
-        req = potrebna_prava(m.url_name, kwargs, request.GET)
-        if req is None or smi_stranku(request.user, m.url_name, kwargs, request.GET): return None
+        req = potrebna_prava(m.view_name, kwargs, request.GET)  # view_name = url_name, u modulů „modul:název“
+        if req is None or smi_stranku(request.user, m.view_name, kwargs, request.GET): return None
         if not ma(request.user, PRISTUP):
             return render(request, "core/bez_pristupu.html", status=403)
         text = f"Na tuto akci nemáte oprávnění (potřebné oprávnění: {popis_chybejiciho(request.user, req)}). Požádejte administrátora o přidělení role."

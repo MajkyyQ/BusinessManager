@@ -6,4 +6,5 @@ from django.contrib.auth import views as av
 urlpatterns = [path("admin/", admin.site.urls),
     path("login/", av.LoginView.as_view(), name="login"), path("logout/", av.LogoutView.as_view(), name="logout"),
     re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),  # soubory jen pro přihlášené
+    *[path(f"moduly/{m}/", include(f"moduly.{m}.urls")) for m in settings.MODULY if (settings.BASE_DIR / "moduly" / m / "urls.py").exists()],  # volitelné moduly
     path("", include("core.urls"))]

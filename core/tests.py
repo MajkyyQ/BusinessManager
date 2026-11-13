@@ -1276,3 +1276,51 @@ class PrvniNastaveniTest(TestCase):
         self.assertNotContains(self.client.get("/"), "Dokončete první nastavení")
         self.assertRedirects(self.client.post(reverse("nastaveni_prvni"), {"skryt": "1"}), reverse("dashboard"), fetch_redirect_response=False)
         self.assertFalse(NastaveniFirmy.objects.get().prvni_nastaveni_skryto)
+
+
+class SystemModuluTest(TestCase):
+    """Volitelné moduly (core/moduly.py): nalezení ve složce moduly/, zápis do Nastavení, tlačítka a oprávnění stránek modulu."""
+    def setUp(self):
+        from unittest import mock
+        from . import moduly
+        p = mock.patch.dict(moduly.REGISTR, clear=True); p.start(); self.addCleanup(p.stop)  # testy nezávisí na nainstalovaných modulech
+        self.moduly = moduly
+
+    def test_najde_jen_platne_moduly(self):
+        import tempfile
+        from pathlib import Path
+        d = Path(tempfile.mkdtemp()); (d / "moduly").mkdir()
+        for nazev, soubory in (("sklad", ("__init__.py", "apps.py")), ("dochazka", ("__init__.py", "apps.py")), ("bez_apps", ("__init__.py",)), ("Spatny-nazev", ("__init__.py", "apps.py"))):
+            (d / "moduly" / nazev).mkdir()
+            for s in soubory: (d / "moduly" / nazev / s).write_text("")
+        (d / "moduly" / "README.md").write_text("")
+        self.assertEqual(self.moduly.najdi_moduly(d), ["dochazka", "sklad"])
+        self.assertEqual(self.moduly.najdi_moduly(d, "sklad, x"), ["dochazka"])  # MODULY_VYPNUTE
+        self.assertEqual(self.moduly.najdi_moduly(Path(tempfile.mkdtemp())), [])  # bez složky moduly
+
+    def test_nastaveni_bez_modulu_a_s_modulem(self):
+        self.client.force_login(uzivatel("admin", "Administrátor"))
+        self.assertContains(self.client.get(reverse("nastaveni")), "Není nainstalovaný žádný modul")
+        self.moduly.registruj(self.moduly.Modul(kod="sklad", nazev="Sklad", verze="0.1", popis="Evidence skladu.", pozadavky="nic",
+                                                nastaveni=[("Sklad – nastavení", "nastaveni_firma"), ("Neexistující", "neni:adresa")]))
+        r = self.client.get(reverse("nastaveni"))
+        self.assertContains(r, "Sklad"); self.assertContains(r, "verze 0.1"); self.assertContains(r, reverse("nastaveni_firma"))
+        self.assertNotContains(r, "Neexistující")  # odkaz na neexistující adresu se vynechá, stránka nespadne
+
+    def test_tlacitka_modulu_na_zakazce(self):
+        from .models import Zakazka
+        z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(firma="Firma"))
+        def akce(request, zak): return [dict(text="Akce modulu", url=f"/kalendar/?zakazka={zak.pk}")]
+        def chyba(request, zak): raise RuntimeError("chyba v modulu")
+        self.moduly.registruj(self.moduly.Modul(kod="a", nazev="A", akce_zakazky=akce))
+        self.moduly.registruj(self.moduly.Modul(kod="b", nazev="B", akce_zakazky=chyba))
+        self.client.force_login(uzivatel("tech", "Technik"))
+        with self.assertLogs("core.moduly", "ERROR"):
+            r = self.client.get(reverse("plocha", args=[z.pk]))
+        self.assertContains(r, "Akce modulu"); self.assertContains(r, f"/kalendar/?zakazka={z.pk}&next=/plocha/{z.pk}/")
+
+    def test_opravneni_stranek_modulu(self):
+        from . import prava as P
+        self.moduly.registruj(self.moduly.Modul(kod="s", nazev="S", prava={"s:nastaveni": {P.NASTAVENI}}))
+        self.assertEqual(P.potrebna_prava("s:nastaveni", {}), [{P.PRISTUP}, {P.NASTAVENI}])
+        self.assertEqual(P.potrebna_prava("s:prehled", {}), [{P.PRISTUP}])  # bez záznamu stačí základní přístup
