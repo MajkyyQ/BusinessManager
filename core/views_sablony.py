@@ -276,7 +276,8 @@ def dokument(request, typ, pk):
     return R(request, "sablony/nahled", sec="zakazky" if typ == "zakazkovy_list" else "dokumenty", crumbs=[(t.titulek(o), zpet), ("Náhled", None)],
              t=t, o=o, s=s, typ=typ, pk=pk, q=q, zpet=zpet, nx=nx, titulek=t.titulek(o), ostatni=ostatni, nove=nove,
              pokracovat=_pokracovat_text(zpet) if nove else None, na_fakturu=_na_fakturu(zak, zpet) if typ == "nabidka" and zak else None,
-             je_pdf=bool(s) and renderery.renderer(s).nahled_typ == "application/pdf")
+             je_pdf=bool(s) and renderery.renderer(s).nahled_typ == "application/pdf",
+             email_zak=o if typ == "zakazkovy_list" else o.zakazky.order_by("pk").first())  # modul E-mail: odeslat dokument zákazníkovi
 
 
 @xframe_options_sameorigin

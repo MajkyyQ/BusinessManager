@@ -4,6 +4,7 @@
 <div class="d-flex flex-wrap gap-1">
 {% if s %}<a class="btn btn-primary" href="{% url 'dokument_pdf' typ pk %}{{ q }}" hx-boost="false">⬇ Stáhnout PDF</a>
 <button class="btn btn-outline-primary" type="button" id="tisk">🖨 Vytisknout</button>{% endif %}
+{% if s and email_zak %}<a class="btn btn-outline-primary" href="{% url 'email_odeslat' %}?zakazka={{ email_zak.pk }}&vybrat=dok:{{ typ }}:{{ pk }}&next={{ request.get_full_path|urlencode }}" title="Odeslat dokument e-mailem (modul E-mail, potřebuje internet)">✉ Odeslat e-mailem</a>{% endif %}
 {% if typ == "faktura" %}<a class="btn btn-outline-primary" href="{% url 'dokument_isdoc' typ pk %}" hx-boost="false" title="Elektronická faktura pro import do účetního programu">⬇ Stáhnout ISDOC</a>{% endif %}
 <a class="btn btn-outline-secondary" href="{% url 'dokument_sablony' typ pk %}{% if q %}{{ q }}&{% else %}?{% endif %}{% if nove %}nove=1&{% endif %}next={{ nx|urlencode }}">Změnit šablonu{% if ostatni > 1 %} ({{ ostatni }}){% endif %}</a>
 {% if nove %}<a class="btn btn-secondary" href="{{ zpet }}">{{ pokracovat }}</a>{% if na_fakturu and na_fakturu.url|smi:request.user %}<a class="btn btn-success" href="{{ na_fakturu.url }}">{{ na_fakturu.text }} →</a>{% endif %}

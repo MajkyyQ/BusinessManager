@@ -41,7 +41,7 @@ VYCHOZI_ROLE = "Zaměstnanec"
 
 # tabulky (slug modelu) podle toho, které oprávnění je potřeba
 T_NASTAVENI = {"nastavenifirmy", "sazbadph", "zamestnanec", "role", "opravneni", "stavzakazky", "typukonu", "material", "dodavatel", "historiezmen",
-               "ciselnarada", "sablonadokumentu"}
+               "ciselnarada", "sablonadokumentu", "nastaveniemailu", "odeslanyemail"}
 T_NABIDKY = {"nabidka", "polozkanabidky", "objednavka"}
 T_FAKTURY = {"faktura", "polozkafaktury", "platba", "prijatafaktura"}
 T_ZAKAZNICI = {"zakaznik", "kontaktniosoba", "zakaznikkontakt", "zarizeni"}

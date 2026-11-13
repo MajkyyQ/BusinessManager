@@ -24,6 +24,7 @@ BusinessManager je webová aplikace pro malou servisní firmu: eviduje zákazní
 | [8. Šablony dokumentů, PDF a ISDOC](08-sablony-dokumentu.md) | Excelové a HTML šablony, značky, editor šablon, převod do PDF, export a import ISDOC |
 | [9. Vývoj a testování](09-vyvoj-a-testovani.md) | spuštění pro vývoj, proměnné prostředí, automatické testy, úprava databáze |
 | [10. První nastavení po instalaci](10-prvni-nastaveni.md) | co musí administrátor nastavit po prvním spuštění: údaje o firmě, role, zaměstnanci, typy úkonů a volitelné kroky |
+| [11. Modul Odesílání e-mailů](11-modul-email.md) | volitelný modul: odeslání dokumentů, fotografií a příloh zakázky e-mailem, nastavení schránky a podpisu |
 
 ## Rychlá orientace
 

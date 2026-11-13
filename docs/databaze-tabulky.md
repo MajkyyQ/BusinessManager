@@ -36,6 +36,8 @@ Zkratky: **PK** primární klíč, **FK** cizí klíč, **M:N** vazba přes vaze
 - [CiselnaRada](#ciselnarada) – číselná řada
 - [SazbaDPH](#sazbadph) – sazba DPH
 - [SablonaDokumentu](#sablonadokumentu) – šablona dokumentu
+- [NastaveniEmailu](#nastaveniemailu) – nastavení e-mailu
+- [OdeslanyEmail](#odeslanyemail) – odeslaný e-mail
 
 ## Zakaznik
 
@@ -563,6 +565,45 @@ Tabulka `core_sablonadokumentu` – šablona dokumentu.
 | `verze` | celé kladné číslo | ano |  (výchozí 1) |
 | `datum_vytvoreni` | datum a čas | ne | datum vytvoření |
 | `datum_upravy` | datum a čas | ne |  |
+
+## NastaveniEmailu
+
+Tabulka `core_nastaveniemailu` – nastavení e-mailu.
+
+| Sloupec | Datový typ | Povinné | Popis |
+|:--|:--|:--|:--|
+| `id` | celé číslo, PK | ano |  |
+| `smtp_server` | text (200) | ne | server odchozí pošty (SMTP) – Např. smtp.seznam.cz, smtp.gmail.com nebo smtp.office365.com. |
+| `port` | celé kladné číslo | ano |  (výchozí 587) |
+| `sifrovani` | text (10); hodnoty: „tls“, „ssl“, „zadne“ | ano | šifrování (výchozí tls) |
+| `uzivatel` | text (200) | ne | přihlašovací jméno – Obvykle celá e-mailová adresa schránky. |
+| `heslo` | text (200) | ne | U Gmailu a Microsoftu 365 heslo aplikace, ne běžné heslo k účtu. |
+| `odesilatel_email` | text (254) | ne | e-mail odesílatele – Adresa, ze které zákazník e-mail dostane. |
+| `odesilatel_jmeno` | text (150) | ne | jméno odesílatele – Např. název firmy. Prázdné = název firmy z Nastavení → Firma. |
+| `kopie_odesilateli` | logická hodnota | ano | posílat skrytou kopii odesílateli – Odeslaný e-mail přijde i do firemní schránky, takže je dohledatelný i mimo aplikaci. (výchozí ano) |
+| `podpis` | dlouhý text | ne | podpis e-mailu – Připojí se na konec každého e-mailu. |
+| `datum_upravy` | datum a čas | ne |  |
+
+**Integritní omezení:**
+
+- `email_sifrovani_platne` – CHECK `"sifrovani" IN ('tls', 'ssl', 'zadne')`
+- `email_port_rozsah` – CHECK `("port" >= 1 AND "port" <= 65535)`
+
+## OdeslanyEmail
+
+Tabulka `core_odeslanyemail` – odeslaný e-mail.
+
+| Sloupec | Datový typ | Povinné | Popis |
+|:--|:--|:--|:--|
+| `id` | celé číslo, PK | ano |  |
+| `zakazka_id` | FK → Zakazka (CASCADE) | ne |  |
+| `komu` | text (500) | ano |  |
+| `kopie` | text (500) | ne |  |
+| `predmet` | text (200) | ano | předmět |
+| `text` | dlouhý text | ne |  |
+| `prilohy` | dlouhý text | ne | přílohy – Názvy přiložených souborů, jeden na řádek. |
+| `odeslal_id` | FK → auth_user (PROTECT) | ne |  |
+| `datum` | datum a čas | ne |  |
 
 ## Vazební tabulky (M:N)
 

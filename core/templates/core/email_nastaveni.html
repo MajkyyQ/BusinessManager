@@ -1,0 +1,26 @@
+{% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>E-mail</h3></div>
+<div class="alert alert-info col-lg-9"><b>Modul Odesílání e-mailů.</b> Dokumenty, fotografie a přílohy zakázky lze odeslat e-mailem přímo z aplikace (na zakázce tlačítko <i>Odeslat e-mailem</i>).
+Modul potřebuje <b>e-mailovou schránku firmy</b> vyplněnou níže a <b>připojení k internetu</b> ve chvíli odeslání. Bez toho se nic neodesílá a zbytek aplikace funguje dál i bez internetu.</div>
+<form method="post" hx-boost="false" class="col-lg-9" autocomplete="off">{% csrf_token %}{{ form.non_field_errors }}
+<h6 class="text-muted mt-2">Odesílatel</h6>
+<div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold" for="id_odesilatel_email">{{ form.odesilatel_email.label|capfirst }}</label>{{ form.odesilatel_email }}<div class="form-text mt-0">{{ form.odesilatel_email.help_text }}</div><div class="text-danger small">{{ form.odesilatel_email.errors }}</div></div>
+<div class="col-md-6"><label class="form-label mb-0" for="id_odesilatel_jmeno">{{ form.odesilatel_jmeno.label|capfirst }}</label>{{ form.odesilatel_jmeno }}<div class="form-text mt-0">{{ form.odesilatel_jmeno.help_text }}</div></div></div>
+<h6 class="text-muted">Server odchozí pošty</h6>
+<p class="small text-muted mb-1">Údaje najdete v nápovědě svého poskytovatele e-mailu. Vyplnit podle:
+<button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-smtp="smtp.seznam.cz,465,ssl">Seznam.cz</button>,
+<button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-smtp="smtp.gmail.com,587,tls">Gmail</button>,
+<button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-smtp="smtp.office365.com,587,tls">Microsoft 365 / Outlook</button>.</p>
+<div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold" for="id_smtp_server">{{ form.smtp_server.label|capfirst }}</label>{{ form.smtp_server }}<div class="form-text mt-0">{{ form.smtp_server.help_text }}</div><div class="text-danger small">{{ form.smtp_server.errors }}</div></div>
+<div class="col-md-2"><label class="form-label mb-0" for="id_port">{{ form.port.label|capfirst }}</label>{{ form.port }}<div class="text-danger small">{{ form.port.errors }}</div></div>
+<div class="col-md-4"><label class="form-label mb-0" for="id_sifrovani">{{ form.sifrovani.label|capfirst }}</label>{{ form.sifrovani }}</div></div>
+<div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0" for="id_uzivatel">{{ form.uzivatel.label|capfirst }}</label>{{ form.uzivatel }}<div class="form-text mt-0">{{ form.uzivatel.help_text }}</div></div>
+<div class="col-md-6"><label class="form-label mb-0" for="id_heslo">{{ form.heslo.label|capfirst }}</label>{{ form.heslo }}<div class="form-text mt-0">{{ form.heslo.help_text }}</div></div></div>
+<div class="form-check mb-3">{{ form.kopie_odesilateli }}<label class="form-check-label" for="id_kopie_odesilateli">{{ form.kopie_odesilateli.label|capfirst }}</label><div class="form-text mt-0">{{ form.kopie_odesilateli.help_text }}</div></div>
+<div class="row g-3 mb-3"><div class="col-md-7"><label class="form-label mb-0" for="id_podpis">{{ form.podpis.label|capfirst }}</label>{{ form.podpis }}<div class="form-text mt-0">{{ form.podpis.help_text }} Značky ve složených závorkách aplikace nahradí údaji odesílajícího zaměstnance a firmy. Řádek, ke kterému údaj chybí, se vynechá.</div></div>
+<div class="col-md-5"><div class="small fw-bold mb-1">Značky</div><table class="table table-sm small mb-2">{% for k, l in znacky %}<tr><td class="font-monospace">{{ "{" }}{{ k }}{{ "}" }}</td><td>{{ l }}</td></tr>{% endfor %}</table>
+<div class="small fw-bold mb-1">Ukázka pro vás (podle uloženého podpisu)</div><pre class="border rounded p-2 small mb-0" style="white-space:pre-wrap">{{ ukazka }}</pre></div></div>
+<button class="btn btn-primary">Uložit</button> <button class="btn btn-outline-primary" name="zkouska" value="1">Uložit a odeslat zkušební e-mail</button>
+<a class="btn btn-secondary" href="{% url 'nastaveni' %}">Zpět do nastavení</a>
+<div class="form-text">Zkušební e-mail přijde na e-mail odesílatele.</div></form>
+<script>document.querySelectorAll('[data-smtp]').forEach(b=>b.onclick=()=>{const [s,p,t]=b.dataset.smtp.split(',');document.getElementById('id_smtp_server').value=s;document.getElementById('id_port').value=p;document.getElementById('id_sifrovani').value=t})</script>
+{% endblock %}

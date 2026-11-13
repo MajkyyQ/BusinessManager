@@ -36,7 +36,8 @@ from .navigace import zpet as zpet_url
 from . import prava as P
 
 MODELS = {m._meta.model_name: m for m in apps.get_app_config("core").get_models()}
-READONLY = {"historiezmen", "opravneni"}  # oprávnění určuje aplikace (core/prava.py), měnit se dají jen jejich přiřazení rolím
+MODELS.pop("nastaveniemailu")  # obsahuje heslo ke schránce: jen vlastní stránka Nastavení → E-mail, žádný obecný seznam ani detail
+READONLY = {"historiezmen", "opravneni", "odeslanyemail"}  # oprávnění určuje aplikace (core/prava.py), měnit se dají jen jejich přiřazení rolím
 SECT = [("plocha", "🖥 Pracovní plocha", "dashboard", []), ("zakazky", "📋 Zakázky", "list", ["zakazka"]), ("zakaznici", "👥 Zákazníci", "list", ["zakaznik"]),
         ("zarizeni", "🔧 Zařízení", "zarizeni_prehled", []),
         ("dokumenty", "📄 Dokumenty", "dokumenty", []), ("kalendar", "📅 Kalendář", "kalendar", []), ("nastaveni", "⚙ Nastavení", "nastaveni", [])]
@@ -49,6 +50,7 @@ SEC["kalendarudalost"] = ("kalendar", None)
 for _s, _g in (("nastavenifirmy", "Firma"), ("sazbadph", "DPH"), ("zamestnanec", "Uživatelé a oprávnění"), ("role", "Uživatelé a oprávnění"),
                ("opravneni", "Uživatelé a oprávnění"), ("stavzakazky", "Katalogy"), ("typukonu", "Katalogy"), ("material", "Katalogy"), ("dodavatel", "Katalogy"), ("historiezmen", "Systém")): SEC[_s] = ("nastaveni", _g)
 SEC["ciselnarada"] = ("nastaveni", "Dokumenty")
+SEC["odeslanyemail"] = ("nastaveni", "Moduly")
 SEC["sablonadokumentu"] = ("dokumenty", None)  # šablony smí upravovat každý uživatel, nejsou součástí Nastavení
 
 def je_admin(user): return P.ma(user, P.NASTAVENI)
@@ -977,6 +979,8 @@ def nastaveni(request):
          ("Dokumenty", [("Číslování dokladů", reverse("nastaveni_cislovani")), ("Šablony dokumentů", reverse("sablony"))],
           "Jak vypadají čísla zakázkových listů, nabídek a faktur. Změnit je můžete kdykoli, vystavené doklady si čísla nechají."),
          ("Katalogy", [("Stavy zakázek", L("stavzakazky")), ("Typy úkonů", L("typukonu")), ("Materiály", L("material")), ("Dodavatelé", L("dodavatel"))], ""),
+         ("Moduly", [("E-mail", reverse("nastaveni_email")), ("Odeslané e-maily", L("odeslanyemail"))],
+          "Volitelné moduly. Odesílání e-mailů potřebuje e-mailovou schránku firmy a připojení k internetu, zbytek aplikace funguje i bez internetu."),
          ("Systém", [("Historie změn", L("historiezmen")), ("Zálohování", reverse("nastaveni_zaloha"))] + ([("Obecná nastavení (Django admin)", "/admin/")] if st else []), "")]
     return R(request, "nastaveni", sec="nastaveni", groups=g, prvni=prvni_nastaveni.souhrn(request.user))
 def nastaveni_prvni(request):
