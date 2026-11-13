@@ -41,9 +41,9 @@ Typický průběh servisní zakázky v aplikaci odpovídá pracovnímu postupu f
 
 2.  **Zakázkový list.** Ihned po přijetí lze vytisknout zakázkový list, který se vyplní údaji ze zakázky a slouží jako průvodní list zařízení ve firmě.
 
-3.  **Diagnostika a oprava.** Technici postupně doplňují provedené práce (typ úkonu, cena, sazba DPH, kdo práci provedl) a použitý materiál (položka z katalogu materiálu, množství, cena). Ke zakázce lze kdykoli přidat další fotografie a přílohy, například technické listy nebo objednávku zákazníka. Stav zakázky se mění tlačítky („Zahájit práci“, „Čeká na díl“, „Dokončit opravu“ apod.).
+3.  **Diagnostika a oprava.** Technici postupně doplňují provedené práce (typ úkonu, cena, sazba DPH, kdo práci provedl) a použitý materiál (položka z katalogu materiálu, množství, cena). Ke zakázce lze kdykoli přidat další fotografie a přílohy, například technické listy nebo objednávku zákazníka. Stav zakázky se mění tlačítky („Zahájit práci“, „Čeká na díl“, „Dokončit opravu“ apod.); přidáním první práce se nová zakázka sama přepne do stavu „Rozpracováno“. Více prací nebo položek materiálu lze zapsat najednou.
 
-4.  **Cenová nabídka.** Pokud zákazník požaduje nabídku, vytvoří se jedním kliknutím ze zakázky. Aplikace převezme práce a materiál jako položky nabídky, spočítá ceny s DPH a celkové součty, nabídce přidělí číslo s pořadím převzatým ze zakázky, a zakázku přepne do stavu „Čeká na schválení“.
+4.  **Cenová nabídka.** Pokud zákazník požaduje nabídku, vytvoří se jedním kliknutím ze zakázky. Aplikace převezme práce a materiál jako položky nabídky, spočítá ceny s DPH a celkové součty, nabídce přidělí číslo s pořadím převzatým ze zakázky, a pokud je zakázka ještě ve stavu „Nová“, přepne ji do stavu „Čeká na schválení“. Z hotové nabídky lze tlačítkem „Pokračovat na fakturu“ rovnou přejít k vystavení faktury.
 
 5.  **Dokončení a vydání.** Po dokončení opravy se zakázka označí jako opravená a připravená k vyzvednutí. Při předání zákazníkovi se stiskne „Vydat zákazníkovi“; aplikace uloží datum vydání, zapíše, kdo zařízení vydal, a vytvoří událost v kalendáři.
 
@@ -67,6 +67,6 @@ Aplikaci lze z funkčního hlediska rozdělit na několik částí, které odpov
 - **Zařízení** – obsahují přehled všech zařízení zákazníků s informací, zda je zařízení právě ve firmě, a historii jeho oprav.
 - **Dokumenty** – sdružují nabídky, přijaté objednávky, vystavené a přijaté faktury, platby a šablony dokumentů.
 - **Kalendář** – zobrazuje automaticky vznikající i vlastní (ručně zadané) události.
-- **Nastavení** – obsahuje údaje o firmě, číslování dokladů, sazby DPH, katalogy (stavy zakázek, typy úkonů, materiál, dodavatelé), zaměstnance s jejich účty a oprávněními, historii změn a zálohování. Nastavení vidí a mění jen administrátor.
+- **Nastavení** – obsahuje údaje o firmě, číslování dokladů, sazby DPH, katalogy (stavy zakázek, typy úkonů, materiál, dodavatelé), zaměstnance s jejich účty, role a oprávnění, šablony dokumentů, historii změn a zálohování. Nastavení vidí a mění jen administrátor, tedy uživatel s oprávněním Nastavení. Co smějí ostatní zaměstnanci (např. technik nebo administrativa), určují jejich role.
 
 Všechny tyto části pracují nad společnou databází. Zákazník založený při přijetí zakázky je okamžitě vidět v evidenci zákazníků, zařízení přidané do zakázky se objeví v přehledu zařízení, cena materiálu z katalogu se nabídne při jeho přidání do zakázky, práce a materiál zakázky se stanou položkami nabídky i faktury a vystavení faktury se promítne do kalendáře. Systém šablon dokumentů je přitom na evidenci zcela nezávislý: šablona určuje pouze vzhled dokumentu a nikdy nemění uložená data. Tím je zajištěno, že změna vzhledu faktury nemůže ovlivnit její obsah, a naopak oprava údajů v evidenci se projeví ve všech dokumentech, které se z nich nově vytvoří.

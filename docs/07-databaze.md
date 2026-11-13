@@ -198,7 +198,7 @@ Vazby: N:1 na Zakaznik a StavZakazky; M:N na Zarizeni a Zamestnanec (vazební ta
 
 #### StavZakazky
 
-Tabulka `core_stavzakazky` je číselník stavů, kterými zakázka prochází. Sloupce: `nazev` (text 100), `popis`, `poradi` (celé číslo určující pořadí zobrazení), `aktivni` a `datum_vytvoreni`. Výchozí stavy se vytvoří při instalaci: Nová, Rozpracováno, Čeká na schválení, Čeká na díl, Opraveno, Připraveno k vyzvednutí, Vydáno a Zrušeno. Stavy jsou v samostatné tabulce, a ne jako pevný výčet, aby je bylo možné přejmenovat nebo doplnit bez změny kódu. Pravidla, které přechody mezi stavy jsou povoleny, jsou definována v kódu (část [Funkce aplikace](02-funkce.md)). Vazba 1:N na Zakazka.
+Tabulka `core_stavzakazky` je číselník stavů, kterými zakázka prochází. Sloupce: `nazev` (text 100), `popis`, `poradi` (celé číslo určující pořadí zobrazení), `barva` (barva štítku stavu ve tvaru `#rrggbb`, kterou si firma volí v Nastavení → Katalogy → Stavy zakázek), `aktivni` a `datum_vytvoreni`. Nový stav dostane pořadí za posledním stavem; když uživatel zvolí pořadí, které už má jiný stav, metoda `save()` ostatní stavy posune, aby se pořadí neopakovalo. Výchozí stavy se vytvoří při instalaci: Nová, Rozpracováno, Čeká na schválení, Čeká na díl, Opraveno, Připraveno k vyzvednutí, Vydáno a Zrušeno. Stavy jsou v samostatné tabulce, a ne jako pevný výčet, aby je bylo možné přejmenovat nebo doplnit bez změny kódu. Pravidla, které přechody mezi stavy jsou povoleny, jsou definována v kódu (část [Funkce aplikace](02-funkce.md)). Vazba 1:N na Zakazka.
 
 #### ZakazkaKontakt
 
@@ -220,7 +220,7 @@ Tabulka `core_provedenyukon` zaznamenává jednotlivé práce provedené na zak�
 | `typ_ukonu_id`    | FK → TypUkonu | druh práce (`PROTECT`)                                    |
 | `cena`            | desetinné (12,2)          | cena práce bez DPH                                        |
 | `sazba_dph`       | desetinné (5,2)           | sazba DPH v procentech; prázdná = výchozí sazba firmy     |
-| `poznamka`        | dlouhý text               | upřesnění; první řádek se připojí k názvu položky dokladu |
+| `poznamka`        | dlouhý text               | interní upřesnění; do položek dokladu ani do zakázkového listu se nepropisuje |
 | `datum_vytvoreni` | datum a čas               | kdy byla práce zapsána                                    |
 
 *Důležité sloupce tabulky ProvedenyUkon*
@@ -368,7 +368,7 @@ Vazba M:N na Zamestnanec (`core_kalendarudalost_zamestnanci`) umožňuje filtrov
 
 #### HistorieZmen
 
-Tabulka `core_historiezmen` je auditní záznam všech změn provedených uživateli. Sloupce: `uzivatel_id` → auth_user, `datum`, `typ_objektu` (název tabulky, např. `zakazka`), `id_objektu` (id změněného záznamu, velké celé číslo jako primární klíče), `akce` (Vytvoření, Úprava, Změna stavu, Vydání, Deaktivace, Smazání), `pole` (změněný sloupec), `puvodni_hodnota`, `nova_hodnota` a `popis`. Odkaz na změněný záznam není realizován cizím klíčem, ale dvojicí `typ_objektu` a `id_objektu`, aby jedna tabulka mohla zaznamenávat změny ve všech ostatních tabulkách a aby záznam historie zůstal zachován i po smazání objektu. Historie se zobrazuje na záložce Historie změn u zakázky, zákazníka a zařízení a v nastavení; v aplikaci ji nelze upravovat.
+Tabulka `core_historiezmen` je auditní záznam všech změn provedených uživateli. Sloupce: `uzivatel_id` → auth_user, `datum`, `typ_objektu` (název tabulky, např. `zakazka`), `id_objektu` (id změněného záznamu, velké celé číslo jako primární klíče), `akce` (Vytvoření, Úprava, Změna stavu, Vydání, Deaktivace, Smazání), `pole` (změněný sloupec), `puvodni_hodnota`, `nova_hodnota` a `popis`. Odkaz na změněný záznam není realizován cizím klíčem, ale dvojicí `typ_objektu` a `id_objektu`, aby jedna tabulka mohla zaznamenávat změny ve všech ostatních tabulkách a aby záznam historie zůstal zachován i po smazání objektu. Hodnoty se ukládají jako čitelný text (jména vybraných záznamů, česká data, ano/ne; modul `core/historie.py`). Historie se zobrazuje na záložce Historie změn u zakázky, zákazníka a zařízení a v nastavení; v aplikaci ji nelze upravovat.
 
 ### Zaměstnanci, role a oprávnění
 
@@ -388,7 +388,7 @@ Tabulky `core_role` a (`core_opravneni`) tvoří jednoduchý systém oprávněn�
 
 #### NastaveniFirmy
 
-Tabulka `core_nastavenifirmy` obsahuje údaje o firmě, která aplikaci provozuje. V tabulce je jediný záznam, který založí administrátor v průvodci prvním spuštěním. Sloupce: `nazev_firmy`, `adresa`, `ico`, `dic`, `telefon`, `email`, `web`, `cislo_uctu`, `logo` (cesta k obrázku), `mena` (CZK nebo EUR), `vychozi_dph`, `datum_upravy` a `vytvoril_id` → auth_user s `datum_vytvoreni` (kdo a kdy firmu v průvodci založil). Tyto údaje se dosazují do hlavičky všech dokumentů jako údaje dodavatele a výchozí sazba DPH se použije u prací a materiálu bez vlastní sazby.
+Tabulka `core_nastavenifirmy` obsahuje údaje o firmě, která aplikaci provozuje. V tabulce je jediný záznam, který založí administrátor v průvodci prvním spuštěním. Sloupce: `nazev_firmy`, `adresa`, `ico`, `dic`, `telefon`, `email`, `web`, `cislo_uctu`, `logo` (cesta k obrázku), `mena` (CZK nebo EUR), `vychozi_dph`, `datum_upravy` a `vytvoril_id` → auth_user s `datum_vytvoreni` (kdo a kdy firmu v průvodci založil) a `prvni_nastaveni_skryto` (administrátor skryl upozornění na první nastavení na pracovní ploše). Tyto údaje se dosazují do hlavičky všech dokumentů jako údaje dodavatele a výchozí sazba DPH se použije u prací a materiálu bez vlastní sazby.
 
 #### SazbaDPH
 
