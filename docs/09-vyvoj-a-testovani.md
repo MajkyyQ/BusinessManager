@@ -31,6 +31,10 @@ Nastavení se čte z proměnných prostředí a ze souboru `.env` ve složce apl
 | `SECRET_KEY` | tajný klíč Django (dlouhý náhodný řetězec) | vygeneruje se náhodně a uloží do souboru `.secret_key` |
 | `DEBUG` | `1` = ladicí režim (jen pro vývoj), `0` = provoz | `0` |
 | `HTTPS` | `1`, když aplikace běží za HTTPS (např. Caddy nebo nginx); cookies se pak posílají jen šifrovaně | `0` |
+| `MAX_VELIKOST_SOUBORU_MB` | největší velikost jednoho nahrávaného souboru v MB | `50` |
+| `MAX_VELIKOST_NAHRAVANI_MB` | největší velikost jednoho nahrání (např. víc fotek najednou) v MB | `500` |
+| `ZALOHA_KOPIE` | kam `zaloha.bat` zkopíruje poslední zálohu (jiný disk nebo sdílená složka jiného PC, drží se 2 poslední) | prázdné |
+| `ZALOHA_PONECHAT` | kolik záloh nechat ve složce `zalohy` na serverovém PC | `7` |
 | `ALLOWED_HOSTS` | adresy, na kterých aplikace odpovídá (čárkami) | `localhost,127.0.0.1` |
 | `CSRF_TRUSTED_ORIGINS` | adresy včetně `http://` a portu, ze kterých se odesílají formuláře | prázdné |
 | `DB_ENGINE` | `postgres` = PostgreSQL, jinak SQLite | SQLite |
@@ -83,7 +87,8 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `SystemModuluTest` | 4 | volitelné moduly: nalezení ve složce `moduly/`, zápis do Nastavení, tlačítka a oprávnění stránek modulu |
 | `BezpecneNastaveniTest` | 2 | bez `.env` se vygeneruje náhodný `SECRET_KEY`, `.env` se načte i bez Dockeru a proměnné prostředí mají přednost |
 | `BezpecnostTest` | 9 | opravy z bezpečnostního auditu: nahrávání a odesílání souborů, mazání cizích souborů, přesměrování, soubory podle oprávnění, účet hlavního administrátora (viz [Bezpečnost](12-bezpecnost.md)) |
-| **Celkem** | **132** | |
+| `LimitVelikostiSouboruTest` | 3 | příliš velká příloha ani fotka se neuloží (srozumitelná hláška s limitem), příliš velké nahrání najednou se odmítne hned (413) |
+| **Celkem** | **135** | |
 
 ## Úprava databáze
 

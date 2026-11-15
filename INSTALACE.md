@@ -164,10 +164,12 @@ Aplikace běží přes obyčejné `http` jen v místní síti. Nezveřejňujte p
 ## 8. Zálohování
 
 Data jsou ve dvou částech: **databáze** (zákazníci, zakázky, faktury…) a **soubory** (fotky, přílohy, logo).
-Obojí zálohuje skript `zaloha.bat` ve složce aplikace.
+Obojí zálohuje skript `zaloha.bat` ve složce aplikace. Do zálohy uloží i soubor `.env` (jako `nastaveni.env`),
+bez kterého by po obnově na novém PC nešlo přečíst uložené heslo k e-mailu.
 
 **Ruční záloha:** dvakrát klikněte na `C:\BusinessManager\zaloha.bat`.
-Vytvoří složku `C:\BusinessManager\zalohy\RRRR-MM-DD_HHMM` se souborem `databaze.sql` a složkou `media`.
+Vytvoří složku `C:\BusinessManager\zalohy\RRRR-MM-DD_HHMM` se souborem `databaze.sql`, složkou `media` a souborem `nastaveni.env`.
+Na tomto PC nechá posledních 7 záloh, starší smaže (počet změníte v `.env`: `ZALOHA_PONECHAT=7`).
 
 **Automatická záloha každý den:**
 1. Start → **Plánovač úloh** → *Vytvořit základní úlohu*.
@@ -175,15 +177,25 @@ Vytvoří složku `C:\BusinessManager\zalohy\RRRR-MM-DD_HHMM` se souborem `datab
 3. Akce *Spustit program*: `C:\BusinessManager\zaloha.bat`, *Přidat argumenty*: `auto`
    (skript pak nečeká na stisk klávesy), *Spustit v*: `C:\BusinessManager`.
 
-**Zálohy kopírujte i mimo tento počítač** (USB disk, síťový disk, OneDrive). Když se disk PC porouchá,
-záloha na stejném disku nepomůže. Staré zálohy občas smažte.
+**Kopie na jiný disk nebo PC.** Když se disk PC porouchá, záloha na stejném disku nepomůže. Do `.env` doplňte řádek
+s cestou ke druhému disku nebo ke sdílené složce na jiném PC, třeba:
+
+```
+ZALOHA_KOPIE=E:\Zalohy\BusinessManager
+```
+nebo `ZALOHA_KOPIE=\\JINE-PC\Zalohy`. Skript pak po každé záloze zkopíruje novou zálohu do složky `posledni` a předchozí
+přesune do `predposledni`. Na druhém místě tak jsou vždy jen 2 zálohy a nezabírají místo. Starší kopie se smaže až ve chvíli,
+kdy je nová celá zkopírovaná, takže nepovedená kopie (vypnuté PC, odpojený disk) o nic nepřipraví. Sdílenou složku
+na druhém PC nastavíte v Průzkumníku: pravým tlačítkem na složku → *Vlastnosti* → *Sdílení*; účet, pod kterým běží záloha,
+do ní musí mít právo zápisu.
 
 Zálohu databáze dělejte v **Příkazovém řádku (cmd)** nebo skriptem, ne v PowerShellu:
 PowerShell při přesměrování `>` změní kódování a záloha by nešla obnovit.
 
 ### Obnova ze zálohy (např. na nový PC)
 
-Obnova **přepíše** všechna současná data. Postup v příkazovém řádku ve složce aplikace
+Obnova **přepíše** všechna současná data. Na novém PC nejdřív zkopírujte ze zálohy soubor `nastaveni.env`
+do složky aplikace jako `.env` (bez něj by se muselo znovu zadat heslo k e-mailu v modulu E-mail). Postup v příkazovém řádku ve složce aplikace
 (`2026-11-05_1230` nahraďte názvem složky se zálohou):
 
 ```

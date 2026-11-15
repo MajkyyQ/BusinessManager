@@ -1484,3 +1484,38 @@ class BezpecneNastaveniTest(TestCase):
         f.write_text("DEBUG=1\n", encoding="utf-16")  # PowerShell: echo DEBUG=1 > .env
         with mock.patch.dict(os.environ, {}, clear=True):
             s._nacti_env(f); self.assertEqual(os.environ["DEBUG"], "1")
+
+
+class LimitVelikostiSouboruTest(TestCase):
+    """Limit velikosti nahrávaných souborů (core/soubory.py): jeden soubor i celé nahrání najednou."""
+    def setUp(self):
+        import tempfile
+        from django.test import override_settings
+        from .models import Zakazka
+        self.nastaveni = override_settings(MEDIA_ROOT=tempfile.mkdtemp(), MAX_VELIKOST_SOUBORU_MB=1, MAX_VELIKOST_NAHRAVANI_MB=2)
+        self.nastaveni.enable(); self.addCleanup(self.nastaveni.disable)
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan Novák"))
+        self.client.force_login(uzivatel("zam", "Zaměstnanec"))
+
+    def test_prilis_velka_priloha_se_neulozi(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import Priloha
+        velka = SimpleUploadedFile("sken.pdf", b"%PDF" + b"0" * (1024 * 1024 + 10), content_type="application/pdf")
+        r = self.client.post(reverse("create", args=["priloha"]), {"nazev": "X", "soubor": velka, "zakazky": [self.z.pk]})
+        self.assertEqual(r.status_code, 200); self.assertContains(r, "je příliš velký"); self.assertContains(r, "1 MB")
+        self.assertFalse(Priloha.objects.exists())
+        mala = SimpleUploadedFile("sken.pdf", b"%PDF" + b"0" * 1000, content_type="application/pdf")
+        self.client.post(reverse("create", args=["priloha"]), {"nazev": "X", "soubor": mala, "zakazky": [self.z.pk]})
+        self.assertTrue(Priloha.objects.exists())
+
+    def test_prilis_velka_fotka_se_neulozi(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import Fotografie
+        velka = SimpleUploadedFile("foto.png", b"0" * (1024 * 1024 + 10), content_type="image/png")
+        r = self.client.post(reverse("create", args=["fotografie"]), {"zakazka": self.z.pk, "soubory": [velka]})
+        self.assertEqual(r.status_code, 200); self.assertContains(r, "je příliš velký"); self.assertFalse(Fotografie.objects.exists())
+
+    def test_prilis_velke_nahrani_odmitne_hned(self):
+        r = self.client.generic("POST", reverse("create", args=["fotografie"]), b"x", CONTENT_LENGTH=str(3 * 1024 * 1024))
+        self.assertEqual(r.status_code, 413); self.assertIn("příliš velké", r.content.decode())

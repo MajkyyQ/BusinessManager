@@ -1,3 +1,10 @@
-{% extends "core/base.html" %}{% block content %}<h3>Zálohování</h3><p class="text-muted">Automatické zálohování zatím není součástí aplikace. Na serverovém PC zálohu databáze i souborů (fotky, přílohy, logo) vytvoří skript <code>zaloha.bat</code> ve složce aplikace. Lze ho spouštět i denně z Plánovače úloh Windows. Ručně v příkazovém řádku (cmd):</p>
+{% extends "core/base.html" %}{% block content %}<h3>Zálohování</h3>
+<p class="text-muted">Zálohu databáze, souborů (fotky, přílohy, logo) a nastavení vytvoří na serverovém PC skript <code>zaloha.bat</code> ve složce aplikace. Uloží ji do složky <code>zalohy\RRRR-MM-DD_HHMM</code> a nechá tam posledních 7 záloh. Skript lze spouštět i denně z Plánovače úloh Windows (argument <code>auto</code>).</p>
+<h5 class="mt-4">Kopie na jiný disk nebo PC</h5>
+<p>Když se disk serverového PC porouchá, záloha na stejném disku nepomůže. Do souboru <code>.env</code> ve složce aplikace doplňte cestu ke druhému disku nebo ke sdílené složce jiného PC:</p>
+<pre class="bg-light p-3">ZALOHA_KOPIE=E:\Zalohy\BusinessManager
+ZALOHA_KOPIE=\\JINE-PC\Zalohy</pre>
+<p>Po každé záloze se tam nová záloha zkopíruje do složky <code>posledni</code> a předchozí se přesune do <code>predposledni</code>. Starší kopie se smaže, až když je nová celá zkopírovaná.</p>
+<h5 class="mt-4">Ručně v příkazovém řádku (cmd)</h5>
 <pre class="bg-light p-3">docker compose exec -T db pg_dump -U businessmanager businessmanager &gt; zaloha.sql
-docker compose cp web:/app/media zaloha-media</pre><p>Zálohy kopírujte i mimo tento počítač. Obnova ze zálohy je popsaná v souboru INSTALACE.md.</p>{% endblock %}
+docker compose cp web:/app/media zaloha-media</pre><p>Obnova ze zálohy je popsaná v souboru INSTALACE.md.</p>{% endblock %}

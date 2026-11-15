@@ -39,7 +39,7 @@ MODULY = najdi_moduly(BASE_DIR, os.getenv("MODULY_VYPNUTE", ""))
 INSTALLED_APPS += [f"moduly.{m}" for m in MODULY]
 # Vlastní šablony formulářových prvků (core/templates/django/forms/...) mají přednost před vestavěnými.
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
-MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware", "django.contrib.sessions.middleware.SessionMiddleware",
+MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "core.soubory.LimitNahravaniMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware", "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware", "core.pruvodce.PrvniSpusteniMiddleware", "django.contrib.auth.middleware.LoginRequiredMiddleware", "core.prava.PravaMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware", "core.navigace.StopaMiddleware", "django.middleware.clickjacking.XFrameOptionsMiddleware"]
@@ -61,6 +61,9 @@ X_FRAME_OPTIONS = "SAMEORIGIN"  # PDF a dokumenty v pracovní ploše (iframe)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"; LOGIN_REDIRECT_URL = "/"; LOGOUT_REDIRECT_URL = "login"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
+# Limit nahrávaných souborů v MB: jeden soubor a celé nahrání najednou (např. víc fotek), viz core/soubory.py
+MAX_VELIKOST_SOUBORU_MB = int(os.getenv("MAX_VELIKOST_SOUBORU_MB", "50"))
+MAX_VELIKOST_NAHRAVANI_MB = int(os.getenv("MAX_VELIKOST_NAHRAVANI_MB", "500"))
 CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 WHITENOISE_USE_FINDERS = True  # styly a skripty fungují i bez collectstatic (spuštění bez Dockeru s DEBUG=0)
 # HTTPS=1 v .env, když aplikace běží za HTTPS (např. Caddy nebo nginx před ní): cookies jen přes šifrované spojení

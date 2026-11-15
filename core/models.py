@@ -10,7 +10,7 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from . import cislovani
-from .soubory import pripona_prilohy, pripona_prijate_faktury
+from .soubory import pripona_prilohy, pripona_prijate_faktury, velikost_souboru
 M2 = dict(max_digits=12, decimal_places=2, null=True, blank=True)
 def C(n=200, **k): return models.CharField(max_length=n, blank=True, **k)
 def T(): return models.TextField(blank=True)
@@ -190,12 +190,12 @@ class PouzityMaterial(models.Model):
     def __str__(self): return f"{self.material} × {self.mnozstvi}"
 class Fotografie(models.Model):
     class Meta: verbose_name = "fotografie"; verbose_name_plural = "Fotografie"
-    zakazka = models.ForeignKey(Zakazka, on_delete=models.CASCADE); soubor = models.ImageField(upload_to="fotky/%Y/%m/", max_length=255)
+    zakazka = models.ForeignKey(Zakazka, on_delete=models.CASCADE); soubor = models.ImageField(upload_to="fotky/%Y/%m/", max_length=255, validators=[velikost_souboru])
     popis = T(); nahral = FK(User); datum_nahrani = models.DateTimeField(auto_now_add=True)
     def __str__(self): return f"Foto {self.pk} ({self.zakazka})"
 class Priloha(models.Model):
     class Meta: verbose_name = "příloha"; verbose_name_plural = "Přílohy"
-    nazev = models.CharField(max_length=200); soubor = models.FileField(upload_to="prilohy/%Y/%m/", max_length=255, validators=[pripona_prilohy]); typ_souboru = C(10)
+    nazev = models.CharField(max_length=200); soubor = models.FileField(upload_to="prilohy/%Y/%m/", max_length=255, validators=[pripona_prilohy, velikost_souboru]); typ_souboru = C(10)
     nahral = FK(User); datum_nahrani = models.DateTimeField(auto_now_add=True); poznamka = T()
     zakazky = models.ManyToManyField(Zakazka, blank=True)
     def save(self, *a, **k):
@@ -302,7 +302,7 @@ class PrijataFaktura(models.Model):
     cena_bez_dph = models.DecimalField("částka bez DPH", **M2); dph = models.DecimalField("DPH", **M2); cena_s_dph = models.DecimalField("částka k úhradě", **M2)
     mena = C(3, default="CZK", verbose_name="měna"); cislo_uctu = C(50, verbose_name="účet pro platbu")
     stav = models.CharField(max_length=20, choices=[(x, x) for x in STAVY], default="Nezaplaceno"); datum_zaplaceni = models.DateField("datum zaplacení", null=True, blank=True)
-    soubor = models.FileField("soubor faktury", upload_to="prijate_faktury/%Y/", max_length=255, blank=True, validators=[pripona_prijate_faktury])
+    soubor = models.FileField("soubor faktury", upload_to="prijate_faktury/%Y/", max_length=255, blank=True, validators=[pripona_prijate_faktury, velikost_souboru])
     zakazka = FK(Zakazka, verbose_name="zakázka"); poznamka = T(); vytvoril = FK(User); datum_vytvoreni = DV()
     def save(self, *a, **k):
         if self.stav == "Zaplaceno" and not self.datum_zaplaceni: self.datum_zaplaceni = timezone.localdate()
@@ -336,7 +336,7 @@ class NastaveniFirmy(models.Model):
                        models.CheckConstraint(condition=Q(vychozi_dph__isnull=True) | Q(vychozi_dph__gte=0, vychozi_dph__lte=100), name="nastaveni_dph_rozsah")]
     nazev_firmy = C(255); adresa = C(); ico = ICO(); dic = DIC(); telefon = TEL(); email = models.EmailField(blank=True)
     web = C(200); cislo_uctu = C(50, verbose_name="číslo účtu")
-    logo = models.ImageField(upload_to="logo/", blank=True); mena = C(3, default="CZK", choices=[("CZK", "CZK"), ("EUR", "EUR")]); vychozi_dph = DPH(); datum_upravy = models.DateTimeField(auto_now=True)
+    logo = models.ImageField(upload_to="logo/", blank=True, validators=[velikost_souboru]); mena = C(3, default="CZK", choices=[("CZK", "CZK"), ("EUR", "EUR")]); vychozi_dph = DPH(); datum_upravy = models.DateTimeField(auto_now=True)
     # kdo a kdy firmu založil v průvodci prvním spuštěním (u starších instalací prázdné)
     vytvoril = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, editable=False, related_name="+", verbose_name="vytvořil")
     datum_vytvoreni = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="datum vytvoření")
@@ -427,7 +427,7 @@ class SablonaDokumentu(models.Model):
     nazev = models.CharField("název", max_length=150)
     typ_dokumentu = models.CharField("typ dokumentu", max_length=30, db_index=True)   # klíč z core.sablony.typy.REGISTR
     format = models.CharField("formát", max_length=20, default="excel")              # klíč z core.sablony.renderery.REGISTR
-    soubor = models.FileField("soubor šablony", upload_to="sablony/", blank=True)
+    soubor = models.FileField("soubor šablony", upload_to="sablony/", blank=True, validators=[velikost_souboru])
     vestavena = models.CharField("vestavěná šablona", max_length=100, blank=True, editable=False)  # název souboru v aplikaci (nelze smazat)
     mapovani = models.JSONField("mapování polí", default=dict, blank=True)
     nahled = models.ImageField("miniatura", upload_to="sablony/nahledy/", blank=True, editable=False)

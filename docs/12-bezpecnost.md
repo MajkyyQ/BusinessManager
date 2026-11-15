@@ -2,6 +2,20 @@
 
 Aplikace pracuje s osobními a obchodními údaji zákazníků a před zveřejněním jako open source prošla bezpečnostním auditem celého zdrojového kódu (listopad 2026). Audit našel šest chyb, všechny jsou opravené a každou hlídá automatický test. Tato kapitola popisuje, co se zkoumalo, co se našlo, jak se to opravilo a co zůstává jako doporučení. Základní bezpečnostní opatření aplikace popisuje kapitola [Architektura](04-architektura.md#zabezpečení).
 
+## Pro jaký provoz je aplikace navržená
+
+BusinessManager je určený pro malou firmu: aplikace běží na jednom firemním PC a uživatelé se k ní připojují z prohlížeče na tomto PC nebo z jiných počítačů ve stejné firemní síti. Jejím cílem je nahradit a sjednotit evidenci zakázek a dokladů v jedné databázi, ne chránit data před cíleným útokem. Z toho vychází, proti čemu aplikace chrání a proti čemu ne:
+
+| Kdo | Co aplikace zajišťuje |
+|:--|:--|
+| zaměstnanec s vlastním účtem | vidí a mění jen to, co mu dovolí oprávnění jeho role; nezíská vyšší práva (opravy z auditu níže) |
+| někdo v síti bez účtu | uvidí jen přihlašovací stránku; databáze se do sítě nepublikuje, takže se k ní z jiného PC nepřipojí |
+| kdo získá zálohu nebo kopii databáze | nepřečte hesla k účtům (uložená jen jako otisk) ani heslo ke schránce modulu e-mail (zašifrované klíčem z `.env`) |
+
+**Co aplikace neřeší:** kdo má přístup přímo k serverovému PC (fyzicky nebo jako jeho správce), má přístup i k databázi, souborům a `.env` a žádné zabezpečení uvnitř aplikace ho nezastaví. Ochrana serverového PC (heslo k Windows, šifrování disku, aktualizace) patří k provozu firmy, ne k aplikaci. Aplikace také není určená k vystavení do internetu. Přístup zvenku, např. z telefonu na výjezdu, je vhodné řešit soukromou sítí (VPN, např. Tailscale), ne přesměrováním portu v routeru.
+
+Proto se zpevnění po auditu omezilo na základní opatření (viz [Zpevnění po auditu](#zpevnění-po-auditu)). Složitější ochrany (omezení pokusů o přihlášení, HTTPS, pevné verze knihoven) jsou vedené jako [doporučení](#doporučení-do-budoucna) pro případ, že by se aplikace používala v otevřenější síti.
+
 ## Jak audit probíhal
 
 Audit prošel zdrojový kód aplikace (repozitář BusinessManager) i modulu Odesílání e-mailů (repozitář BusinessManager-moduly). Postupoval podle metodiky *security-audit*: za chybu se považuje jen to, co porušuje skutečnou hranici důvěry. U každého nálezu je tedy jasné, **kdo** může chybu zneužít (např. zaměstnanec se základní rolí), **co** tím získá (např. práva administrátora) a **která kontrola** selhala. Obecná doporučení „best practice“ bez konkrétního dopadu jsou oddělená v části [Doporučení](#doporučení-do-budoucna).
@@ -74,6 +88,9 @@ Doporučení z auditu se postupně zapracovávají:
 | Doporučení | Stav |
 |:--|:--|
 | Bezpečné výchozí nastavení | hotovo: `DEBUG` je bez `.env` vypnutý; chybí-li `SECRET_KEY`, vygeneruje se náhodný klíč do souboru `.secret_key` (dřív platil pevný klíč známý z repozitáře); `.env` se načte i při spuštění bez Dockeru; volba `HTTPS=1` pro šifrované cookies (test `BezpecneNastaveniTest`) |
+| Limit velikosti nahrávaných souborů | hotovo: jeden soubor nejvýš 50 MB, jedno nahrání (např. víc fotek najednou) nejvýš 500 MB; obojí jde změnit v `.env` (`MAX_VELIKOST_SOUBORU_MB`, `MAX_VELIKOST_NAHRAVANI_MB`). Příliš velké nahrání se odmítne dřív, než se začne ukládat na disk (test `LimitVelikostiSouboruTest`) |
+| Heslo ke schránce SMTP šifrovaně | hotovo v modulu e-mail 1.2: heslo se ukládá zašifrované (Fernet, knihovna `cryptography`) klíčem odvozeným z `SECRET_KEY`, takže z databáze ani ze zálohy nejde přečíst. Při jiném `SECRET_KEY` (obnova bez původního `.env`) aplikace požádá o nové zadání hesla (test modulu `test_heslo_je_v_databazi_zasifrovane`) |
+| Záloha mimo serverové PC | hotovo: `zaloha.bat` ukládá i `.env`, na PC nechá posledních 7 záloh a při nastavení `ZALOHA_KOPIE` v `.env` zkopíruje poslední zálohu na jiný disk nebo PC (drží tam poslední 2) |
 
 ## Co audit ověřil jako bezpečné
 
@@ -90,10 +107,9 @@ Doporučení z auditu se postupně zapracovávají:
 Tyto body nejsou zranitelnosti, ale zvyšují bezpečnost provozu:
 
 - **HTTPS:** aplikace běží na `http://…:8080`, hesla jdou po firemní síti nešifrovaně. Pro provoz mimo malou uzavřenou síť je vhodné předřadit HTTPS (např. Caddy) a v `.env` nastavit `HTTPS=1`: cookies přihlášení se pak posílají jen šifrovaně.
-- **Omezení pokusů o přihlášení:** např. knihovna `django-axes`.
-- **Heslo ke schránce SMTP** je v databázi uložené čitelně, takže je i v zálohách. Zálohy proto patří na bezpečné místo. Volba šifrování „Bez šifrování“ je jen pro místní poštovní server.
+- **Omezení pokusů o přihlášení:** např. knihovna `django-axes`. V malé firemní síti není nutné, smysl má při přístupu z otevřenější sítě.
+- **Přístup zvenku (telefon na výjezdu):** přes soukromou síť (VPN, např. Tailscale) mezi serverovým PC a telefonem. Aplikace pak dál není vidět z internetu; serverové PC ale musí být zapnuté.
 - **Průvodce prvním spuštěním:** dokud není založený první účet, stane se administrátorem ten, kdo stránku otevře jako první. Průvodce je proto potřeba dokončit hned po instalaci.
-- **Velikost nahrávaných souborů** není omezená.
 - **Závislosti:** knihovny v `requirements.txt` kromě Django a openpyxl nemají pevné verze. Před vydáním nové verze je vhodné zkontrolovat známé zranitelnosti (např. `pip-audit`).
 
 ## Nahlášení bezpečnostní chyby
