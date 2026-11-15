@@ -310,7 +310,7 @@ stateDiagram-v2
 
 ## Zálohování
 
-Administrátor najde postup v Nastavení → Systém → Zálohování. Ve Windows stačí dvojklik na `zaloha.bat`, který uloží databázi i nahrané soubory do složky `zalohy\RRRR-MM-DD_HHMM`. Ruční zálohu a obnovu popisuje [návod k instalaci](../INSTALACE.md).
+Administrátor najde postup v Nastavení → Systém → Zálohování. Ve Windows stačí dvojklik na `zaloha.bat`, který uloží databázi, nahrané soubory a nastavení (`.env`) do složky `zalohy\RRRR-MM-DD_HHMM`. Na serverovém PC nechá posledních 7 záloh. Když je v `.env` vyplněná cesta `ZALOHA_KOPIE` (jiný disk nebo sdílená složka jiného PC), zkopíruje tam poslední zálohu a drží tam vždy poslední dvě, aby se data dala obnovit i po poruše disku serverového PC. Ruční zálohu a obnovu popisuje [návod k instalaci](../INSTALACE.md).
 
 ## Historie změn
 

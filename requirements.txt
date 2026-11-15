@@ -6,3 +6,4 @@ whitenoise
 openpyxl>=3.1
 pypdfium2
 lxml
+cryptography

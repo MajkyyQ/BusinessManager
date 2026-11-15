@@ -27,7 +27,8 @@ from django.core.files.base import ContentFile
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from .soubory import pripona_prilohy, pripona_isdoc
+from django.conf import settings
+from .soubory import pripona_prilohy, pripona_isdoc, velikost_souboru
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada, Role, Opravneni)
@@ -525,6 +526,7 @@ class FotkyForm(forms.Form):
             if not data: raise forms.ValidationError("Vyberte aspoň jednu fotografii.")
             r = []
             for x in data:
+                velikost_souboru(x)
                 try: r.append(forms.ImageField.clean(self, x, initial))
                 except forms.ValidationError: raise forms.ValidationError(f"Soubor {x.name} není obrázek (povolené jsou fotky JPG, PNG, GIF, WEBP…).")
             return r
@@ -871,7 +873,7 @@ class ObjednavkaForm(forms.Form):
     predmet = forms.CharField(label="Předmět objednávky", max_length=200, help_text="Stručně, o co se jedná, např. „Oprava elektronického zařízení“.", widget=forms.TextInput(attrs={"class": "form-control"}))
     text = forms.CharField(label="Text objednávky", required=False, help_text="Co zákazník objednává, opsané z objednávky, např. „Objednáváme opravu elektronického zařízení v hodnotě …“.",
                            widget=forms.Textarea(attrs={"rows": 4, "class": "form-control"}))
-    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Uloží se i do příloh zakázky.", validators=[pripona_prilohy],
+    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Uloží se i do příloh zakázky.", validators=[pripona_prilohy, velikost_souboru],
                              widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
     poznamka = forms.CharField(label="Poznámka (nepovinné)", required=False, widget=forms.Textarea(attrs={"rows": 2, "class": "form-control"}))
     def clean(self):
@@ -1065,9 +1067,9 @@ def zakazka_nova(request):
                 if k: ZakazkaKontakt.objects.create(zakazka=o, kontakt=k, role=P.get("kontakt_role", "")); ZakaznikKontakt.objects.get_or_create(zakaznik=z, kontakt=k)
                 vynechane = []
                 for f in request.FILES.getlist("fotky"):
-                    try: Fotografie.objects.create(zakazka=o, soubor=forms.ImageField().clean(f), nahral=request.user)  # jen skutečné obrázky (Pillow)
+                    try: velikost_souboru(f); Fotografie.objects.create(zakazka=o, soubor=forms.ImageField().clean(f), nahral=request.user)  # jen skutečné obrázky (Pillow)
                     except forms.ValidationError: vynechane.append(f.name)
-                if vynechane: messages.warning(request, "Tyto soubory nejsou obrázky a neuložily se: " + ", ".join(vynechane))
+                if vynechane: messages.warning(request, f"Tyto soubory nejsou obrázky nebo jsou větší než {settings.MAX_VELIKOST_SOUBORU_MB} MB a neuložily se: " + ", ".join(vynechane))
                 for t, c, d in zip(P.getlist("ukon_typ"), P.getlist("ukon_cena"), P.getlist("ukon_dph")):
                     if t.isdigit(): ProvedenyUkon.objects.create(zakazka=o, typ_ukonu_id=t, cena=_dec(c), sazba_dph=_dec(d))
                 for m, mn, c, d in zip(P.getlist("mat_id"), P.getlist("mat_mn"), P.getlist("mat_cena"), P.getlist("mat_dph")):
@@ -1189,7 +1191,7 @@ def stav_akce(request, pk):
 
 # ---------------- Přijaté faktury ----------------
 class ImportISDOCForm(forms.Form):
-    soubor = forms.FileField(label="Soubor faktury ISDOC (.isdoc nebo .isdocx)", validators=[pripona_isdoc], widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".isdoc,.isdocx,.xml"}))
+    soubor = forms.FileField(label="Soubor faktury ISDOC (.isdoc nebo .isdocx)", validators=[pripona_isdoc, velikost_souboru], widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".isdoc,.isdocx,.xml"}))
     zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka (nepovinné, např. materiál pro konkrétní opravu)",
                             required=False, empty_label="— bez zakázky —", widget=forms.Select(attrs={"class": "form-select"}))
 
