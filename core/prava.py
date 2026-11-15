@@ -24,11 +24,23 @@ PRAVA = [
     (KALENDAR, "Úprava kalendáře", "Úprava a mazání událostí v kalendáři, i těch, které vytvořil někdo jiný. Svoje události může upravit každý."),
     (NABIDKY, "Nabídky a objednávky", "Vytváření a úprava nabídek a přijatých objednávek. Zpřístupní i sekci Dokumenty a ceny v dokladech."),
     (FAKTURY, "Faktury a platby", "Vystavení faktury, označení zaplacení, platby a přijaté faktury. Zpřístupní i sekci Dokumenty a ceny v dokladech."),
-    (MAZAT, "Mazání a deaktivace", "Mazání a deaktivace záznamů (zakázky, zákazníci, zařízení, doklady…). Smazat vlastní řádek práce, materiálu nebo fotku u zakázky smí každý."),
+    (MAZAT, "Mazání a deaktivace", "Mazání a deaktivace záznamů (zakázky, zákazníci, zařízení, doklady…). Řádek práce nebo materiálu u zakázky smí smazat každý, "
+                                   "fotku a přílohu jen ten, kdo ji nahrál."),
     (NASTAVENI, "Nastavení", "Údaje o firmě, DPH, číslování a šablony dokumentů, katalogy, zaměstnanci, role a zálohy."),
 ]
-VSE = frozenset(k for k, *_ in PRAVA)
+VSE = frozenset(k for k, *_ in PRAVA)  # jen oprávnění základní aplikace; včetně modulů viz vse()
 NAZEV = {k: n for k, n, _ in PRAVA}
+
+
+def vse():
+    """Všechna oprávnění včetně těch, která přidávají volitelné moduly (core/moduly.py)."""
+    from . import moduly
+    return VSE | {k for k, *_ in moduly.opravneni()}
+
+
+def nazev(kod):
+    from . import moduly
+    return NAZEV.get(kod) or next((n for k, n, *_ in moduly.opravneni() if k == kod), kod)
 
 # výchozí role (vytvoří migrace 0018); název, oprávnění, je administrátor, popis
 ROLE = [
@@ -45,7 +57,10 @@ T_NASTAVENI = {"nastavenifirmy", "sazbadph", "zamestnanec", "role", "opravneni",
 T_NABIDKY = {"nabidka", "polozkanabidky", "objednavka"}
 T_FAKTURY = {"faktura", "polozkafaktury", "platba", "prijatafaktura"}
 T_ZAKAZNICI = {"zakaznik", "kontaktniosoba", "zakaznikkontakt", "zarizeni"}
-T_CASTI_ZAKAZKY = {"provedenyukon", "pouzitymaterial", "fotografie", "priloha", "zakazkakontakt"}  # zápis práce: smazat smí každý
+T_CASTI_ZAKAZKY = {"provedenyukon", "pouzitymaterial", "fotografie", "priloha", "zakazkakontakt"}  # zápis práce: smazat smí každý (fotku a přílohu jen svou, viz _vlastni_soubor)
+T_NAHRANE = {"fotografie", "priloha"}  # soubory s polem „nahrál“: bez oprávnění Mazání smí smazat jen ten, kdo je nahrál
+# soubory v /media/ podle složky: přijaté faktury jen s oprávněním Faktury, šablony dokumentů jen s Nastavením; ostatní (fotky, přílohy, logo) se základním přístupem
+MEDIA_PRAVA = {"prijate_faktury/": FAKTURY, "sablony/": NASTAVENI}
 DOKLADY = {"nabidka": NABIDKY, "faktura": FAKTURY}  # typ dokumentu (náhled, PDF) -> oprávnění; zakázkový list smí každý
 FINANCE = frozenset({NABIDKY, FAKTURY})  # stačí jedno z nich
 
@@ -57,11 +72,11 @@ def prava(user):
     """Množina kódů oprávnění přihlášeného uživatele (spočítá se jednou za požadavek)."""
     if not getattr(user, "is_authenticated", False) or not user.is_active: return frozenset()
     if hasattr(user, "_bm_prava"): return user._bm_prava
-    if user.is_staff or user.is_superuser: p = VSE
+    if user.is_staff or user.is_superuser: p = vse()
     else:
         from .models import Role
         role = Role.objects.filter(aktivni=True, zamestnanec__uzivatel=user, zamestnanec__aktivni=True)
-        if role.filter(je_administrator=True).exists(): p = VSE
+        if role.filter(je_administrator=True).exists(): p = vse()
         else: p = frozenset(role.values_list("opravneni__kod", flat=True)) - {None}
     user._bm_prava = p
     return p
@@ -86,7 +101,7 @@ def potrebna_prava(name, kw, get=None):
         elif slug in T_FAKTURY: req.append({FAKTURY})
         elif slug == "kalendarudalost" and name in ("edit", "delete"): req.append({KALENDAR})  # vlastní událost: viz smi()
         elif slug in T_ZAKAZNICI and name == "edit": req.append({ZAKAZNICI})
-        if name == "delete" and slug not in T_CASTI_ZAKAZKY and slug != "kalendarudalost": req.append({MAZAT})
+        if name == "delete" and (slug not in T_CASTI_ZAKAZKY or slug in T_NAHRANE) and slug != "kalendarudalost": req.append({MAZAT})  # vlastní soubor: viz smi_stranku()
         if name == "create" and slug == "dodavatel": req[-1] = {NASTAVENI, FAKTURY}
     elif name.startswith("nastaveni") or name in SABLONY: req.append({NASTAVENI})
     elif name in ("nabidka_nova", "objednavka_nova"): req.append({NABIDKY})
@@ -109,12 +124,28 @@ def _vlastni_udalost(user, name, kw):
     return KalendarUdalost.objects.filter(pk=kw["pk"], vytvoril=user, automaticka=False).exists()
 
 
+def _vlastni_soubor(user, name, kw):
+    """Fotka nebo příloha, kterou nahrál sám uživatel (smí ji smazat i bez oprávnění Mazání)."""
+    slug = kw.get("slug")
+    if slug not in T_NAHRANE or name != "delete" or not kw.get("pk"): return False
+    from django.apps import apps
+    return apps.get_model("core", slug).objects.filter(pk=kw["pk"], nahral=user).exists()
+
+
 def smi_stranku(user, name, kw, get=None):
     req = potrebna_prava(name, kw, get)
     if req is None: return True
     p = prava(user)
     if _splneno(p, req): return True
+    if _splneno(p, [r for r in req if r != {MAZAT}]) and _vlastni_soubor(user, name, kw): return True
     return _splneno(p, [r for r in req if r != {KALENDAR}]) and _vlastni_udalost(user, name, kw)
+
+
+def pravo_souboru(cesta):
+    """Oprávnění potřebné pro soubor v /media/ (cesta bez /media/). Cesta se normalizuje stejně jako při odeslání souboru (fotky/../prijate_faktury/…)."""
+    import posixpath
+    cesta = posixpath.normpath(cesta.replace("\\", "/")).lstrip("/")
+    return next((k for slozka, k in MEDIA_PRAVA.items() if cesta.startswith(slozka)), PRISTUP)
 
 
 def smi(user, url):
@@ -128,7 +159,7 @@ def smi(user, url):
 def popis_chybejiciho(user, req):
     p = prava(user)
     chybi = next((r for r in req if not p & r), set())
-    return " nebo ".join(f"„{NAZEV[k]}“" for k in sorted(chybi))
+    return " nebo ".join(f"„{nazev(k)}“" for k in sorted(chybi))
 
 
 class PravaMiddleware:
@@ -139,8 +170,8 @@ class PravaMiddleware:
     def process_view(self, request, view, args, kwargs):
         m = getattr(request, "resolver_match", None)
         if not m or m.app_name == "admin" or not request.user.is_authenticated: return None
-        if request.path.startswith("/media/"):  # soubory zakázek (fotky, přílohy) jen se základním přístupem
-            return None if ma(request.user, PRISTUP) else HttpResponseForbidden("Nemáte přístup.")
+        if request.path.startswith("/media/"):  # soubory: fotky a přílohy se základním přístupem, přijaté faktury a šablony podle MEDIA_PRAVA
+            return None if ma(request.user, PRISTUP) and ma(request.user, pravo_souboru(request.path[len("/media/"):])) else HttpResponseForbidden("Nemáte přístup.")
         req = potrebna_prava(m.view_name, kwargs, request.GET)  # view_name = url_name, u modulů „modul:název“
         if req is None or smi_stranku(request.user, m.view_name, kwargs, request.GET): return None
         if not ma(request.user, PRISTUP):

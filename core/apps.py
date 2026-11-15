@@ -8,7 +8,8 @@ def seed(sender, **k):
     for i, n in enumerate(["Nová", "Rozpracováno", "Čeká na schválení", "Čeká na díl", "Opraveno", "Připraveno k vyzvednutí", "Vydáno", "Zrušeno"]):
         StavZakazky.objects.get_or_create(nazev=n, defaults={"poradi": i, "barva": BARVY_STAVU[n]})
     from .prava import PRAVA
-    for kod, nazev, popis in PRAVA:  # oprávnění, která aplikace kontroluje (core/prava.py); výchozí role zakládá migrace 0018
+    from .moduly import opravneni as opravneni_modulu
+    for kod, nazev, popis in PRAVA + opravneni_modulu():  # oprávnění, která aplikace a moduly kontrolují (core/prava.py); výchozí role zakládá migrace 0018
         Opravneni.objects.get_or_create(kod=kod, defaults={"nazev": nazev, "popis": popis})
     if not SazbaDPH.objects.exists():
         for s in (21, 12, 0): SazbaDPH.objects.create(sazba=s)

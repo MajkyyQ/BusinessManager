@@ -10,6 +10,7 @@ from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from . import cislovani
+from .soubory import pripona_prilohy, pripona_prijate_faktury
 M2 = dict(max_digits=12, decimal_places=2, null=True, blank=True)
 def C(n=200, **k): return models.CharField(max_length=n, blank=True, **k)
 def T(): return models.TextField(blank=True)
@@ -194,7 +195,7 @@ class Fotografie(models.Model):
     def __str__(self): return f"Foto {self.pk} ({self.zakazka})"
 class Priloha(models.Model):
     class Meta: verbose_name = "příloha"; verbose_name_plural = "Přílohy"
-    nazev = models.CharField(max_length=200); soubor = models.FileField(upload_to="prilohy/%Y/%m/", max_length=255); typ_souboru = C(10)
+    nazev = models.CharField(max_length=200); soubor = models.FileField(upload_to="prilohy/%Y/%m/", max_length=255, validators=[pripona_prilohy]); typ_souboru = C(10)
     nahral = FK(User); datum_nahrani = models.DateTimeField(auto_now_add=True); poznamka = T()
     zakazky = models.ManyToManyField(Zakazka, blank=True)
     def save(self, *a, **k):
@@ -301,7 +302,7 @@ class PrijataFaktura(models.Model):
     cena_bez_dph = models.DecimalField("částka bez DPH", **M2); dph = models.DecimalField("DPH", **M2); cena_s_dph = models.DecimalField("částka k úhradě", **M2)
     mena = C(3, default="CZK", verbose_name="měna"); cislo_uctu = C(50, verbose_name="účet pro platbu")
     stav = models.CharField(max_length=20, choices=[(x, x) for x in STAVY], default="Nezaplaceno"); datum_zaplaceni = models.DateField("datum zaplacení", null=True, blank=True)
-    soubor = models.FileField("soubor faktury", upload_to="prijate_faktury/%Y/", max_length=255, blank=True)
+    soubor = models.FileField("soubor faktury", upload_to="prijate_faktury/%Y/", max_length=255, blank=True, validators=[pripona_prijate_faktury])
     zakazka = FK(Zakazka, verbose_name="zakázka"); poznamka = T(); vytvoril = FK(User); datum_vytvoreni = DV()
     def save(self, *a, **k):
         if self.stav == "Zaplaceno" and not self.datum_zaplaceni: self.datum_zaplaceni = timezone.localdate()

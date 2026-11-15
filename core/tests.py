@@ -916,8 +916,8 @@ class RoleAOpravneniTest(TestCase):
     def test_vychozi_role_a_opravneni(self):
         from .models import Opravneni, Role
         from . import prava
-        self.assertEqual(set(Opravneni.objects.values_list("kod", flat=True)), set(prava.VSE))
-        self.assertEqual(set(Role.objects.get(nazev="Technik").opravneni.values_list("kod", flat=True)), {prava.PRISTUP, prava.STAV, prava.KALENDAR})
+        self.assertEqual(set(Opravneni.objects.values_list("kod", flat=True)), set(prava.vse()))  # včetně oprávnění nainstalovaných modulů
+        self.assertEqual(set(Role.objects.get(nazev="Technik").opravneni.values_list("kod", flat=True)) & prava.VSE, {prava.PRISTUP, prava.STAV, prava.KALENDAR})  # bez oprávnění modulů
         self.assertTrue(Role.objects.get(nazev="Administrátor").je_administrator)
 
     def test_ucet_bez_role_nema_pristup(self):
@@ -1324,3 +1324,133 @@ class SystemModuluTest(TestCase):
         self.moduly.registruj(self.moduly.Modul(kod="s", nazev="S", prava={"s:nastaveni": {P.NASTAVENI}}))
         self.assertEqual(P.potrebna_prava("s:nastaveni", {}), [{P.PRISTUP}, {P.NASTAVENI}])
         self.assertEqual(P.potrebna_prava("s:prehled", {}), [{P.PRISTUP}])  # bez záznamu stačí základní přístup
+
+
+class BezpecnostTest(TestCase):
+    """Opravy z bezpečnostního auditu (docs/12-bezpecnost.md): nahrávání a odesílání souborů, mazání cizích souborů,
+    přesměrování po uložení formuláře, soubory podle oprávnění a ochrana účtu hlavního administrátora."""
+    def setUp(self):
+        import tempfile
+        from django.test import override_settings
+        from .models import Zakazka
+        self.media = override_settings(MEDIA_ROOT=tempfile.mkdtemp()); self.media.enable(); self.addCleanup(self.media.disable)
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan Novák"))
+
+    @staticmethod
+    def soubor(jmeno, obsah=b"<script>alert(1)</script>", typ="text/html"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(jmeno, obsah, content_type=typ)
+
+    @staticmethod
+    def png(jmeno="a.png"):
+        from io import BytesIO
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        b = BytesIO(); Image.new("RGB", (2, 2)).save(b, "PNG"); return SimpleUploadedFile(jmeno, b.getvalue(), content_type="image/png")
+
+    # --- 1. Skript v nahraném souboru se nesmí spustit
+    def test_priloha_html_ani_svg_nejde_nahrat(self):
+        from .models import Priloha
+        self.client.force_login(uzivatel("zam", "Zaměstnanec"))
+        for jmeno in ("faktura.html", "obrazek.svg", "stranka.htm"):
+            r = self.client.post(reverse("create", args=["priloha"]), {"nazev": "X", "soubor": self.soubor(jmeno), "zakazky": [self.z.pk]})
+            self.assertEqual(r.status_code, 200); self.assertContains(r, "Tento typ souboru nelze nahrát")
+        self.assertFalse(Priloha.objects.exists())
+        r = self.client.post(reverse("create", args=["priloha"]), {"nazev": "Protokol", "soubor": self.soubor("protokol.pdf", b"%PDF-1.4", "application/pdf"), "zakazky": [self.z.pk]})
+        self.assertEqual(r.status_code, 302); self.assertTrue(Priloha.objects.filter(nazev="Protokol").exists())
+
+    def test_podvrzena_fotka_nejde_nahrat(self):
+        """Typ image/png hlášený prohlížečem nestačí, fotku ověří Pillow (formulář fotek i nová zakázka)."""
+        from .models import Fotografie, Zakazka
+        self.client.force_login(uzivatel("zam", "Zaměstnanec"))
+        r = self.client.post(reverse("create", args=["fotografie"]), {"zakazka": self.z.pk, "soubory": [self.soubor("fotka.html", typ="image/png")]})
+        self.assertEqual(r.status_code, 200); self.assertContains(r, "není obrázek")
+        r = self.client.post(reverse("create", args=["fotografie"]), {"zakazka": self.z.pk, "soubory": [self.soubor("fotka.png", typ="image/png")]})
+        self.assertContains(r, "není obrázek"); self.assertFalse(Fotografie.objects.exists())
+        r = self.client.post(reverse("zakazka_nova"), {"zakaznik": self.z.zakaznik_id, "fotky": [self.soubor("x.html", typ="image/png"), self.png("ok.png")]})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual([f.soubor.name.rsplit("/", 1)[-1] for f in Fotografie.objects.all()], ["ok.png"])
+        self.assertEqual(Zakazka.objects.count(), 2)
+
+    def test_prijata_faktura_jen_povolene_pripony(self):
+        self.client.force_login(uzivatel("ucetni", "Administrativa"))
+        r = self.client.post(reverse("prijata_faktura_import"), {"soubor": self.soubor("faktura.html", b"<Invoice/>")})
+        self.assertContains(r, "Nahrajte fakturu ve formátu ISDOC")
+
+    def test_soubory_se_posilaji_s_bezpecnymi_hlavickami(self):
+        """I soubor, který se do složky media dostal jinak (starší data), se jen stáhne a skript v něm neběží."""
+        from django.core.files.storage import default_storage
+        self.client.force_login(uzivatel("zam", "Zaměstnanec"))
+        default_storage.save("prilohy/stary.html", self.soubor("stary.html")); default_storage.save("prilohy/foto.png", self.png())
+        default_storage.save("prilohy/navod.pdf", self.soubor("navod.pdf", b"%PDF-1.4"))
+        r = self.client.get("/media/prilohy/stary.html")
+        self.assertEqual(r.status_code, 200); self.assertEqual(r["Content-Disposition"], "attachment")
+        self.assertEqual(r["Content-Security-Policy"], "sandbox"); self.assertEqual(r["X-Content-Type-Options"], "nosniff")
+        for cesta in ("/media/prilohy/foto.png", "/media/prilohy/navod.pdf"):  # obrázky a PDF se dál zobrazují v náhledu
+            r = self.client.get(cesta)
+            self.assertEqual(r.status_code, 200); self.assertNotIn("attachment", r.get("Content-Disposition", "")); self.assertFalse(r.has_header("Content-Security-Policy"))
+
+    # --- 2. Fotku a přílohu smaže jen ten, kdo ji nahrál (nebo kdo má oprávnění Mazání)
+    def test_cizi_fotku_nesmaze(self):
+        from django.core.files.base import ContentFile
+        from .models import Fotografie
+        autor, jiny = uzivatel("autor", "Zaměstnanec"), uzivatel("jiny", "Zaměstnanec")
+        f = Fotografie.objects.create(zakazka=self.z, soubor=ContentFile(b"x", name="a.png"), nahral=autor)
+        self.client.force_login(jiny)
+        self.assertNotIn(reverse("delete", args=["fotografie", f.pk]), self.client.get(reverse("plocha", args=[self.z.pk])).content.decode())
+        self.client.post(reverse("delete", args=["fotografie", f.pk]))
+        self.assertTrue(Fotografie.objects.filter(pk=f.pk).exists())
+        self.client.force_login(autor)
+        self.client.post(reverse("delete", args=["fotografie", f.pk]))
+        self.assertFalse(Fotografie.objects.filter(pk=f.pk).exists())
+
+    def test_spravce_s_opravnenim_mazani_smaze_cizi_prilohu(self):
+        from django.core.files.base import ContentFile
+        from .models import Priloha
+        p = Priloha.objects.create(nazev="P", soubor=ContentFile(b"x", name="p.pdf"), nahral=uzivatel("autor", "Zaměstnanec"))
+        self.client.force_login(uzivatel("sef", "Administrátor"))
+        self.client.post(reverse("delete", args=["priloha", p.pk]))
+        self.assertFalse(Priloha.objects.filter(pk=p.pk).exists())
+
+    # --- 3. Přesměrování po uložení jen v rámci aplikace
+    def test_next_nepresmeruje_na_cizi_web(self):
+        self.client.force_login(uzivatel("zam", "Zaměstnanec"))
+        for nx in ("/\\zly.example", "//zly.example", "https://zly.example/", "/\t/zly.example"):
+            r = self.client.post(reverse("create", args=["zakaznik"]) + "?" + __import__("urllib.parse").parse.urlencode({"next": nx}),
+                                 {"typ_zakaznika": "Soukromá osoba", "jmeno": f"Test {nx}", "aktivni": "on"})
+            self.assertEqual(r.status_code, 302); self.assertNotIn("zly.example", r["Location"])
+        r = self.client.post(reverse("create", args=["zakaznik"]) + "?next=/kalendar/", {"typ_zakaznika": "Soukromá osoba", "jmeno": "Ok", "aktivni": "on"})
+        self.assertEqual(r["Location"], "/kalendar/")
+
+    # --- 4. Soubory přijatých faktur a šablon jen s oprávněním
+    def test_soubor_prijate_faktury_jen_s_opravnenim_faktury(self):
+        from django.core.files.storage import default_storage
+        default_storage.save("prijate_faktury/2026/dodavatel.pdf", self.soubor("dodavatel.pdf", b"%PDF-1.4"))
+        self.client.force_login(uzivatel("technik", "Technik"))
+        self.assertEqual(self.client.get("/media/prijate_faktury/2026/dodavatel.pdf").status_code, 403)
+        self.assertEqual(self.client.get("/media/fotky/../prijate_faktury/2026/dodavatel.pdf").status_code, 403)  # obejití přes ../
+        self.client.force_login(uzivatel("ucetni", "Administrativa"))
+        self.assertEqual(self.client.get("/media/prijate_faktury/2026/dodavatel.pdf").status_code, 200)
+
+    # --- 6. Účet hlavního administrátora mění jen hlavní administrátor
+    def test_ucet_hlavniho_administratora_nezmeni_spravce_s_nastavenim(self):
+        from .models import Role, Zamestnanec
+        hlavni = User.objects.create_superuser("hlavni", password="Puvodni-heslo-42")
+        zh = Zamestnanec.objects.create(jmeno="Hlavní", prijmeni="Admin", uzivatel=hlavni)
+        r = Role.objects.create(nazev="Kancelář"); r.opravneni.set(Role.objects.get(nazev="Administrativa").opravneni.all())
+        r.opravneni.add(*__import__("core.models", fromlist=["Opravneni"]).Opravneni.objects.filter(kod="nastaveni.spravovat"))
+        self.client.force_login(uzivatel("kancelar", "Kancelář"))
+        d = {"jmeno": "Hlavní", "prijmeni": "Admin", "aktivni": "on", "role": [], "ucet_aktivni": "on", "ucet_jmeno": "hlavni", "ucet_admin": "on",
+             "ucet_heslo": "Nove-heslo-4242", "ucet_heslo2": "Nove-heslo-4242"}
+        r = self.client.post(reverse("edit", args=["zamestnanec", zh.pk]), d)
+        self.assertContains(r, "může měnit jen hlavní administrátor")
+        hlavni.refresh_from_db(); self.assertTrue(hlavni.check_password("Puvodni-heslo-42"))
+        r = self.client.post(reverse("edit", args=["zamestnanec", zh.pk]), dict(d, ucet_heslo="", ucet_heslo2="", ucet_aktivni=""))
+        hlavni.refresh_from_db(); self.assertTrue(hlavni.is_active)
+        bez_uctu = {k: v for k, v in d.items() if not k.startswith("ucet_heslo")}
+        r = self.client.post(reverse("edit", args=["zamestnanec", zh.pk]), dict(bez_uctu, prijmeni="Administrátor"))  # ostatní údaje karty změnit smí
+        self.assertEqual(r.status_code, 302); zh.refresh_from_db(); self.assertEqual(zh.prijmeni, "Administrátor")
+        self.client.force_login(hlavni)
+        r = self.client.post(reverse("edit", args=["zamestnanec", zh.pk]), d)
+        self.assertEqual(r.status_code, 302); hlavni.refresh_from_db(); self.assertTrue(hlavni.check_password("Nove-heslo-4242"))

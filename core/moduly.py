@@ -8,7 +8,8 @@ Modul se do aplikace „zapojí“ v metodě `ready()` svého AppConfig volání
 - jak se jmenuje, co dělá a co potřebuje (zobrazí se v Nastavení → Moduly),
 - odkazy do Nastavení (`nastaveni`),
 - tlačítka na zakázce (`akce_zakazky`) a v náhledu dokumentu (`akce_dokumentu`),
-- která oprávnění vyžadují jeho stránky (`prava`; bez záznamu stačí základní přístup).
+- která oprávnění vyžadují jeho stránky (`prava`; bez záznamu stačí základní přístup),
+- vlastní oprávnění modulu (`opravneni`), která se přidávají rolím stejně jako oprávnění základní aplikace.
 
 Základní aplikace o žádném konkrétním modulu neví, zná jen tato místa pro rozšíření. Návod je v docs/11-moduly.md."""
 import re
@@ -38,6 +39,7 @@ class Modul:
     akce_zakazky: Callable = None  # (request, zakazka) -> [dict(text, url, title)]
     akce_dokumentu: Callable = None  # (request, typ, objekt) -> [dict(text, url, title)]
     prava: dict = field(default_factory=dict)  # {"jmenny_prostor:nazev_adresy": {kód oprávnění}}
+    opravneni: list = field(default_factory=list)  # vlastní oprávnění modulu [(kód, název, popis)]; objeví se v Nastavení → Oprávnění a dají se přidat rolím
 
     @property
     def odkazy(self):
@@ -58,6 +60,11 @@ def registruj(m: Modul):
 
 
 def seznam(): return sorted(REGISTR.values(), key=lambda m: m.nazev)
+
+
+def opravneni():
+    """Oprávnění, která přidávají registrované moduly: [(kód, název, popis)]."""
+    return [o for m in seznam() for o in m.opravneni]
 
 
 def potrebna_prava(view_name):

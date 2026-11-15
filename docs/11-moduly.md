@@ -69,6 +69,7 @@ moduly/
 | `akce_zakazky(request, zakazka)` | tlačítka na pracovní ploše zakázky, seznam `dict(text, url, title)` |
 | `akce_dokumentu(request, typ, objekt)` | tlačítka v náhledu zakázkového listu, nabídky a faktury |
 | `prava` | které oprávnění potřebují stránky modulu, např. `{"modul_email:nastaveni": {"nastaveni.spravovat"}}`; bez záznamu stačí základní přístup |
+| `opravneni` | vlastní oprávnění modulu, seznam `(kód, název, popis)`, např. `("email.odesilat", "Odesílání e-mailů", "…")`; aplikace je založí v tabulce oprávnění, administrátor je přidává rolím a role s volbou „je administrátor“ je má automaticky |
 
 4. **Oprávnění.** Stránky modulu hlídá stejný middleware jako stránky aplikace (`core/prava.py`): uživatel musí mít základní přístup a oprávnění, která modul uvedl v `prava`. Tlačítka modulu se uživateli bez oprávnění nezobrazí.
 5. **Odolnost.** Chyba v kódu tlačítek modulu se zapíše do logu a stránka aplikace se zobrazí dál bez tlačítek modulu.
