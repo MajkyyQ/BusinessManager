@@ -1454,3 +1454,33 @@ class BezpecnostTest(TestCase):
         self.client.force_login(hlavni)
         r = self.client.post(reverse("edit", args=["zamestnanec", zh.pk]), d)
         self.assertEqual(r.status_code, 302); hlavni.refresh_from_db(); self.assertTrue(hlavni.check_password("Nove-heslo-4242"))
+
+
+class BezpecneNastaveniTest(TestCase):
+    """Výchozí nastavení bez .env je bezpečné: žádný pevný SECRET_KEY z repozitáře, DEBUG jen výslovně (config/settings.py)."""
+    def test_tajny_klic_se_vygeneruje_a_ulozi(self):
+        import os, tempfile
+        from pathlib import Path
+        from unittest import mock
+        from config import settings as s
+        d = Path(tempfile.mkdtemp())
+        with mock.patch.object(s, "BASE_DIR", d), mock.patch.dict(os.environ, {}, clear=True):
+            k1 = s._tajny_klic(); k2 = s._tajny_klic()
+            self.assertGreaterEqual(len(k1), 50); self.assertEqual(k1, k2); self.assertEqual((d / ".secret_key").read_text(), k1)
+            self.assertNotIn("dev-zmen", k1)
+        with mock.patch.object(s, "BASE_DIR", d), mock.patch.dict(os.environ, {"SECRET_KEY": "z-env"}, clear=True):
+            self.assertEqual(s._tajny_klic(), "z-env")
+
+    def test_env_se_nacte_a_promenne_prostredi_maji_prednost(self):
+        import os, tempfile
+        from pathlib import Path
+        from unittest import mock
+        from config import settings as s
+        f = Path(tempfile.mkdtemp()) / ".env"
+        f.write_text("# komentář\nDEBUG=1\nALLOWED_HOSTS=a,b\nSECRET_KEY=\"x y\"\n", encoding="utf-8")
+        with mock.patch.dict(os.environ, {"ALLOWED_HOSTS": "jine"}, clear=True):
+            s._nacti_env(f)
+            self.assertEqual(os.environ["DEBUG"], "1"); self.assertEqual(os.environ["ALLOWED_HOSTS"], "jine"); self.assertEqual(os.environ["SECRET_KEY"], "x y")
+        f.write_text("DEBUG=1\n", encoding="utf-16")  # PowerShell: echo DEBUG=1 > .env
+        with mock.patch.dict(os.environ, {}, clear=True):
+            s._nacti_env(f); self.assertEqual(os.environ["DEBUG"], "1")

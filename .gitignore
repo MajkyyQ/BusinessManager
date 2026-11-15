@@ -28,3 +28,4 @@ zalohy/
 moduly/*
 !moduly/__init__.py
 !moduly/README.md
+.secret_key

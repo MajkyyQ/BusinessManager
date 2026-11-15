@@ -10,11 +10,12 @@ Potřeba je Python 3.12 nebo novější. Ve složce projektu:
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+echo DEBUG=1> .env
 python manage.py migrate
 python manage.py runserver 8080
 ```
 
-Na Linuxu a macOS se prostředí aktivuje příkazem `source .venv/bin/activate`. Aplikace pak běží na <http://127.0.0.1:8080>. Při prvním otevření se spustí průvodce, ve kterém založíte účet administrátora a firmu.
+Řádek `DEBUG=1` v souboru `.env` zapne ladicí režim (podrobné chybové stránky); bez něj aplikace běží v provozním režimu. Na Linuxu a macOS se prostředí aktivuje příkazem `source .venv/bin/activate`. Aplikace pak běží na <http://127.0.0.1:8080>. Při prvním otevření se spustí průvodce, ve kterém založíte účet administrátora a firmu.
 
 - **Testovací data:** `python manage.py seed_data` vytvoří ukázkové zákazníky, zařízení, zakázky, zaměstnance, práce a materiál. Je určen jen pro vývoj a předvádění, ne pro ostrou databázi.
 - **PDF a náhledy Excelových šablon** potřebují LibreOffice. Ve Windows ho aplikace najde v `C:\Program Files\LibreOffice`, jinou cestu lze zadat proměnnou prostředí `LIBREOFFICE`. Bez LibreOffice fungují HTML šablony.
@@ -23,12 +24,13 @@ Na Linuxu a macOS se prostředí aktivuje příkazem `source .venv/bin/activate`
 
 ## Konfigurace (proměnné prostředí)
 
-Nastavení se čte z proměnných prostředí, v Dockeru ze souboru `.env` (vzor je v `.env.example`, skutečný `.env` se do repozitáře nikdy neukládá).
+Nastavení se čte z proměnných prostředí a ze souboru `.env` ve složce aplikace, v Dockeru i při spuštění bez něj (vzor je v `.env.example`, skutečný `.env` se do repozitáře nikdy neukládá). Proměnná nastavená v systému má přednost před `.env`.
 
 | Proměnná | Význam | Výchozí hodnota |
 |:--|:--|:--|
-| `SECRET_KEY` | tajný klíč Django (dlouhý náhodný řetězec) | jen pro vývoj |
-| `DEBUG` | `1` = ladicí režim, `0` = provoz | `1` |
+| `SECRET_KEY` | tajný klíč Django (dlouhý náhodný řetězec) | vygeneruje se náhodně a uloží do souboru `.secret_key` |
+| `DEBUG` | `1` = ladicí režim (jen pro vývoj), `0` = provoz | `0` |
+| `HTTPS` | `1`, když aplikace běží za HTTPS (např. Caddy nebo nginx); cookies se pak posílají jen šifrovaně | `0` |
 | `ALLOWED_HOSTS` | adresy, na kterých aplikace odpovídá (čárkami) | `localhost,127.0.0.1` |
 | `CSRF_TRUSTED_ORIGINS` | adresy včetně `http://` a portu, ze kterých se odesílají formuláře | prázdné |
 | `DB_ENGINE` | `postgres` = PostgreSQL, jinak SQLite | SQLite |
@@ -79,8 +81,9 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `NovaRoleVeFormulariZamestnanceTest` | 3 | založení nové role v okně formuláře zaměstnance bez jeho opuštění |
 | `PrvniNastaveniTest` | 4 | seznam prvního nastavení pro administrátora a upozornění na pracovní ploše |
 | `SystemModuluTest` | 4 | volitelné moduly: nalezení ve složce `moduly/`, zápis do Nastavení, tlačítka a oprávnění stránek modulu |
+| `BezpecneNastaveniTest` | 2 | bez `.env` se vygeneruje náhodný `SECRET_KEY`, `.env` se načte i bez Dockeru a proměnné prostředí mají přednost |
 | `BezpecnostTest` | 9 | opravy z bezpečnostního auditu: nahrávání a odesílání souborů, mazání cizích souborů, přesměrování, soubory podle oprávnění, účet hlavního administrátora (viz [Bezpečnost](12-bezpecnost.md)) |
-| **Celkem** | **130** | |
+| **Celkem** | **132** | |
 
 ## Úprava databáze
 

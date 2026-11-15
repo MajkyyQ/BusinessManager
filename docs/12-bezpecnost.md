@@ -67,6 +67,14 @@ Volitelné moduly mohou nově přidat vlastní oprávnění (pole `opravneni` t�
 
 `ZamestnanecForm` odmítne změnu přihlašovacího účtu s příznakem *Superuser* (zapnutí, jméno, heslo, administrátor), pokud ji neprovádí jiný superuser. Ostatní údaje karty (telefon, pozice) může upravit kdokoli s oprávněním Nastavení.
 
+## Zpevnění po auditu
+
+Doporučení z auditu se postupně zapracovávají:
+
+| Doporučení | Stav |
+|:--|:--|
+| Bezpečné výchozí nastavení | hotovo: `DEBUG` je bez `.env` vypnutý; chybí-li `SECRET_KEY`, vygeneruje se náhodný klíč do souboru `.secret_key` (dřív platil pevný klíč známý z repozitáře); `.env` se načte i při spuštění bez Dockeru; volba `HTTPS=1` pro šifrované cookies (test `BezpecneNastaveniTest`) |
+
 ## Co audit ověřil jako bezpečné
 
 - Oprávnění kontroluje server u každého požadavku (`PravaMiddleware`), ručně zadaná adresa skrytá tlačítka neobejde. Platí to i pro stránky modulů.
@@ -81,9 +89,8 @@ Volitelné moduly mohou nově přidat vlastní oprávnění (pole `opravneni` t�
 
 Tyto body nejsou zranitelnosti, ale zvyšují bezpečnost provozu:
 
-- **HTTPS:** aplikace běží na `http://…:8080`, hesla jdou po firemní síti nešifrovaně. Pro provoz mimo malou uzavřenou síť je vhodné předřadit HTTPS (např. Caddy) a nastavit `SESSION_COOKIE_SECURE` a `CSRF_COOKIE_SECURE`.
+- **HTTPS:** aplikace běží na `http://…:8080`, hesla jdou po firemní síti nešifrovaně. Pro provoz mimo malou uzavřenou síť je vhodné předřadit HTTPS (např. Caddy) a v `.env` nastavit `HTTPS=1`: cookies přihlášení se pak posílají jen šifrovaně.
 - **Omezení pokusů o přihlášení:** např. knihovna `django-axes`.
-- **Výchozí hodnoty v `settings.py`:** bez souboru `.env` platí `DEBUG=1` a pevný `SECRET_KEY`. Instalační skript to řeší, ruční spuštění ne; pro provoz vždy použít `.env`.
 - **Heslo ke schránce SMTP** je v databázi uložené čitelně, takže je i v zálohách. Zálohy proto patří na bezpečné místo. Volba šifrování „Bez šifrování“ je jen pro místní poštovní server.
 - **Průvodce prvním spuštěním:** dokud není založený první účet, stane se administrátorem ten, kdo stránku otevře jako první. Průvodce je proto potřeba dokončit hned po instalaci.
 - **Velikost nahrávaných souborů** není omezená.
