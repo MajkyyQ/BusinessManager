@@ -29,6 +29,7 @@ BusinessManager/
     |-- pruvodce.py           průvodce prvním spuštěním
     |-- prvni_nastaveni.py    co má administrátor nastavit po prvním spuštění
     |-- prava.py              role a oprávnění, kontrola na serveru
+    |-- soubory.py            povolené přípony a bezpečné odesílání nahraných souborů
     |-- historie.py           čitelné hodnoty v historii změn
     |-- cislovani.py          číselné řady dokladů
     |-- navigace.py           tlačítka Zpět a Zrušit
@@ -71,7 +72,8 @@ Složka `config/` obsahuje nastavení celého projektu. Soubor `settings.py` na�
 - `apps.py` – po každé migraci doplní výchozí data (stavy zakázek, oprávnění, sazby DPH, vestavěné šablony).
 - `pruvodce.py` – průvodce prvním spuštěním (účet administrátora a firma) a middleware, který na něj přesměruje.
 - `prvni_nastaveni.py` – kroky, které má administrátor po prvním spuštění nastavit (firma, role, zaměstnanci, typy úkonů a volitelné), včetně poznání, které jsou hotové; zobrazují se v Nastavení a jako upozornění na pracovní ploše.
-- `prava.py` – oprávnění a výchozí role, funkce `potrebna_prava` (které oprávnění potřebuje která stránka), middleware `PravaMiddleware` a filtr `smi` pro skrývání tlačítek.
+- `prava.py` – oprávnění a výchozí role, funkce `potrebna_prava` (které oprávnění potřebuje která stránka), middleware `PravaMiddleware` (včetně oprávnění k souborům podle složky, `MEDIA_PRAVA`) a filtr `smi` pro skrývání tlačítek.
+- `soubory.py` – povolené přípony nahrávaných souborů a pohled `media`, který posílá nahrané soubory s bezpečnostními hlavičkami (viz [Bezpečnost](12-bezpecnost.md)).
 - `historie.py` – převod hodnot v historii změn na čitelný text (jména místo čísel záznamů, česká data, ano/ne) a české názvy polí.
 - `cislovani.py` – číselné řady: převod vzoru čísla (např. `ZL260001`) na formát se značkami, výpočet dalšího volného čísla a rozložení hotového čísla na rok a pořadí.
 - `navigace.py` – middleware, který si pamatuje navštívené stránky, aby tlačítka Zpět a Zrušit vedla tam, odkud uživatel přišel.

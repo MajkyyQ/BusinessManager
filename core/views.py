@@ -26,6 +26,8 @@ from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.views.decorators.http import require_POST
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
+from .soubory import pripona_prilohy, pripona_isdoc
 from .models import (Zarizeni, KontaktniOsoba, Material, ZakaznikKontakt, ZakazkaKontakt, StavZakazky, TypUkonu, SazbaDPH, Fotografie, ProvedenyUkon, PouzityMaterial,
                      KalendarUdalost, Zamestnanec, Objednavka, Zakaznik, PolozkaNabidky, HistorieZmen, Zakazka, Nabidka, Faktura, NastaveniFirmy, Platba, PolozkaFaktury,
                      Dodavatel, PrijataFaktura, Priloha, CiselnaRada, Role, Opravneni)
@@ -59,8 +61,9 @@ def jen_admin_ok(request, slug=None):
     messages.error(request, "Nastavení může otevřít jen administrátor."); return False
 
 def safe_next(request):
+    """Adresa z ?next= jen v rámci aplikace (ne /\\cizi.web ani //cizi.web, které prohlížeč otevře jako jiný web)."""
     n = request.GET.get("next", "")
-    return n if n.startswith("/") and not n.startswith("//") else None
+    return n if n.startswith("/") and url_has_allowed_host_and_scheme(n, allowed_hosts={request.get_host()}) else None
 def get(slug):
     if slug not in MODELS: raise Http404
     return MODELS[slug]
@@ -515,13 +518,15 @@ def zarizeni_stejne(vyrobce, sn, bez=None):
 
 class FotkyForm(forms.Form):
     class VicSouboru(forms.ClearableFileInput): allow_multiple_selected = True
-    class VicSouboruPole(forms.FileField):
+    class VicSouboruPole(forms.ImageField):
+        """Víc fotek najednou. Každou ověří Pillow (skutečný obrázek, ne jen přípona nebo typ hlášený prohlížečem)."""
         def clean(self, data, initial=None):
             data = [x for x in (data if isinstance(data, (list, tuple)) else [data]) if x]
             if not data: raise forms.ValidationError("Vyberte aspoň jednu fotografii.")
-            r = [forms.FileField.clean(self, x, initial) for x in data]
-            for x in r:
-                if not (getattr(x, "content_type", "") or "").startswith("image/"): raise forms.ValidationError(f"Soubor {x.name} není obrázek.")
+            r = []
+            for x in data:
+                try: r.append(forms.ImageField.clean(self, x, initial))
+                except forms.ValidationError: raise forms.ValidationError(f"Soubor {x.name} není obrázek (povolené jsou fotky JPG, PNG, GIF, WEBP…).")
             return r
     zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka", empty_label="— vyberte zakázku —",
                             widget=forms.Select(attrs={"class": "form-select"}))
@@ -585,6 +590,9 @@ class ZamestnanecForm(forms.ModelForm):
         if u: self.initial.update(ucet_aktivni=u.is_active, ucet_jmeno=u.username, ucet_admin=u.is_staff or u.is_superuser)
     def clean(self):
         c = super().clean(); u = self.instance.uzivatel if self.instance.pk else None
+        if u and u.is_superuser and not (self.prihlaseny and self.prihlaseny.is_superuser) and self.zmena_uctu(c, u):
+            self.add_error(None, "Účet hlavního administrátora (založený v průvodci prvním spuštěním) může měnit jen hlavní administrátor.")
+            return c
         if not c.get("ucet_aktivni"):
             if u and self.prihlaseny and u.pk == self.prihlaseny.pk: self.add_error("ucet_aktivni", "Vlastní účet nelze vypnout.")
             return c
@@ -602,6 +610,11 @@ class ZamestnanecForm(forms.ModelForm):
         if u and self.prihlaseny and u.pk == self.prihlaseny.pk and not c.get("ucet_admin") and (u.is_staff or u.is_superuser):
             self.add_error("ucet_admin", "Sami sobě administrátora odebrat nelze.")
         return c
+    @staticmethod
+    def zmena_uctu(c, u):
+        """Mění formulář přihlašovací účet `u` (zapnutí, jméno, heslo, administrátor)?"""
+        return (bool(c.get("ucet_aktivni")) != u.is_active or (c.get("ucet_aktivni") and (c.get("ucet_jmeno") or "").strip() != u.username)
+                or bool(c.get("ucet_heslo") or c.get("ucet_heslo2")) or bool(c.get("ucet_admin")) != (u.is_staff or u.is_superuser))
     def uloz_ucet(self, z):
         """Vytvoří / upraví / vypne účet zaměstnance; vrátí popis změny pro historii (bez hesla)."""
         c = self.cleaned_data; u = z.uzivatel
@@ -732,8 +745,9 @@ def plocha(request, pk):
     items = []
     def add(group, title, kind, url, **k):
         it = dict(i=len(items), group=group, title=str(title)[:60], kind=kind, url=url, dl=url, **k); items.append(it); return it
-    foto = [add("Fotografie", f.popis[:40] or f"Foto {f.pk}", "img", f.soubor.url, delete=reverse("delete", args=["fotografie", f.pk]) + back) for f in z.fotografie_set.all()]
-    pril = [add("Přílohy", p.nazev, kind_of(p.soubor.name), p.soubor.url, delete=reverse("delete", args=["priloha", p.pk]) + back) for p in z.priloha_set.all()]
+    smaz = lambda slug, pk: (lambda u: u + back if P.smi(request.user, u) else None)(reverse("delete", args=[slug, pk]))  # Smazat jen tomu, kdo smí (vlastní soubor nebo oprávnění Mazání)
+    foto = [add("Fotografie", f.popis[:40] or f"Foto {f.pk}", "img", f.soubor.url, delete=smaz("fotografie", f.pk)) for f in z.fotografie_set.all()]
+    pril = [add("Přílohy", p.nazev, kind_of(p.soubor.name), p.soubor.url, delete=smaz("priloha", p.pk)) for p in z.priloha_set.all()]
     dok = []
     def dok_add(group, typ, o, title=None):  # zobrazí se ve výchozí šabloně, stažení = PDF
         it = add(group, title or o, "html", reverse("dokument_obsah", args=[typ, o.pk])); it["dl"] = reverse("dokument_pdf", args=[typ, o.pk]); dok.append(it)
@@ -857,7 +871,7 @@ class ObjednavkaForm(forms.Form):
     predmet = forms.CharField(label="Předmět objednávky", max_length=200, help_text="Stručně, o co se jedná, např. „Oprava elektronického zařízení“.", widget=forms.TextInput(attrs={"class": "form-control"}))
     text = forms.CharField(label="Text objednávky", required=False, help_text="Co zákazník objednává, opsané z objednávky, např. „Objednáváme opravu elektronického zařízení v hodnotě …“.",
                            widget=forms.Textarea(attrs={"rows": 4, "class": "form-control"}))
-    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Uloží se i do příloh zakázky.",
+    soubor = forms.FileField(label="Soubor objednávky (nepovinné)", required=False, help_text="Např. PDF nebo sken od zákazníka. Uloží se i do příloh zakázky.", validators=[pripona_prilohy],
                              widget=forms.ClearableFileInput(attrs={"class": "form-control"}))
     poznamka = forms.CharField(label="Poznámka (nepovinné)", required=False, widget=forms.Textarea(attrs={"rows": 2, "class": "form-control"}))
     def clean(self):
@@ -1049,8 +1063,11 @@ def zakazka_nova(request):
                 o.zarizeni.set(Zarizeni.objects.filter(pk__in=ids("zarizeni"), zakaznik=z)); o.zamestnanci.set(ids("prijal")[:1])  # kdo zařízení převzal
                 k = KontaktniOsoba.objects.filter(pk__in=ids("kontakt")).first()
                 if k: ZakazkaKontakt.objects.create(zakazka=o, kontakt=k, role=P.get("kontakt_role", "")); ZakaznikKontakt.objects.get_or_create(zakaznik=z, kontakt=k)
+                vynechane = []
                 for f in request.FILES.getlist("fotky"):
-                    if f.content_type.startswith("image/"): Fotografie.objects.create(zakazka=o, soubor=f, nahral=request.user)
+                    try: Fotografie.objects.create(zakazka=o, soubor=forms.ImageField().clean(f), nahral=request.user)  # jen skutečné obrázky (Pillow)
+                    except forms.ValidationError: vynechane.append(f.name)
+                if vynechane: messages.warning(request, "Tyto soubory nejsou obrázky a neuložily se: " + ", ".join(vynechane))
                 for t, c, d in zip(P.getlist("ukon_typ"), P.getlist("ukon_cena"), P.getlist("ukon_dph")):
                     if t.isdigit(): ProvedenyUkon.objects.create(zakazka=o, typ_ukonu_id=t, cena=_dec(c), sazba_dph=_dec(d))
                 for m, mn, c, d in zip(P.getlist("mat_id"), P.getlist("mat_mn"), P.getlist("mat_cena"), P.getlist("mat_dph")):
@@ -1172,7 +1189,7 @@ def stav_akce(request, pk):
 
 # ---------------- Přijaté faktury ----------------
 class ImportISDOCForm(forms.Form):
-    soubor = forms.FileField(label="Soubor faktury ISDOC (.isdoc nebo .isdocx)", widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".isdoc,.isdocx,.xml"}))
+    soubor = forms.FileField(label="Soubor faktury ISDOC (.isdoc nebo .isdocx)", validators=[pripona_isdoc], widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".isdoc,.isdocx,.xml"}))
     zakazka = ZakazkaChoice(Zakazka.objects.select_related("zakaznik").order_by("-datum_vytvoreni"), label="Zakázka (nepovinné, např. materiál pro konkrétní opravu)",
                             required=False, empty_label="— bez zakázky —", widget=forms.Select(attrs={"class": "form-select"}))
 

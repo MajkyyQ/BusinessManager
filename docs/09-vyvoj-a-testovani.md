@@ -78,7 +78,9 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `PoradiStavuTest` | 3 | nový stav dostane pořadí jako další v řadě, obsazené pořadí posune ostatní stavy |
 | `NovaRoleVeFormulariZamestnanceTest` | 3 | založení nové role v okně formuláře zaměstnance bez jeho opuštění |
 | `PrvniNastaveniTest` | 4 | seznam prvního nastavení pro administrátora a upozornění na pracovní ploše |
-| **Celkem** | **117** | |
+| `SystemModuluTest` | 4 | volitelné moduly: nalezení ve složce `moduly/`, zápis do Nastavení, tlačítka a oprávnění stránek modulu |
+| `BezpecnostTest` | 9 | opravy z bezpečnostního auditu: nahrávání a odesílání souborů, mazání cizích souborů, přesměrování, soubory podle oprávnění, účet hlavního administrátora (viz [Bezpečnost](12-bezpecnost.md)) |
+| **Celkem** | **130** | |
 
 ## Úprava databáze
 
