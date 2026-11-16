@@ -50,7 +50,7 @@ Testy jsou v souboru `core/tests.py` a spouští se příkazem:
 python manage.py test core
 ```
 
-Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávisí na datech v aplikaci. Testy pokrývají části, ve kterých by chyba měla největší následky: správnost dokladů, integritu dat, oprávnění a bezpečnost. Spouští se po každé změně jako regresní testy, nad SQLite i nad PostgreSQL.
+Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávisí na datech v aplikaci. Testy pokrývají části, ve kterých by chyba měla největší následky: správnost dokladů, integritu dat, oprávnění a bezpečnost. Spouští se po každé změně jako regresní testy.
 
 | Třída testů | Počet | Co ověřuje |
 |:--|--:|:--|
@@ -89,6 +89,20 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `BezpecnostTest` | 9 | opravy z bezpečnostního auditu: nahrávání a odesílání souborů, mazání cizích souborů, přesměrování, soubory podle oprávnění, účet hlavního administrátora (viz [Bezpečnost](12-bezpecnost.md)) |
 | `LimitVelikostiSouboruTest` | 3 | příliš velká příloha ani fotka se neuloží (srozumitelná hláška s limitem), příliš velké nahrání najednou se odmítne hned (413) |
 | **Celkem** | **135** | |
+
+### Výsledky
+
+Všech 135 testů prošlo v databázi SQLite, ve které se aplikace vyvíjí. Původních 117 testů (stav před doplněním testů pro moduly, bezpečnostní audit a zpevnění po něm) prošlo i v databázi PostgreSQL, nad kterou aplikace běží v Dockeru ve firmě. Aplikace k databázi přistupuje jen přes ORM Django, takže stejný kód funguje nad oběma systémy; spuštění nad PostgreSQL ověřuje rozdíly mezi nimi, např. v kontrole integritních omezení nebo v porovnávání textu.
+
+Testy nad PostgreSQL se spustí stejně jako vývoj proti PostgreSQL (viz výše), jen místo `runserver` příkazem `python manage.py test core`.
+
+### Testy modulů
+
+Volitelné moduly mají vlastní testy ve své složce. Modul Odesílání e-mailů ([BusinessManager-moduly](https://github.com/MajkyyQ/BusinessManager-moduly)) má 16 testů, které se po zkopírování modulu do složky `moduly/` spouští příkazem:
+
+```bat
+python manage.py test moduly.email
+```
 
 ## Úprava databáze
 

@@ -52,6 +52,22 @@ Nálezy byly ověřené čtením kódu, opravy pak automatickými testy (tabulka
 | 5 | nízká | Modul e-mail: kdokoli poslal z firemní schránky libovolný text na libovolnou adresu s podpisem firmy. | zaměstnanec se základní rolí | nové oprávnění „Odesílání e-mailů“ | `test_odesilat_smi_jen_role_s_opravnenim` (modul) |
 | 6 | nízká | Uživatel s oprávněním Nastavení mohl změnit heslo hlavního administrátora (účtu z průvodce) nebo jeho účet vypnout. | role s oprávněním Nastavení | účet hlavního administrátora mění jen hlavní administrátor | `test_ucet_hlavniho_administratora_nezmeni_spravce_s_nastavenim` |
 
+Opravy se řídily zásadou nejmenší účinné změny v místě, kde aplikace o přístupu rozhoduje. U nahraných souborů jsou dvě nezávislé pojistky (kontrola při nahrání a bezpečné hlavičky při odeslání), takže druhá chrání i soubory, které se do aplikace dostaly před opravou. Aby mohl modul e-mail přidat vlastní oprávnění, rozšířil se systém modulů o oprávnění, která administrátor přiřazuje rolím stejně jako oprávnění základní aplikace.
+
+### Jak testy opravy ověřují
+
+Každou opravu hlídá automatický test, který by chybu odhalil, kdyby se v kódu znovu objevila. Testy pro nálezy 1 až 4 a 6 jsou ve třídě `BezpecnostTest` v `core/tests.py`, test oprávnění k odesílání e-mailů je v testech modulu. Testy zkoušejí skutečné útoky:
+
+- nahrání souboru `.html` a `.svg` jako přílohy a souboru HTML vydávajícího se za obrázek PNG,
+- otevření staršího souboru HTML, který už v úložišti je,
+- smazání cizí fotky,
+- přesměrování na adresy `/\cizi.web` a `//cizi.web`,
+- stažení přijaté faktury technikem, i přes cestu `fotky/../`,
+- změnu hesla hlavního administrátora uživatelem s oprávněním Nastavení,
+- odeslání e-mailu zaměstnancem bez oprávnění.
+
+Ověřují také, že povolené činnosti fungují dál: nahrání PDF a skutečné fotky, smazání vlastní fotky, přesměrování v rámci aplikace a úprava ostatních údajů karty administrátora.
+
 ### 1. Skript v nahraném souboru
 
 Nahrané soubory leží ve složce `media` a prohlížeč je otevírá ze stejné adresy jako aplikaci. Soubor typu HTML nebo SVG by tedy prohlížeč spustil jako součást aplikace, se všemi právy přihlášeného uživatele. Chyba měla tři příčiny: příloha přijala jakýkoli soubor, fotky se kontrolovaly jen podle typu, který hlásí prohlížeč (dá se podvrhnout), a soubory odesílala funkce `django.views.static.serve` s typem podle přípony.
