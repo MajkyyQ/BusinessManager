@@ -272,11 +272,12 @@ class PolozkaFaktury(Polozka):
     @property
     def dokument(self): return self.faktura
 class Platba(models.Model):
-    STAVY = ("Čeká na zaplacení", "Zaplaceno"); ZPUSOBY = ("Hotově", "Bankovní převod", "Jiný")
+    STAVY = ("Čeká na zaplacení", "Zaplaceno"); ZPUSOBY = ("Hotově", "QR kód", "Kartou", "Bankovní převod", "Jiný")
+    NA_MISTE = ("Hotově", "QR kód", "Kartou")  # způsoby platby na místě při vydání zakázky (bez faktury)
     class Meta:
         verbose_name = "platba"; verbose_name_plural = "Platby"
         constraints = [VYCET("stav", ("Čeká na zaplacení", "Zaplaceno"), "platba_stav_platny"),
-                       VYCET("zpusob", ("Hotově", "Bankovní převod", "Jiný"), "platba_zpusob_platny")]
+                       VYCET("zpusob", ("Hotově", "QR kód", "Kartou", "Bankovní převod", "Jiný"), "platba_zpusob_platny")]
     faktura = FK(Faktura); zakazka = FK(Zakazka)
     stav = C(30, choices=[(x, x) for x in STAVY])
     zpusob = C(30, choices=[(x, x) for x in ZPUSOBY])

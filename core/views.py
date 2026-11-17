@@ -767,9 +767,11 @@ def plocha(request, pk):
     tabs = [("info", "Přehled"), ("prace", "Práce"), ("mat", "Materiál"), ("foto", f"Fotografie ({len(foto)})"), ("pril", f"Přílohy ({len(pril)})"),
             ("dok", f"Dokumenty ({len(dok)})"), ("kont", "Kontakty"), ("zar", "Zařízení"), ("zam", "Zaměstnanci"), ("hist", "Historie změn")]
     hist = HistorieZmen.objects.filter(typ_objektu="zakazka", id_objektu=pk)[:60]
-    hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), z.faktura_set.exists())
+    zapl = platba_na_miste(z); ma_fakturu = z.faktura_set.exists()
+    hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), ma_fakturu or zapl is not None)  # zaplaceno na místě = faktura už není potřeba
     return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, akce_modulu=moduly.akce_zakazky(request, z), sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
-             kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=zapojeni_zamestnanci(z), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby)
+             kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=zapojeni_zamestnanci(z), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby,
+             zapl=zapl, ma_fakturu=ma_fakturu, dodatecna_platba=bool(z.stav and z.stav.nazev == "Vydáno" and not zapl and not ma_fakturu), k_zaplaceni=sum((x["s"] for x in nabidka_polozky(z)), Decimal(0)), zpusoby_na_miste=Platba.NA_MISTE)
 
 # ---------------- Nabídka ze zakázky ----------------
 def nabidka_polozky(z):
@@ -1161,7 +1163,7 @@ def stav_ctx(request, z):
     n = z.stav.nazev if z.stav else ""; akce = []
     for k in FLOW.get(n, ["zahajit", "zrusit"]):
         l, _, s = ACTIONS[k]; akce.append((k, {("Čeká na schválení", "zahajit"): "Schváleno – zahájit práci", ("Čeká na díl", "zahajit"): "Díl dorazil – zahájit práci"}.get((n, k), l), s))
-    return dict(akce=akce, moze_stav=can_set_stav(request.user), stavy=StavZakazky.objects.filter(aktivni=True), stav_css=f"stav-{z.stav.pk}" if z.stav else "light text-dark border")
+    return dict(akce=akce, akce_klice=[k for k, *_ in akce], moze_stav=can_set_stav(request.user), stavy=StavZakazky.objects.filter(aktivni=True), stav_css=f"stav-{z.stav.pk}" if z.stav else "light text-dark border")
 def prace_pridana(request, z):
     """Přidáním práce se na zakázce začalo pracovat: nová zakázka přejde do stavu Rozpracováno (změna se zapíše do historie). Jiné stavy se nemění."""
     if z and z.stav and z.stav.nazev == "Nová": set_stav(request, z, "Rozpracováno")
@@ -1178,14 +1180,36 @@ def set_stav(request, z, nazev):
         u = KalendarUdalost.objects.create(nazev=f"Vydáno {z}", datum=z.datum_vydani, typ="Vydání zařízení", automaticka=True, zakazka=z, popis=f"Vydal: {who}", vytvoril=request.user)
         if e: u.zamestnanci.add(e)
     messages.success(request, f"Stav zakázky: {novy.nazev}.")
+def platba_na_miste(z):
+    """Zaplacená platba zakázky bez faktury (hotově, QR kódem nebo kartou při vydání), pokud existuje."""
+    return z.platba_set.filter(stav="Zaplaceno", faktura__isnull=True).order_by("-datum_zaplaceni").first()
+def zapis_platbu_na_miste(request, z):
+    """Platba na místě bez faktury (typicky jen poplatek za diagnostiku): zakázka dostane platbu ve stavu Zaplaceno.
+    Vrací platbu, nebo None, když údaje nejsou v pořádku (chyba se zobrazí uživateli)."""
+    castka = _dec(request.POST.get("castka", "")); zpusob = request.POST.get("zpusob", "")
+    if castka is None or castka <= 0 or castka >= Decimal("1e10"): messages.error(request, "Zadejte zaplacenou částku (kladné číslo)."); return None
+    if zpusob not in Platba.NA_MISTE: messages.error(request, "Vyberte způsob platby na místě."); return None
+    p = Platba.objects.create(zakazka=z, stav="Zaplaceno", zpusob=zpusob, castka=round(castka, 2), datum_zaplaceni=timezone.now(),
+                              poznamka=request.POST.get("poznamka", "").strip()[:500] or "Zaplaceno na místě bez faktury")
+    log(request, z, "Platba na místě", "castka", "", f"{str(p.castka).replace('.', ',')} Kč – {zpusob}")
+    messages.success(request, f"Zapsána platba na místě: {str(p.castka).replace('.', ',')} Kč ({zpusob}).")
+    return p
 def stav_akce(request, pk):
     z = get_object_or_404(Zakazka.objects.select_related("stav"), pk=pk); a = request.POST.get("akce", ""); n = z.stav.nazev if z.stav else ""
     if request.method == "POST":
+        na_miste = request.POST.get("platba") == "na_miste"
         if a == "rucne":
             s = request.POST.get("stav", ""); novy = StavZakazky.objects.filter(pk=s).first() if s.isdigit() else None
             if not can_set_stav(request.user): messages.error(request, "Ruční změna stavu vyžaduje oprávnění.")
             elif novy: set_stav(request, z, novy.nazev)
-        elif a in FLOW.get(n, ["zahajit", "zrusit"]): set_stav(request, z, ACTIONS[a][1])
+        elif a == "zaplaceno":  # dodatečný zápis platby na místě (např. u zakázky vydané před zavedením této volby)
+            if platba_na_miste(z): messages.info(request, "Platba na místě už je u zakázky zapsaná.")
+            else: zapis_platbu_na_miste(request, z)
+        elif a in FLOW.get(n, ["zahajit", "zrusit"]):
+            if a == "vydat" and na_miste:  # vydání se zaplacením na místě: obojí, nebo nic
+                with transaction.atomic():
+                    if zapis_platbu_na_miste(request, z): set_stav(request, z, ACTIONS[a][1])
+            else: set_stav(request, z, ACTIONS[a][1])
         else: messages.error(request, f"Akce není ve stavu „{n}“ dostupná.")
     return redirect(reverse("detail", args=["zakazka", pk]))
 

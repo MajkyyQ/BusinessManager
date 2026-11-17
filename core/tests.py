@@ -1519,3 +1519,60 @@ class LimitVelikostiSouboruTest(TestCase):
     def test_prilis_velke_nahrani_odmitne_hned(self):
         r = self.client.generic("POST", reverse("create", args=["fotografie"]), b"x", CONTENT_LENGTH=str(3 * 1024 * 1024))
         self.assertEqual(r.status_code, 413); self.assertIn("příliš velké", r.content.decode())
+
+
+class PlatbaNaMisteTest(TestCase):
+    """Vydání zakázky se zaplacením na místě bez faktury (hotově, QR kódem, kartou), typicky jen poplatek za diagnostiku."""
+    def setUp(self):
+        from .models import StavZakazky, Zakazka, TypUkonu, ProvedenyUkon
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis", vychozi_dph=Decimal("21"))
+        self.client.force_login(uzivatel("tech", role="Technik"))  # vydává i technik bez oprávnění k fakturám
+        self.z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(jmeno="Jan"), stav=StavZakazky.objects.create(nazev="Připraveno k vyzvednutí"))
+        ProvedenyUkon.objects.create(zakazka=self.z, typ_ukonu=TypUkonu.objects.create(nazev="Diagnostika"), cena=Decimal("500"), sazba_dph=Decimal("21"))
+
+    def vydat(self, **data):
+        return self.client.post(reverse("stav_akce", args=[self.z.pk]), {"akce": "vydat", **data})
+
+    def test_dialog_vydani_nabidne_platbu_s_castkou_zakazky(self):
+        r = self.client.get(reverse("plocha", args=[self.z.pk]))
+        self.assertContains(r, 'id="bm-vydat"'); self.assertContains(r, "Zaplaceno na místě bez faktury")
+        self.assertContains(r, 'name="castka" inputmode="decimal" value="605"')  # 500 Kč + 21 % DPH
+        self.assertContains(r, "<option>QR kód</option>")
+
+    def test_vydani_se_zaplacenim_na_miste(self):
+        from .models import Platba, KalendarUdalost, HistorieZmen
+        self.vydat(platba="na_miste", castka="300,50", zpusob="QR kód", poznamka="Poplatek za diagnostiku")
+        self.z.refresh_from_db(); self.assertEqual(self.z.stav.nazev, "Vydáno")
+        p = Platba.objects.get()
+        self.assertEqual((p.zakazka, p.faktura, p.stav, p.zpusob, p.castka, p.poznamka), (self.z, None, "Zaplaceno", "QR kód", Decimal("300.50"), "Poplatek za diagnostiku"))
+        self.assertTrue(KalendarUdalost.objects.filter(typ="Zaplaceno", zakazka=self.z).exists())
+        self.assertTrue(HistorieZmen.objects.filter(akce="Platba na místě", id_objektu=self.z.pk).exists())
+        r = self.client.get(reverse("plocha", args=[self.z.pk]))
+        self.assertContains(r, "Zaplaceno na místě: 300,50 Kč (QR kód)"); self.assertNotContains(r, 'id="bm-vydat"')
+
+    def test_chybna_castka_zakazku_nevyda(self):
+        from .models import Platba
+        self.vydat(platba="na_miste", castka="", zpusob="Hotově")
+        self.vydat(platba="na_miste", castka="100", zpusob="Bankovní převod")  # převod není platba na místě
+        self.z.refresh_from_db(); self.assertEqual(self.z.stav.nazev, "Připraveno k vyzvednutí"); self.assertFalse(Platba.objects.exists())
+
+    def test_vydani_bez_platby_a_dodatecny_zapis(self):
+        from .models import Platba
+        self.vydat(platba="", castka="605", zpusob="Hotově")
+        self.z.refresh_from_db(); self.assertEqual(self.z.stav.nazev, "Vydáno"); self.assertFalse(Platba.objects.exists())
+        r = self.client.get(reverse("plocha", args=[self.z.pk])); self.assertContains(r, "Platba není zapsaná"); self.assertContains(r, 'value="zaplaceno"')
+        self.client.post(reverse("stav_akce", args=[self.z.pk]), {"akce": "zaplaceno", "castka": "605", "zpusob": "Hotově"})
+        self.client.post(reverse("stav_akce", args=[self.z.pk]), {"akce": "zaplaceno", "castka": "605", "zpusob": "Hotově"})  # podruhé se nezapíše
+        self.assertEqual(Platba.objects.get().castka, Decimal("605")); self.z.refresh_from_db(); self.assertEqual(self.z.stav.nazev, "Vydáno")
+
+    def test_s_fakturou_je_vychozi_bez_platby(self):
+        r = self.client.get(reverse("plocha", args=[self.z.pk])); self.assertContains(r, 'id="bm-pl-ano" checked')
+        Faktura.objects.create(zakaznik=self.z.zakaznik).zakazky.add(self.z)
+        r = self.client.get(reverse("plocha", args=[self.z.pk])); self.assertContains(r, 'id="bm-pl-ne" checked'); self.assertContains(r, "K zakázce je vystavena faktura")
+
+    def test_po_zaplaceni_na_miste_se_nedoporucuje_faktura(self):
+        from .models import Platba
+        self.client.force_login(uzivatel("admin", role="Administrátor"))
+        self.assertContains(self.client.get(reverse("plocha", args=[self.z.pk])), 'class="btn btn-success" href="/faktura/z-zakazky/')
+        Platba.objects.create(zakazka=self.z, stav="Zaplaceno", zpusob="Hotově", castka=Decimal("605"))
+        self.assertNotContains(self.client.get(reverse("plocha", args=[self.z.pk])), 'class="btn btn-success" href="/faktura/z-zakazky/')
