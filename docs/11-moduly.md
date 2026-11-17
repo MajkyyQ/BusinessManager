@@ -4,6 +4,13 @@ Základní aplikace obsahuje jen to, co potřebuje každá servisní firma. Dal�
 
 Přehled nainstalovaných modulů je v aplikaci v **Nastavení → Moduly**.
 
+Dostupné moduly:
+
+| Modul | Složka | Co dělá |
+|:--|:--|:--|
+| Odesílání e-mailů | `email` | dokumenty, fotografie a přílohy zakázky e-mailem z firemní schránky s podpisem firmy |
+| QR platba | `qr_platba` | QR kód pro zaplacení zakázky z bankovní aplikace (český standard QR Platba) přímo na obrazovce: v okně Vydat zákazníkovi po výběru „QR kód“ a na velké stránce pro zákazníka |
+
 ## Přidání modulu do aplikace
 
 Postup pro aplikaci nainstalovanou podle [INSTALACE.md](../INSTALACE.md) ve složce `C:\BusinessManager`.
