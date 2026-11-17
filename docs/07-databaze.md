@@ -318,7 +318,7 @@ Tabulka `core_objednavka` eviduje objednávky přijaté od zákazníků. Sloupce
 
 #### Platba
 
-Tabulka `core_platba` eviduje úhrady. Sloupce: `faktura_id` → Faktura a `zakazka_id` → Zakazka (obě nepovinné, platbu lze přiřadit faktuře i přímo zakázce, např. při platbě v hotovosti bez faktury), `stav` („Čeká na zaplacení“, „Zaplaceno“), `zpusob` („Hotově“, „Bankovní převod“, „Jiný“), `castka`, `datum_zaplaceni` a `poznamka`. Ke každé vystavené faktuře se při jejím vytvoření automaticky založí platba ve stavu „Čeká na zaplacení“ s částkou faktury (starší faktury ji dostaly migrací `0016`). Jakmile má platba stav „Zaplaceno“, vytvoří se v kalendáři událost „Zaplaceno“. Stav platby je záměrně nezávislý na stavu zakázky.
+Tabulka `core_platba` eviduje úhrady. Sloupce: `faktura_id` → Faktura a `zakazka_id` → Zakazka (obě nepovinné, platbu lze přiřadit faktuře i přímo zakázce, např. při platbě v hotovosti bez faktury), `stav` („Čeká na zaplacení“, „Zaplaceno“), `zpusob` („Hotově“, „QR kód“, „Kartou“, „Bankovní převod“, „Jiný“; první tři jsou platby na místě, migrace `0023`), `castka`, `datum_zaplaceni` a `poznamka`. Ke každé vystavené faktuře se při jejím vytvoření automaticky založí platba ve stavu „Čeká na zaplacení“ s částkou faktury (starší faktury ji dostaly migrací `0016`). Platba na místě bez faktury (např. poplatek za diagnostiku) se zakládá při vydání zakázky, a to rovnou ve stavu „Zaplaceno“ s vazbou jen na zakázku. Jakmile má platba stav „Zaplaceno“, vytvoří se v kalendáři událost „Zaplaceno“. Stav platby je záměrně nezávislý na stavu zakázky.
 
 #### Dodavatel
 

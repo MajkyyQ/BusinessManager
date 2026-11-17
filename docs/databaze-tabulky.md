@@ -381,7 +381,7 @@ Tabulka `core_platba` – platba.
 | `faktura_id` | FK → Faktura (PROTECT) | ne |  |
 | `zakazka_id` | FK → Zakazka (PROTECT) | ne |  |
 | `stav` | text (30); hodnoty: „Čeká na zaplacení“, „Zaplaceno“ | ne |  |
-| `zpusob` | text (30); hodnoty: „Hotově“, „Bankovní převod“, „Jiný“ | ne |  |
+| `zpusob` | text (30); hodnoty: „Hotově“, „QR kód“, „Kartou“, „Bankovní převod“, „Jiný“ | ne |  |
 | `castka` | desetinné (12,2) | ne |  |
 | `datum_zaplaceni` | datum a čas | ne |  |
 | `poznamka` | dlouhý text | ne |  |
@@ -389,7 +389,7 @@ Tabulka `core_platba` – platba.
 **Integritní omezení:**
 
 - `platba_stav_platny` – CHECK `("stav" IN ('Čeká na zaplacení', 'Zaplaceno') OR "stav" = '')`
-- `platba_zpusob_platny` – CHECK `("zpusob" IN ('Hotově', 'Bankovní převod', 'Jiný') OR "zpusob" = '')`
+- `platba_zpusob_platny` – CHECK `("zpusob" IN ('Hotově', 'QR kód', 'Kartou', 'Bankovní převod', 'Jiný') OR "zpusob" = '')`
 
 ## Dodavatel
 

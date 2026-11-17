@@ -45,13 +45,13 @@ Typický průběh servisní zakázky v aplikaci odpovídá pracovnímu postupu f
 
 4.  **Cenová nabídka.** Pokud zákazník požaduje nabídku, vytvoří se jedním kliknutím ze zakázky. Aplikace převezme práce a materiál jako položky nabídky, spočítá ceny s DPH a celkové součty, nabídce přidělí číslo s pořadím převzatým ze zakázky, a pokud je zakázka ještě ve stavu „Nová“, přepne ji do stavu „Čeká na schválení“. Z hotové nabídky lze tlačítkem „Pokračovat na fakturu“ rovnou přejít k vystavení faktury.
 
-5.  **Dokončení a vydání.** Po dokončení opravy se zakázka označí jako opravená a připravená k vyzvednutí. Při předání zákazníkovi se stiskne „Vydat zákazníkovi“; aplikace uloží datum vydání, zapíše, kdo zařízení vydal, a vytvoří událost v kalendáři.
+5.  **Dokončení a vydání.** Po dokončení opravy se zakázka označí jako opravená a připravená k vyzvednutí. Při předání zákazníkovi se stiskne „Vydat zákazníkovi“; aplikace uloží datum vydání, zapíše, kdo zařízení vydal, a vytvoří událost v kalendáři. V okně vydání lze rovnou zapsat, že zákazník zaplatil na místě bez faktury (hotově, QR kódem nebo kartou), typicky jen poplatek za diagnostiku u zařízení, které se neopravuje; zakázka se tím uzavře včetně platby.
 
 6.  **Faktura.** Faktura se vytvoří ze zakázky stejně jako nabídka. Aplikace jí přidělí číslo podle číselné řady faktur (výchozí tvar `001-27-10/2026`), nastaví datum splatnosti a datum uskutečnění zdanitelného plnění, převezme položky ze zakázky a založí k ní platbu ve stavu „Čeká na zaplacení“.
 
 7.  **Výsledné dokumenty.** Zakázkový list, nabídku i fakturu lze zobrazit v náhledu, vytisknout nebo stáhnout jako soubor PDF. Dokument se vytvoří z výchozí firemní šablony, případně z jiné šablony, kterou uživatel v náhledu zvolí. Fakturu lze navíc stáhnout jako elektronickou fakturu ve formátu ISDOC pro import do účetního programu.
 
-8.  **Platba.** Po úhradě stačí v detailu faktury stisknout **✓ Zaplaceno**; platba se označí jako zaplacená a do kalendáře se zapíše odpovídající událost. Platbu bez faktury (např. v hotovosti) lze zapsat přímo k zakázce.
+8.  **Platba.** Po úhradě stačí v detailu faktury stisknout **✓ Zaplaceno**; platba se označí jako zaplacená a do kalendáře se zapíše odpovídající událost. Platba na místě bez faktury se zapíše už při vydání zakázky (viz krok 5), případně dodatečně tlačítkem „Zapsat platbu na místě“ u vydané zakázky.
 
 Mimo průběh zakázky aplikace eviduje také **přijaté faktury** od dodavatelů. Fakturu ve formátu ISDOC stačí nahrát; aplikace převezme její údaje, přiřadí ji dodavateli a do kalendáře zapíše, kdy faktura přišla, kdy je splatná a zda už byla zaplacena.
 
