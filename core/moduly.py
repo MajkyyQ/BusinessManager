@@ -8,6 +8,7 @@ Modul se do aplikace „zapojí“ v metodě `ready()` svého AppConfig volání
 - jak se jmenuje, co dělá a co potřebuje (zobrazí se v Nastavení → Moduly),
 - odkazy do Nastavení (`nastaveni`),
 - tlačítka na zakázce (`akce_zakazky`) a v náhledu dokumentu (`akce_dokumentu`),
+- obrázek pro zákazníka v okně platby na místě, například QR platbu (`platba_na_miste`),
 - která oprávnění vyžadují jeho stránky (`prava`; bez záznamu stačí základní přístup),
 - vlastní oprávnění modulu (`opravneni`), která se přidávají rolím stejně jako oprávnění základní aplikace.
 
@@ -38,6 +39,7 @@ class Modul:
     nastaveni: list = field(default_factory=list)  # [(popisek, název adresy)] – odkazy v Nastavení → Moduly
     akce_zakazky: Callable = None  # (request, zakazka) -> [dict(text, url, title)]
     akce_dokumentu: Callable = None  # (request, typ, objekt) -> [dict(text, url, title)]
+    platba_na_miste: Callable = None  # (request, zakazka, zpusob) -> adresa obrázku pro zákazníka (např. QR platba) nebo None; aplikace k ní připojí ?castka=
     prava: dict = field(default_factory=dict)  # {"jmenny_prostor:nazev_adresy": {kód oprávnění}}
     opravneni: list = field(default_factory=list)  # vlastní oprávnění modulu [(kód, název, popis)]; objeví se v Nastavení → Oprávnění a dají se přidat rolím
 
@@ -90,6 +92,21 @@ def _akce(request, nazev, *args):
 def _smi(request, url):
     from .prava import smi
     return not url or smi(request.user, url)
+
+
+def obrazky_platby(request, z, zpusoby):
+    """{způsob platby: adresa obrázku} pro okno platby na místě. Obrázek ukáže první modul, který pro daný způsob nějaký vrátí."""
+    out = {}
+    for m in seznam():
+        if not m.platba_na_miste: continue
+        for zp in zpusoby:
+            if zp in out: continue
+            try: url = m.platba_na_miste(request, z, zp)
+            except Exception:  # chyba v modulu nesmí shodit stránku základní aplikace
+                import logging
+                logging.getLogger(__name__).exception("Modul %s: chyba v platba_na_miste", m.kod); break
+            if url and _smi(request, url): out[zp] = str(url)
+    return out
 
 
 def akce_zakazky(request, z): return _akce(request, "akce_zakazky", z)

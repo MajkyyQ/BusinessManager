@@ -68,6 +68,7 @@ moduly/
 | `nastaveni` | odkazy v Nastavení → Moduly, seznam `(popisek, název adresy)` |
 | `akce_zakazky(request, zakazka)` | tlačítka na pracovní ploše zakázky, seznam `dict(text, url, title)` |
 | `akce_dokumentu(request, typ, objekt)` | tlačítka v náhledu zakázkového listu, nabídky a faktury |
+| `platba_na_miste(request, zakazka, zpusob)` | adresa obrázku, který se ukáže zákazníkovi v okně **Vydat zákazníkovi / Zapsat platbu na místě**, když je vybraný daný způsob platby (např. QR platba u „QR kód“); aplikace k adrese připojí `castka=` podle částky v okně a obrázek obnoví při její změně. `None` = pro tento způsob nic |
 | `prava` | které oprávnění potřebují stránky modulu, např. `{"modul_email:nastaveni": {"nastaveni.spravovat"}}`; bez záznamu stačí základní přístup |
 | `opravneni` | vlastní oprávnění modulu, seznam `(kód, název, popis)`, např. `("email.odesilat", "Odesílání e-mailů", "…")`; aplikace je založí v tabulce oprávnění, administrátor je přidává rolím a role s volbou „je administrátor“ je má automaticky |
 

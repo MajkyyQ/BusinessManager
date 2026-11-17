@@ -771,7 +771,8 @@ def plocha(request, pk):
     hlavni = hlavni_akce(z, ukony.exists(), z.nabidka_set.exists(), ma_fakturu or zapl is not None)  # zaplaceno na místě = faktura už není potřeba
     return R(request, "plocha", **stav_ctx(request, z), hlavni=hlavni, akce_modulu=moduly.akce_zakazky(request, z), sec="zakazky", crumbs=[("📋 Zakázky", reverse("list", args=["zakazka"])), (str(z), None)], tabs=tabs, pril=pril, hist=hist, z=z, items=items, foto=foto, dok=dok, nxt=request.path, zarizeni=z.zarizeni.all(),
              kontakty=z.zakazkakontakt_set.select_related("kontakt"), zam=zapojeni_zamestnanci(z), ukony=ukony, mat=mat, sum_u=sum_u, sum_m=sum_m, platby=platby,
-             zapl=zapl, ma_fakturu=ma_fakturu, dodatecna_platba=bool(z.stav and z.stav.nazev == "Vydáno" and not zapl and not ma_fakturu), k_zaplaceni=sum((x["s"] for x in nabidka_polozky(z)), Decimal(0)), zpusoby_na_miste=Platba.NA_MISTE)
+             zapl=zapl, ma_fakturu=ma_fakturu, dodatecna_platba=bool(z.stav and z.stav.nazev == "Vydáno" and not zapl and not ma_fakturu), k_zaplaceni=sum((x["s"] for x in nabidka_polozky(z)), Decimal(0)), zpusoby_na_miste=Platba.NA_MISTE,
+             obrazky_platby=moduly.obrazky_platby(request, z, Platba.NA_MISTE) if not zapl else {})
 
 # ---------------- Nabídka ze zakázky ----------------
 def nabidka_polozky(z):
