@@ -6,7 +6,8 @@ nabídek a faktur (PDF i ISDOC) z uložených dat.
 **Dokumentace:** [docs/](docs/README.md) – [popis aplikace](docs/01-popis-aplikace.md), [funkce](docs/02-funkce.md),
 [technologie](docs/03-technologie.md), [architektura](docs/04-architektura.md), [databáze](docs/07-databaze.md),
 [šablony dokumentů, PDF a ISDOC](docs/08-sablony-dokumentu.md), [vývoj a testování](docs/09-vyvoj-a-testovani.md),
-[první nastavení po instalaci](docs/10-prvni-nastaveni.md).
+[první nastavení po instalaci](docs/10-prvni-nastaveni.md),
+[volitelné moduly](docs/11-moduly.md) (odesílání e-mailů, QR platba; stahují se z [BusinessManager-moduly](https://github.com/MajkyyQ/BusinessManager-moduly)).
 Instalace: níže a podrobně v [INSTALACE.md](INSTALACE.md).
 
 ## Rychlá instalace (Windows)

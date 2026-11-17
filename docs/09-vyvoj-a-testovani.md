@@ -84,24 +84,26 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `PoradiStavuTest` | 3 | nový stav dostane pořadí jako další v řadě, obsazené pořadí posune ostatní stavy |
 | `NovaRoleVeFormulariZamestnanceTest` | 3 | založení nové role v okně formuláře zaměstnance bez jeho opuštění |
 | `PrvniNastaveniTest` | 4 | seznam prvního nastavení pro administrátora a upozornění na pracovní ploše |
-| `SystemModuluTest` | 4 | volitelné moduly: nalezení ve složce `moduly/`, zápis do Nastavení, tlačítka a oprávnění stránek modulu |
+| `SystemModuluTest` | 5 | volitelné moduly: nalezení ve složce `moduly/`, zápis do Nastavení, tlačítka, obrázek v okně platby na místě (`platba_na_miste`) a oprávnění stránek modulu |
 | `BezpecneNastaveniTest` | 2 | bez `.env` se vygeneruje náhodný `SECRET_KEY`, `.env` se načte i bez Dockeru a proměnné prostředí mají přednost |
 | `BezpecnostTest` | 9 | opravy z bezpečnostního auditu: nahrávání a odesílání souborů, mazání cizích souborů, přesměrování, soubory podle oprávnění, účet hlavního administrátora (viz [Bezpečnost](12-bezpecnost.md)) |
 | `LimitVelikostiSouboruTest` | 3 | příliš velká příloha ani fotka se neuloží (srozumitelná hláška s limitem), příliš velké nahrání najednou se odmítne hned (413) |
-| **Celkem** | **135** | |
+| `PlatbaNaMisteTest` | 6 | vydání zakázky se zaplacením na místě bez faktury (hotově, QR kódem, kartou): předvyplněná částka, chybná částka zakázku nevydá, dodatečný zápis platby, výchozí volba u zakázky s fakturou |
+| **Celkem** | **142** | |
 
 ### Výsledky
 
-Všech 135 testů prošlo v databázi SQLite, ve které se aplikace vyvíjí. Původních 117 testů (stav před doplněním testů pro moduly, bezpečnostní audit a zpevnění po něm) prošlo i v databázi PostgreSQL, nad kterou aplikace běží v Dockeru ve firmě. Aplikace k databázi přistupuje jen přes ORM Django, takže stejný kód funguje nad oběma systémy; spuštění nad PostgreSQL ověřuje rozdíly mezi nimi, např. v kontrole integritních omezení nebo v porovnávání textu.
+Všech 142 testů prošlo v databázi SQLite, ve které se aplikace vyvíjí. Původních 117 testů (stav před doplněním testů pro moduly, bezpečnostní audit a zpevnění po něm) prošlo i v databázi PostgreSQL, nad kterou aplikace běží v Dockeru ve firmě. Aplikace k databázi přistupuje jen přes ORM Django, takže stejný kód funguje nad oběma systémy; spuštění nad PostgreSQL ověřuje rozdíly mezi nimi, např. v kontrole integritních omezení nebo v porovnávání textu.
 
 Testy nad PostgreSQL se spustí stejně jako vývoj proti PostgreSQL (viz výše), jen místo `runserver` příkazem `python manage.py test core`.
 
 ### Testy modulů
 
-Volitelné moduly mají vlastní testy ve své složce. Modul Odesílání e-mailů ([BusinessManager-moduly](https://github.com/MajkyyQ/BusinessManager-moduly)) má 16 testů, které se po zkopírování modulu do složky `moduly/` spouští příkazem:
+Volitelné moduly ([BusinessManager-moduly](https://github.com/MajkyyQ/BusinessManager-moduly)) mají vlastní testy ve své složce. Modul Odesílání e-mailů má 16 testů, modul QR platba 10 testů (převod čísla účtu na IBAN, částka, řetězec QR Platby, QR kód v okně Vydat zákazníkovi, stránka pro zákazníka, oprávnění nastavení). Po zkopírování modulu do složky `moduly/` se spouští příkazem:
 
 ```bat
 python manage.py test moduly.email
+python manage.py test moduly.qr_platba
 ```
 
 ## Úprava databáze
