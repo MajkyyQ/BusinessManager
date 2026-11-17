@@ -1319,6 +1319,19 @@ class SystemModuluTest(TestCase):
             r = self.client.get(reverse("plocha", args=[z.pk]))
         self.assertContains(r, "Akce modulu"); self.assertContains(r, f"/kalendar/?zakazka={z.pk}&next=/plocha/{z.pk}/")
 
+    def test_obrazek_platby_na_miste_od_modulu(self):
+        from .models import StavZakazky, Zakazka
+        z = Zakazka.objects.create(zakaznik=Zakaznik.objects.create(firma="Firma"), stav=StavZakazky.objects.create(nazev="Připraveno k vyzvednutí"))
+        self.client.force_login(uzivatel("tech", "Technik"))
+        self.assertNotContains(self.client.get(reverse("plocha", args=[z.pk])), 'id="bm-pl-obr"')  # bez modulu okno beze změny
+        def qr(request, zak, zpusob): return f"/kalendar/?qr={zak.pk}" if zpusob == "QR kód" else None
+        def chyba(request, zak, zpusob): raise RuntimeError("chyba v modulu")
+        self.moduly.registruj(self.moduly.Modul(kod="a", nazev="A", platba_na_miste=qr))
+        self.moduly.registruj(self.moduly.Modul(kod="b", nazev="B", platba_na_miste=chyba))
+        with self.assertLogs("core.moduly", "ERROR"):
+            r = self.client.get(reverse("plocha", args=[z.pk]))
+        self.assertContains(r, 'id="bm-pl-obr"'); self.assertContains(r, f'{{"QR k\\u00f3d": "/kalendar/?qr={z.pk}"}}')
+
     def test_opravneni_stranek_modulu(self):
         from . import prava as P
         self.moduly.registruj(self.moduly.Modul(kod="s", nazev="S", prava={"s:nastaveni": {P.NASTAVENI}}))
