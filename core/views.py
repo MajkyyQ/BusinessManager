@@ -817,7 +817,7 @@ def nabidka_nova(request):
                 PolozkaNabidky.objects.create(nabidka=n, zakazka=z, popis=p["popis"], mnozstvi=p["mnozstvi"], jednotka=p["jednotka"], jednotkova_cena=p["cena"], sazba_dph=p["dph"])
             log(request, n, "Vytvoření", popis_z=z)
         if z.stav and z.stav.nazev == "Nová": set_stav(request, z, "Čeká na schválení")  # nabídka čeká na schválení zákazníkem
-        messages.success(request, f"Nabídka {n.cislo_nabidky} vytvořena ze zakázky {z.cislo_zakazky}.")
+        messages.success(request, f"Nabídka {n.cislo_nabidky} vytvořena ze zakázky {z.cislo_zakazky}.", extra_tags="vytvoreno")
         return redirect(nahled_noveho(request, "nabidka", n.pk))
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "nabidka_nova", sec="dokumenty", form=form, nahled=nahled_ctx(z) if z else None)
@@ -852,7 +852,7 @@ def faktura_nova(request):
                 PolozkaFaktury.objects.create(faktura=f, zakazka=z, popis=p["popis"], mnozstvi=p["mnozstvi"], jednotka=p["jednotka"], jednotkova_cena=p["cena"], sazba_dph=p["dph"])
             f.refresh_from_db(); Platba.objects.create(faktura=f, zakazka=z, stav="Čeká na zaplacení", castka=f.cena_s_dph)  # vystavená faktura čeká na zaplacení
             log(request, f, "Vytvoření", popis_z=z)
-        messages.success(request, f"Faktura {f.cislo_faktury} vytvořena ze zakázky {z.cislo_zakazky}.")
+        messages.success(request, f"Faktura {f.cislo_faktury} vytvořena ze zakázky {z.cislo_zakazky}.", extra_tags="vytvoreno")
         return redirect(nahled_noveho(request, "faktura", f.pk))
     z = form["zakazka"].value() and Zakazka.objects.filter(pk=form["zakazka"].value()).first()
     return R(request, "faktura_nova", sec="dokumenty", form=form, nahled=dict(nahled_ctx(z), doklad="faktura") if z else None)
@@ -898,7 +898,7 @@ def objednavka_nova(request):
                                           text=c["text"], priloha=pr, poznamka=c["poznamka"])
             o.zakazky.add(z)
             log(request, o, "Vytvoření", popis_z=z)
-        messages.success(request, f"Přijatá objednávka {o.cislo_objednavky} zapsána k zakázce {z.cislo_zakazky}.")
+        messages.success(request, f"Přijatá objednávka {o.cislo_objednavky} zapsána k zakázce {z.cislo_zakazky}.", extra_tags="vytvoreno")
         return redirect(safe_next(request) or reverse("detail", args=["zakazka", z.pk]))
     return R(request, "objednavka_nova", sec="dokumenty", form=form)
 
@@ -1079,7 +1079,7 @@ def zakazka_nova(request):
                     if m.isdigit(): PouzityMaterial.objects.create(zakazka=o, material_id=m, mnozstvi=_dec(mn) or Decimal(1), jednotkova_cena=_dec(c), sazba_dph=_dec(d))  # cena se uloží k použití
                 log(request, o, "Vytvoření")
                 if o.provedenyukon_set.exists(): prace_pridana(request, o)
-            messages.success(request, f"Zakázka {o.cislo_zakazky} vytvořena.")
+            messages.success(request, f"Zakázka {o.cislo_zakazky} vytvořena.", extra_tags="vytvoreno")
             return redirect(safe_next(request) or reverse("detail", args=["zakazka", o.pk]))
     W = lambda n, s, val, multi=False, dep="": LookupWidget(s, MODELS[s], multi, dep).render(n, val)
     ns = NastaveniFirmy.objects.first()
