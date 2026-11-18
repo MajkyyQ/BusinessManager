@@ -1,6 +1,6 @@
 {% extends "core/base.html" %}{% block content %}<div class="bm-head"><h3>Nová zakázka</h3></div>{% if err %}<div class="alert alert-danger">{{ err }}</div>{% endif %}
 <p class="text-muted">Zapište, co zákazník přinesl a co s tím je. Povinný je jen zákazník; práci, materiál i fotografie lze doplnit i později na stránce zakázky.</p>
-<form method="post" enctype="multipart/form-data" class="col-lg-9" id="zl">{% csrf_token %}
+<form data-vytvari="Ukládá se zakázka…" method="post" enctype="multipart/form-data" class="col-lg-9" id="zl">{% csrf_token %}
 <h6 class="text-muted mt-2">Zákazník a převzetí</h6>
 <div class="row g-2 mb-3"><div class="col-md-6"><label class="form-label mb-0 fw-bold">Zákazník</label>{{ w_zakaznik }}<div class="form-text mt-0">Začněte psát jméno nebo název firmy. Nový zákazník se založí přes „+ Nový“.</div></div>
 <div class="col-md-3"><label class="form-label mb-0" for="zl-datum">Datum přijetí</label><input type="datetime-local" name="datum_prijeti" id="zl-datum" class="form-control" value="{{ now }}"></div>
