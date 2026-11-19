@@ -1,0 +1,47 @@
+{# Okno „Filtrovat“: tlačítko s počtem voleb, štítky aktivních voleb a vyskakovací okno se zaškrtávacími dlaždicemi. Vkládá se dovnitř GET formuláře, kontext: filtr = _filtr_okno(...). #}
+<div class="bm-filtr"><button type="button" class="btn btn-outline-secondary bm-filtr-btn" aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Filtrovat{% if filtr.aktivni %}<span class="bm-filtr-n">{{ filtr.aktivni|length }}</span>{% endif %}</button>
+<div class="bm-filtr-okno" role="dialog" aria-label="Filtrovat" hidden><div class="bm-filtr-h"><strong>Filtrovat</strong><button type="button" class="btn-close" aria-label="Zavřít"></button></div>
+<div class="bm-filtr-cols">{% for g in filtr.skupiny %}<fieldset><legend><span>{{ g.nadpis }}</span><button type="button" class="bm-filtr-vse">Vybrat vše</button></legend>
+{% for h,l,css,on in g.volby %}<label class="bm-fo"><input type="checkbox" name="{{ g.par }}" value="{{ h }}"{% if on %} checked{% endif %}><span class="bm-fo-bx"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>{{ l }}{% if css %}<span class="bm-dot bg-{{ css }}"></span>{% endif %}</label>{% endfor %}</fieldset>{% endfor %}</div>
+<div class="bm-filtr-f"><span class="bm-filtr-hint"></span><button type="button" class="btn btn-link bm-filtr-nic">Zrušit vše</button><button class="btn btn-primary">Filtrovat</button></div></div></div>
+{% if filtr.aktivni %}<span class="bm-filtr-stitky">{% for g,l,u in filtr.aktivni %}<span class="bm-filtr-st"><span>{{ g }}:</span> {{ l }}<a href="{{ u }}" aria-label="Odebrat {{ l }}" title="Odebrat">×</a></span>{% endfor %}</span>{% endif %}
+<style>.bm-filtr{position:relative}
+.bm-filtr-btn{display:inline-flex;align-items:center;gap:.4rem}.bm-filtr-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.bm-filtr-btn[aria-expanded="true"]{border-color:var(--bm-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--bm-primary) 22%,transparent)}
+.bm-filtr-n{background:var(--bm-primary);color:var(--bm-on-primary);border-radius:999px;font-size:.72rem;min-width:1.15rem;height:1.15rem;padding:0 .35rem;display:inline-grid;place-items:center}
+.bm-filtr-okno{position:absolute;top:calc(100% + 8px);left:0;z-index:1060;width:min(560px,calc(100vw - 2rem));background:var(--bm-surface);border:1px solid var(--bm-border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,.2),0 2px 6px rgba(15,23,42,.08);padding:.9rem;animation:bmFiltrIn .14s ease-out}
+[data-bs-theme=dark] .bm-filtr-okno{box-shadow:0 16px 44px rgba(0,0,0,.55)}
+@keyframes bmFiltrIn{from{opacity:0;transform:translateY(-4px)}}
+.bm-filtr-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}.bm-filtr-h strong{font-family:var(--bm-font-head);font-size:1.02rem}
+.bm-filtr-cols{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.bm-filtr fieldset{display:grid;gap:.25rem;align-content:start;min-width:0}
+.bm-filtr legend{float:none;width:100%;display:flex;justify-content:space-between;align-items:center;margin:0 0 .3rem;font:600 .72rem var(--bm-font-head);text-transform:uppercase;letter-spacing:.05em;color:var(--bm-muted)}
+.bm-filtr-vse{border:0;background:none;padding:0;color:var(--bm-primary);font:500 .78rem var(--bm-font-body);text-transform:none;letter-spacing:0}
+.bm-fo{display:flex;align-items:center;gap:.55rem;padding:.42rem .65rem;border:1px solid var(--bm-border);border-radius:6px;cursor:pointer;font:600 .84rem var(--bm-font-head);user-select:none;transition:background-color .12s,border-color .12s;margin:0}
+.bm-fo:hover{border-color:color-mix(in srgb,var(--bm-primary) 50%,var(--bm-border))}
+.bm-fo input{position:absolute;opacity:0;pointer-events:none}
+.bm-fo-bx{flex:0 0 16px;height:16px;border-radius:4px;border:1.5px solid var(--bm-muted);display:grid;place-items:center}
+.bm-fo-bx svg{width:11px;height:11px;fill:none;stroke:var(--bm-on-primary);stroke-width:3;opacity:0}
+.bm-fo .bm-dot{margin-left:auto}
+.bm-fo:has(input:checked){background:var(--bm-primary);border-color:var(--bm-primary);color:var(--bm-on-primary)}
+.bm-fo:has(input:checked) .bm-fo-bx{border-color:var(--bm-on-primary);background:color-mix(in srgb,var(--bm-on-primary) 20%,transparent)}.bm-fo:has(input:checked) .bm-fo-bx svg{opacity:1}
+.bm-fo:has(input:focus-visible){outline:2px solid var(--bm-primary);outline-offset:2px}
+.bm-filtr-f{display:flex;align-items:center;gap:.4rem;border-top:1px solid var(--bm-border);margin-top:.8rem;padding-top:.8rem}
+.bm-filtr-hint{color:var(--bm-muted);font-size:.8rem;margin-right:auto}.bm-filtr-nic{color:var(--bm-muted);text-decoration:none}
+.bm-filtr-stitky{display:inline-flex;flex-wrap:wrap;gap:.35rem}
+.bm-filtr-st{display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;padding:.15rem .3rem .15rem .7rem;background:var(--bm-soft);color:var(--bm-primary);font-size:.8rem;font-weight:600}
+.bm-filtr-st>span{font-weight:500;color:var(--bm-muted)}
+.bm-filtr-st a{color:inherit;text-decoration:none;width:1.15rem;height:1.15rem;border-radius:50%;display:grid;place-items:center;line-height:1}.bm-filtr-st a:hover{background:color-mix(in srgb,var(--bm-primary) 18%,transparent)}
+@media(max-width:575px){.bm-filtr-cols{grid-template-columns:1fr}}</style>
+<script>(function(){const w=document.currentScript.parentElement.querySelector('.bm-filtr');if(!w)return;
+const b=w.querySelector('.bm-filtr-btn'),o=w.querySelector('.bm-filtr-okno'),ch=()=>[...o.querySelectorAll('input[type=checkbox]')],hint=w.querySelector('.bm-filtr-hint');
+const pocet=()=>{const n=ch().filter(i=>i.checked).length;hint.textContent=n?'Vybráno: '+n:'Nic nevybráno = zobrazit vše'};
+const zavri=(vratit)=>{if(o.hidden)return;if(vratit)ch().forEach(i=>i.checked=i.defaultChecked);o.hidden=true;b.setAttribute('aria-expanded','false')};
+const otevri=()=>{o.hidden=false;b.setAttribute('aria-expanded','true');o.style.left='0';const r=o.getBoundingClientRect(),m=document.documentElement.clientWidth-16;if(r.right>m)o.style.left=(m-r.right)+'px';pocet();(o.querySelector('input:checked')||o.querySelector('input')).focus({preventScroll:true})};
+b.addEventListener('click',()=>o.hidden?otevri():zavri(true));
+o.querySelector('.btn-close').addEventListener('click',()=>{zavri(true);b.focus()});
+o.addEventListener('change',pocet);
+o.querySelectorAll('.bm-filtr-vse').forEach(x=>x.addEventListener('click',()=>{const s=[...x.closest('fieldset').querySelectorAll('input')],v=!s.every(i=>i.checked);s.forEach(i=>i.checked=v);pocet()}));
+o.querySelector('.bm-filtr-nic').addEventListener('click',()=>{ch().forEach(i=>i.checked=false);pocet()});
+document.addEventListener('click',e=>{if(!w.contains(e.target))zavri(true)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!o.hidden){zavri(true);b.focus()}});})();</script>

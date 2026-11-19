@@ -286,6 +286,17 @@ def _url(request, **zmena):
         if x in ("", None): p.pop(k, None)
         else: p[k] = x
     return "?" + p.urlencode() if p else "?"
+def _filtr_okno(request, skupiny):
+    """Okno „Filtrovat“: skupiny zaškrtávacích voleb, v každé jde vybrat víc hodnot naráz (nic = vše).
+    skupiny = [(parametr, nadpis, [(hodnota, popisek, barva)])]; vrací volby pro okno a aktivní štítky s adresou bez dané volby."""
+    okno, aktivni = [], []
+    for par, nadpis, volby in skupiny:
+        vyb = set(request.GET.getlist(par)); okno.append(dict(par=par, nadpis=nadpis, volby=[(str(h), l, css, str(h) in vyb) for h, l, css in volby]))
+        for h, l, _css in volby:
+            if str(h) in vyb:
+                p = request.GET.copy(); p.pop("page", None); p.setlist(par, [x for x in p.getlist(par) if x != str(h)])
+                aktivni.append((nadpis, l, "?" + p.urlencode()))
+    return dict(skupiny=okno, aktivni=aktivni)
 def _pohled(request, klic):
     """Přepínač tabulka / kanban (inspirace Odoo). Volba se pamatuje v relaci zvlášť pro každý seznam."""
     v = request.GET.get("v")
@@ -953,7 +964,8 @@ def kalendar(request):
     v = request.GET.get("v", "month"); v = v if v in ("month", "week", "day") else "month"
     try: d = date.fromisoformat(request.GET.get("d", ""))
     except ValueError: d = timezone.localdate()
-    typ, zam = request.GET.get("typ", ""), request.GET.get("zam", "")
+    typy = [x[0] for x in KalendarUdalost._meta.get_field("typ").choices]; zamestnanci = list(Zamestnanec.objects.filter(aktivni=True))
+    typ = [t for t in dict.fromkeys(request.GET.getlist("typ")) if t in typy]; zam = [z for z in dict.fromkeys(request.GET.getlist("zam")) if z.isdigit()]  # víc hodnot naráz
     if v == "month":
         w = cal.Calendar(0).monthdatescalendar(d.year, d.month); start, end = w[0][0], w[-1][-1] + timedelta(1)
         prev = (d.replace(day=1) - timedelta(1)).replace(day=1); nxt = (d.replace(day=28) + timedelta(4)).replace(day=1); title = f"{MES[d.month - 1]} {d.year}"
@@ -962,8 +974,8 @@ def kalendar(request):
     else:
         start, end, prev, nxt, title = d, d + timedelta(1), d - timedelta(1), d + timedelta(1), f"{d:%d.%m.%Y}"
     qs = KalendarUdalost.objects.filter(datum__date__gte=start, datum__date__lt=end).select_related("zakazka", "faktura", "prijata_faktura")
-    if typ: qs = qs.filter(typ=typ)
-    if zam: qs = qs.filter(zamestnanci__pk=zam)
+    if typ: qs = qs.filter(typ__in=typ)
+    if zam: qs = qs.filter(zamestnanci__pk__in=zam)
     by = {}
     for e in qs.distinct().order_by("datum"):
         e.css = KCSS.get(e.typ, "secondary")
@@ -971,10 +983,12 @@ def kalendar(request):
         by.setdefault(timezone.localtime(e.datum).date(), []).append(e)
     today = timezone.localdate()
     days = [{"d": x, "ev": by.get(x, []), "today": x == today, "out": x.month != d.month} for x in (start + timedelta(i) for i in range((end - start).days))]
-    qq = urlencode({k: x for k, x in (("typ", typ), ("zam", zam)) if x})
+    qq = urlencode([("typ", t) for t in typ] + [("zam", z) for z in zam])
+    filtr = _filtr_okno(request, [("typ", "Typ události", [(t, t, KCSS.get(t, "secondary").split()[0]) for t in typy]),
+                                  ("zam", "Zaměstnanec", [(e.pk, str(e), "") for e in zamestnanci])])
     return R(request, "kalendar", sec="kalendar", v=v, d=d, days=days, rows=[days[i:i + 7] for i in range(0, len(days), 7)] if v == "month" else None, title=title, prev=prev, nxt=nxt,
         today=today, typ=typ, zam=zam, qq=("&" + qq) if qq else "", modes=[("month", "Měsíc"), ("week", "Týden"), ("day", "Den")], wd=["Po", "Út", "St", "Čt", "Pá", "So", "Ne"],
-        typy=[x[0] for x in KalendarUdalost._meta.get_field("typ").choices], zamestnanci=Zamestnanec.objects.filter(aktivni=True), nxtpath=request.get_full_path(),
+        filtr=filtr, nxtpath=request.get_full_path(),
         rychla=rychla_udalost(request, d))
 
 RYCHLA_POLE = ("nazev", "datum", "typ", "popis")  # pole rychlého pop-upu; zbytek formuláře je pod „Rozšířené možnosti“
@@ -1093,19 +1107,22 @@ def zakazka_nova(request):
         role=["Přinesl zařízení", "Vyzvedl zařízení", "Kontakt", "Jiné"], now=timezone.localtime().strftime("%Y-%m-%dT%H:%M"))
 
 # ---------------- Zařízení (samostatná evidence) ----------------
-ZAR_FILTRY = [("", "Všechna zařízení"), ("firma", "Na firmě (otevřená zakázka)"), ("oprava", "V opravě"), ("dil", "Čeká na díl"),
-              ("zakaznik", "U zákazníka"), ("bez", "Bez zakázky"), ("neaktivni", "Neaktivní")]
+# Skupiny v okně Filtrovat; „firma“ zůstává kvůli starým odkazům, v okně ji nahrazuje volba Umístění → Na firmě.
+ZAR_FILTRY = [("oprava", "V opravě"), ("dil", "Čeká na díl"), ("zakaznik", "U zákazníka"), ("bez", "Bez zakázky"), ("neaktivni", "Neaktivní")]
+ZAR_UMISTENI = [("ano", "Na firmě"), ("ne", "Mimo firmu")]
 ZAR_RAZENI = {"zarizeni": "Zařízení", "zakaznik": "Zákazník", "telefon": "Telefon", "stav": "Stav", "prijeti": "Datum přijetí", "akce": "Poslední akce"}
 def _zar_posledni_akce(d, hist):
     t = [d.datum_vytvoreni, hist.get(d.pk)] + [z.datum_upravy for z in d.zz]
     return max((x for x in t if x), default=None)
 def zarizeni_prehled(request):
-    f = request.GET.get("f", ""); q = request.GET.get("q", "").strip(); o = request.GET.get("o", "-akce")
-    fs = request.GET.get("st", ""); fi = request.GET.get("fi", "")  # filtr stavu a filtr „na firmě“
+    q = request.GET.get("q", "").strip(); o = request.GET.get("o", "-akce"); fs = request.GET.get("st", "")  # hledání, řazení, rychlý filtr stavu
+    f = [x for x in dict.fromkeys(request.GET.getlist("f")) if x in ("firma", "oprava", "dil", "zakaznik", "bez", "neaktivni")]  # skupiny (víc naráz)
+    fi = [x for x in dict.fromkeys(request.GET.getlist("fi")) if x in ("ano", "ne")]; fi1 = fi[0] if len(fi) == 1 else ""  # obě volby = bez omezení
+    skup = [x for x in f if x != "neaktivni"]
     key = o.lstrip("-") if o.lstrip("-") in ZAR_RAZENI else "akce"; desc = o.startswith("-")
     qs = Zarizeni.objects.select_related("zakaznik").prefetch_related(Prefetch("zakazka_set", queryset=Zakazka.objects.select_related("stav").order_by("-datum_prijeti", "-datum_vytvoreni"), to_attr="zz"))
-    if f != "neaktivni": qs = qs.filter(aktivni=True)
-    else: qs = qs.filter(aktivni=False)
+    if "neaktivni" not in f: qs = qs.filter(aktivni=True)
+    elif not skup: qs = qs.filter(aktivni=False)
     if q:
         for w in q.split():
             qs = qs.filter(Q(vyrobce__icontains=w) | Q(typ__icontains=w) | Q(seriove_cislo__icontains=w) | Q(popis__icontains=w) | Q(zakaznik__firma__icontains=w)
@@ -1115,9 +1132,10 @@ def zarizeni_prehled(request):
     rows = []; pocty = {}; celkem = 0; css = stav_css()
     for d in qs:
         z = d.zz[0] if d.zz else None; st = z.stav.nazev if z and z.stav else ""; otevrena = bool(z) and st not in CLOSED
-        if not {"firma": otevrena, "oprava": st in ("Rozpracováno", "Opraveno"), "dil": st == "Čeká na díl", "zakaznik": bool(z) and not otevrena, "bez": not z}.get(f, True): continue
+        sk = {"firma": otevrena, "oprava": st in ("Rozpracováno", "Opraveno"), "dil": st == "Čeká na díl", "zakaznik": bool(z) and not otevrena, "bez": not z}
+        if d.aktivni and skup and not any(sk[g] for g in skup): continue
         stav = st or ("Bez zakázky" if not z else "–")
-        if (fi == "ano" and not otevrena) or (fi == "ne" and otevrena): continue
+        if (fi1 == "ano" and not otevrena) or (fi1 == "ne" and otevrena): continue
         pocty[stav] = pocty.get(stav, 0) + 1; celkem += 1  # počty pro rychlý filtr stavu se berou před filtrem stavu
         if fs and stav != fs: continue
         rows.append(dict(d=d, z=z, stav=stav, css=css.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
@@ -1130,9 +1148,10 @@ def zarizeni_prehled(request):
     heads = [(k, l, ("" if desc or k != key else "-") + k, ("▼" if desc else "▲") if k == key else "", sirka[k]) for k, l in ZAR_RAZENI.items()]
     stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True)) + ["Bez zakázky"]
     chips = _chips(request, "st", [(s, s, pocty.get(s, 0), css.get(s, "light")) for s in stavy], fs, celkem)
-    keep = urlencode({k: x for k, x in (("q", q), ("f", f), ("st", fs), ("fi", fi)) if x})
+    keep = urlencode([("q", q)] * bool(q) + [("f", x) for x in f] + [("st", fs)] * bool(fs) + [("fi", x) for x in fi])
+    filtr = _filtr_okno(request, [("f", "Stav zařízení", [(k, n, "") for k, n in ZAR_FILTRY]), ("fi", "Umístění", [(k, n, "") for k, n in ZAR_UMISTENI])])
     pohled, pohledy = _pohled(request, "zarizeni")
-    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtry=ZAR_FILTRY, fs=fs, fi=fi, keep=keep,
+    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtr=filtr, fs=fs, fi=fi, keep=keep,
              chips=chips, pohled=pohled, pohledy=pohledy, celkem=celkem, ph="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…")
 def zarizeni_detail(request, pk):
     d = get_object_or_404(Zarizeni.objects.select_related("zakaznik"), pk=pk)

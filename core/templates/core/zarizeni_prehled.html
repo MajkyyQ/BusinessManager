@@ -2,8 +2,7 @@
 <div class="bm-head"><h3>Zařízení <small class="text-muted fs-6" id="bm-pocet">({{ rows|length }})</small></h3>
 <div class="bm-actions"><a class="btn btn-primary" href="{% url 'zakazka_nova' %}">+ Nová zakázka</a></div></div>
 <form method="get" id="zf" class="bm-toolbar">{% include "core/_hledat.html" %}<input type="hidden" name="o" value="{{ o }}">{% if fs %}<input type="hidden" name="st" value="{{ fs }}">{% endif %}
-<select name="f" class="form-select" onchange="this.form.submit()" aria-label="Skupina zařízení">{% for k,n in filtry %}<option value="{{ k }}" {% if k == f %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
-<select name="fi" class="form-select" onchange="this.form.submit()" aria-label="Je zařízení na firmě?"><option value="">Na firmě i mimo</option><option value="ano" {% if fi == "ano" %}selected{% endif %}>Na firmě</option><option value="ne" {% if fi == "ne" %}selected{% endif %}>Mimo firmu</option></select>
+{% include "core/_filtr.html" %}
 <span id="bm-reset">{% if q or f or fs or fi %}<a class="btn btn-link px-1" href="{% url 'zarizeni_prehled' %}">Zrušit filtr</a>{% endif %}</span>{% include "core/_pohled.html" %}</form>
 <div id="vysledky">{% include "core/_stavy.html" %}
 {% if pohled == "kan" %}<div class="bm-cards">{% for r in rows %}<a class="bm-card" href="{% url 'detail' 'zarizeni' r.d.pk %}"><div class="t">{{ r.d.vyrobce }} {{ r.d.typ }}{% if not r.d.vyrobce and not r.d.typ %}Zařízení {{ r.d.pk }}{% endif %}</div>
