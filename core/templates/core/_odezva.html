@@ -1,10 +1,11 @@
-<style>/* Odezva aplikace: načítání stránek a dat, točítko v odeslaném tlačítku, animace „Vytváří se… → Vytvořeno“ a bublinky s hlášením.
+<style>/* Lišta načítání se ukáže až po 0,4 s a obsah se ztlumí až po 1,6 s: běžné rychlé přechody tak proběhnou bez jakéhokoli načítání.
+Odezva aplikace: načítání stránek a dat, točítko v odeslaném tlačítku, animace „Vytváří se… → Vytvořeno“ a bublinky s hlášením.
 Barvy berou z proměnných Bootstrapu, takže fungují ve světlém i tmavém režimu. */
 #bm-load{position:fixed;inset:0 0 auto 0;height:3px;z-index:3000;pointer-events:none;opacity:0;overflow:hidden;transition:opacity .15s}
 #bm-load.on{opacity:1}
 #bm-load::before{content:"";position:absolute;top:0;bottom:0;left:0;width:35%;background:var(--bs-primary);border-radius:0 3px 3px 0;animation:bm-load 1s ease-in-out infinite}
 @keyframes bm-load{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}
-body.bm-ceka .bm-main{opacity:.5;pointer-events:none;transition:opacity .25s .35s}
+body.bm-ceka .bm-main{opacity:.6;pointer-events:none;transition:opacity .3s 1.2s}
 .btn{transition:transform .08s ease,color .15s,background-color .15s,border-color .15s,box-shadow .15s}
 .btn:active:not(:disabled):not(.disabled){transform:scale(.96)}
 .bm-spin{display:inline-block;width:.95em;height:.95em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:bm-rot .7s linear infinite;vertical-align:-.12em;margin-right:.45em}
@@ -50,7 +51,7 @@ const FAJFKA='<svg class="bm-fajfka" viewBox="0 0 24 24" aria-hidden="true"><cir
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let tm,bez;
 /* --- načítání --- */
-function nacita(ztlumit){clearTimeout(tm);tm=setTimeout(()=>{L.classList.add('on');L.setAttribute('aria-hidden','false');if(ztlumit)B.classList.add('bm-ceka')},120);
+function nacita(ztlumit){clearTimeout(tm);tm=setTimeout(()=>{L.classList.add('on');L.setAttribute('aria-hidden','false');if(ztlumit)B.classList.add('bm-ceka')},400);
  clearTimeout(bez);bez=setTimeout(hotovo,10000)}  /* pojistka: stažení souboru stránku neopustí */
 function hotovo(){clearTimeout(tm);L.classList.remove('on');L.setAttribute('aria-hidden','true');B.classList.remove('bm-ceka');
  document.querySelectorAll('.bm-odesila').forEach(b=>{b.classList.remove('bm-odesila');b.disabled=false;if(b.dataset.bmPuvodni!=null){b.innerHTML=b.dataset.bmPuvodni;delete b.dataset.bmPuvodni}})}
