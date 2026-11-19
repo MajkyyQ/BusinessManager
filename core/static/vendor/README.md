@@ -6,7 +6,11 @@ Soubory jsou součástí aplikace, aby fungovala i bez připojení k internetu (
 |---|---|---|---|
 | `bootstrap.min.css` | Bootstrap (https://getbootstrap.com/) | 5.3.3 | MIT |
 | `htmx.min.js` | htmx (https://htmx.org/) | 2.0.3 | 0BSD |
+| `fonts/space-grotesk-*.woff2` | Space Grotesk (https://github.com/floriankarsten/space-grotesk) | Google Fonts v22 | SIL OFL 1.1 (`fonts/OFL-SpaceGrotesk.txt`) |
+| `fonts/work-sans-*.woff2` | Work Sans (https://github.com/weiweihuanghuang/Work-Sans) | Google Fonts v24 | SIL OFL 1.1 (`fonts/OFL-WorkSans.txt`) |
 
 Staženo z registru npm (`npm pack bootstrap@5.3.3 htmx.org@2.0.3`), soubory nejsou upravené
 (jen z `bootstrap.min.css` je odstraněn odkaz na neexistující `.map` soubor).
 Při aktualizaci verze nahraďte oba soubory a upravte tuto tabulku.
+
+Písma jsou stažená z Google Fonts (sady latin a latin-ext, proměnná tloušťka) a vkládá je `core/templates/core/_vzhled.html`.

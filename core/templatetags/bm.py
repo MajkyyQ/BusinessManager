@@ -37,6 +37,6 @@ def barvy_stavu():
     from django.utils.html import format_html_join
     from django.utils.safestring import mark_safe
     from ..models import StavZakazky
-    pravidla = format_html_join("", ".bg-stav-{0}{{background-color:{1}!important;color:{2}!important}}",
+    pravidla = format_html_join("", ".bg-stav-{0}{{background-color:{1}!important;color:{2}!important}}.bg-stav-{0}{{--stav:{1}}}",
                                 ((s.pk, s.barva, s.barva_textu) for s in StavZakazky.objects.only("pk", "barva") if s.barva and s.barva[0] == "#"))
     return mark_safe(f"<style>{pravidla}</style>")
