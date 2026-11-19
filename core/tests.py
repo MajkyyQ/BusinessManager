@@ -1589,3 +1589,45 @@ class PlatbaNaMisteTest(TestCase):
         self.assertContains(self.client.get(reverse("plocha", args=[self.z.pk])), 'class="btn btn-success" href="/faktura/z-zakazky/')
         Platba.objects.create(zakazka=self.z, stav="Zaplaceno", zpusob="Hotově", castka=Decimal("605"))
         self.assertNotContains(self.client.get(reverse("plocha", args=[self.z.pk])), 'class="btn btn-success" href="/faktura/z-zakazky/')
+
+
+class OknoFiltrovatTest(TestCase):
+    """Okno „Filtrovat“ v Kalendáři a Zařízení: v každé skupině jde zaškrtnout víc voleb, nic = vše."""
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        self.client.force_login(User.objects.create_user("a", password="x", is_staff=True))
+
+    def test_kalendar_vic_typu_a_zamestnancu(self):
+        from datetime import datetime
+        from django.utils import timezone
+        from .models import KalendarUdalost, Zamestnanec
+        eva, petr = Zamestnanec.objects.create(jmeno="Eva"), Zamestnanec.objects.create(jmeno="Petr")
+        dt = timezone.make_aware(datetime(2026, 11, 10, 9))
+        for nazev, typ, zam in [("Schůzka", "Vlastní událost", eva), ("Platba", "Zaplaceno", petr), ("Přijato", "Přijetí zakázky", eva)]:
+            KalendarUdalost.objects.create(nazev=nazev, datum=dt, typ=typ).zamestnanci.add(zam)
+        url = reverse("kalendar") + "?v=month&d=2026-11-10"
+        nazvy = lambda r: {e.nazev for c in r.context["days"] for e in c["ev"]}
+        self.assertEqual(nazvy(self.client.get(url)), {"Schůzka", "Platba", "Přijato"})
+        r = self.client.get(url + "&typ=Vlastní událost&typ=Zaplaceno")
+        self.assertEqual(nazvy(r), {"Schůzka", "Platba"})
+        self.assertContains(r, 'class="bm-filtr-n">2<'); self.assertContains(r, "bm-filtr-st")
+        self.assertEqual(nazvy(self.client.get(url + f"&zam={eva.pk}")), {"Schůzka", "Přijato"})
+        self.assertEqual(nazvy(self.client.get(url + f"&typ=Zaplaceno&zam={eva.pk}")), set())
+        self.assertEqual(nazvy(self.client.get(url + "&typ=Neexistuje")), {"Schůzka", "Platba", "Přijato"})  # neplatná volba se ignoruje
+
+    def test_zarizeni_vic_skupin_a_umisteni(self):
+        from .models import StavZakazky, Zakazka, Zarizeni
+        z = Zakaznik.objects.create(jmeno="Jana", typ_zakaznika="Soukromá osoba")
+        dil = Zarizeni.objects.create(zakaznik=z, vyrobce="Makita", typ="Dil")
+        Zakazka.objects.create(zakaznik=z, stav=StavZakazky.objects.get_or_create(nazev="Čeká na díl")[0]).zarizeni.add(dil)
+        Zarizeni.objects.create(zakaznik=z, vyrobce="Bosch", typ="Bez"); Zarizeni.objects.create(zakaznik=z, vyrobce="Narex", typ="Stary", aktivni=False)
+        url = reverse("zarizeni_prehled")
+        typy = lambda q: {r["d"].typ for r in self.client.get(url + q).context["rows"]}
+        self.assertEqual(typy(""), {"Dil", "Bez"})
+        self.assertEqual(typy("?f=dil&f=bez"), {"Dil", "Bez"})
+        self.assertEqual(typy("?f=dil"), {"Dil"})
+        self.assertEqual(typy("?f=neaktivni"), {"Stary"})
+        self.assertEqual(typy("?f=neaktivni&f=bez"), {"Bez", "Stary"})
+        self.assertEqual(typy("?fi=ano"), {"Dil"}); self.assertEqual(typy("?fi=ne"), {"Bez"}); self.assertEqual(typy("?fi=ano&fi=ne"), {"Dil", "Bez"})
+        r = self.client.get(url + "?f=dil&f=bez")
+        self.assertContains(r, 'name="f" value="dil" checked'); self.assertContains(r, 'href="?f=bez"')  # štítek odebere jen svou volbu
