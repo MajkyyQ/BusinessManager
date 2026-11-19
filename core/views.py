@@ -43,6 +43,7 @@ READONLY = {"historiezmen", "opravneni"}  # oprávnění určuje aplikace (core/
 SECT = [("plocha", "🖥 Pracovní plocha", "dashboard", []), ("zakazky", "📋 Zakázky", "list", ["zakazka"]), ("zakaznici", "👥 Zákazníci", "list", ["zakaznik"]),
         ("zarizeni", "🔧 Zařízení", "zarizeni_prehled", []),
         ("dokumenty", "📄 Dokumenty", "dokumenty", []), ("kalendar", "📅 Kalendář", "kalendar", []), ("nastaveni", "⚙ Nastavení", "nastaveni", [])]
+IKONY_MENU = {l.split(" ", 1)[0] for _k, l, *_ in SECT}
 SEC = {}   # slug modelu -> (sekce aplikace, skupina nastavení); tabulka NENÍ položka menu, jen se zobrazí v kontextu sekce
 for _s in ("zakazka", "zakazkakontakt", "provedenyukon", "pouzitymaterial", "fotografie", "priloha"): SEC[_s] = ("zakazky", None)
 for _s in ("zakaznik", "kontaktniosoba", "zakaznikkontakt"): SEC[_s] = ("zakaznici", None)
@@ -73,12 +74,13 @@ def R(request, tpl, sec=None, crumbs=None, **c):
     skryt = set() if je_admin(request.user) else {"nastaveni"}  # menu jen se sekcemi, na které má uživatel oprávnění
     if not P.finance(request.user): skryt.add("dokumenty")
     sect = [x for x in SECT if x[0] not in skryt]
-    nav = [(k, l, reverse(u, args=a)) for k, l, u, a in sect]; sl = {k: (l, reverse(u, args=a)) for k, l, u, a in SECT}; g = None; slug = c.get("slug")
+    nav = [(k, l, reverse(u, args=a)) for k, l, u, a in sect]; sl = {k: (l.split(" ", 1)[-1], reverse(u, args=a)) for k, l, u, a in SECT}; g = None; slug = c.get("slug")
     if slug in SEC and not sec: sec, g = SEC[slug]
     if crumbs is None and slug in SEC:
         crumbs = [(sl[sec][0], sl[sec][1])] + ([(g, reverse("nastaveni"))] if g else []) + [(c["vnp"], None if tpl == "list" or slug in SKRYTE_SEZNAMY else reverse("list", args=[slug]))]
         if not g and sl[sec][0].split(" ", 1)[-1] == c["vnp"]:  # sekce a tabulka se jmenují stejně (Zakázky › Zakázky) -> bez duplicity
             crumbs = None if tpl == "list" else crumbs[:1]
+    if crumbs: crumbs = [(l.split(" ", 1)[1] if isinstance(l, str) and l.split(" ", 1)[0] in IKONY_MENU else l, u) for l, u in crumbs]  # ikony sekcí jsou jen v menu
     navx = [(k, *(l.split(" ", 1) if " " in l else ("", l)), u) for k, l, u in nav]  # (klíč, ikona, název, url) pro levou lištu
     if "zpet" not in c: c["zpet"] = zpet_url(request)  # tlačítko Zpět = stránka, ze které uživatel přišel
     c.setdefault("zrusit_url", safe_next(request) or c["zpet"])  # Zrušit ve formuláři = zpět tam, odkud se formulář otevřel

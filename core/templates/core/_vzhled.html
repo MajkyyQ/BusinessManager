@@ -1,0 +1,115 @@
+{% load static %}<style>/* Vzhled aplikace (návrh 4): barvy Primary #0D5C9E, Secondary #D97706, Tertiary #1E293B, Neutral #64748B,
+písma Space Grotesk (nadpisy, tlačítka) a Work Sans (text), přibalená ve static/vendor/fonts, takže fungují i bez internetu.
+Zaoblení: tlačítka 6 px, karty a menu 12 px, pole 10 px, štítky a položky levého menu kulaté.
+Soubor se vkládá na konec hlavičky v base.html, takže přepisuje výchozí barvy Bootstrapu i starší pravidla výše. */
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:500 700;font-display:swap;src:url("{% static 'vendor/fonts/space-grotesk-latin-ext.woff2' %}") format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:500 700;font-display:swap;src:url("{% static 'vendor/fonts/space-grotesk-latin.woff2' %}") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:400 600;font-display:swap;src:url("{% static 'vendor/fonts/work-sans-latin-ext.woff2' %}") format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:400 600;font-display:swap;src:url("{% static 'vendor/fonts/work-sans-latin.woff2' %}") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+/* --- barvy: světlý režim --- */
+:root,[data-bs-theme=light]{
+ --bm-bg:#f4f7fb;--bm-surface:#fff;--bm-surface2:#e3edfc;--bm-fg:#1e293b;--bm-muted:#5b6678;--bm-border:#d3deec;
+ --bm-primary:#0d5c9e;--bm-primary-hover:#0a4c84;--bm-primary-rgb:13,92,158;--bm-on-primary:#fff;--bm-soft:#e3edfc;
+ --bm-secondary:#d97706;--bm-secondary-soft:#fdf1e1;--bm-ink:#1e293b;--bm-top:#fff;--bm-shadow:0 1px 3px rgba(30,41,59,.07),0 4px 14px rgba(30,41,59,.05);
+ --bm-font-head:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;--bm-font-body:"Work Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --bs-body-font-family:var(--bm-font-body);--bs-body-bg:var(--bm-bg);--bs-body-bg-rgb:244,247,251;--bs-body-color:var(--bm-fg);--bs-body-color-rgb:30,41,59;
+ --bs-emphasis-color:#0f172a;--bs-secondary-color:var(--bm-muted);--bs-secondary-bg:var(--bm-surface2);--bs-tertiary-bg:#eaf1fb;--bs-tertiary-color:var(--bm-muted);
+ --bs-border-color:var(--bm-border);--bs-primary:var(--bm-primary);--bs-primary-rgb:var(--bm-primary-rgb);--bs-primary-text-emphasis:#083d6a;--bs-primary-bg-subtle:var(--bm-soft);--bs-primary-border-subtle:#a9c6e6;
+ --bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb);--bs-link-hover-color:var(--bm-primary-hover);--bs-link-hover-color-rgb:10,76,132;
+ --bs-focus-ring-color:rgba(var(--bm-primary-rgb),.28);
+ --bs-border-radius:6px;--bs-border-radius-sm:5px;--bs-border-radius-lg:12px;--bs-border-radius-xl:14px;--bs-border-radius-pill:999px}
+:root:not([data-bs-theme=dark]){--bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb)}
+/* --- barvy: tmavý režim --- */
+[data-bs-theme=dark]{
+ --bm-bg:#111a29;--bm-surface:#1a2537;--bm-surface2:#24324a;--bm-fg:#e2e8f0;--bm-muted:#9aa8bb;--bm-border:#2c3a52;
+ --bm-primary:#5aa2e6;--bm-primary-hover:#7ab4ec;--bm-primary-rgb:90,162,230;--bm-on-primary:#0b1422;--bm-soft:#1d3350;
+ --bm-secondary:#f59e0b;--bm-secondary-soft:#3a2a12;--bm-ink:#e2e8f0;--bm-top:#1a2537;--bm-shadow:none;
+ --bs-body-bg:var(--bm-bg);--bs-body-bg-rgb:17,26,41;--bs-body-color:var(--bm-fg);--bs-body-color-rgb:226,232,240;--bs-emphasis-color:#f8fafc;
+ --bs-secondary-color:var(--bm-muted);--bs-secondary-bg:var(--bm-surface2);--bs-tertiary-bg:#1f2b40;--bs-tertiary-color:var(--bm-muted);--bs-border-color:var(--bm-border);
+ --bs-primary:var(--bm-primary);--bs-primary-rgb:var(--bm-primary-rgb);--bs-primary-text-emphasis:#a9cdf2;--bs-primary-bg-subtle:var(--bm-soft);--bs-primary-border-subtle:#2f5786;
+ --bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb);--bs-link-hover-color:var(--bm-primary-hover);--bs-link-hover-color-rgb:122,180,236;
+ --bs-focus-ring-color:rgba(var(--bm-primary-rgb),.35)}
+body{font-family:var(--bm-font-body)}
+h1,h2,h3,h4,h5,h6,.h1,.h2,.h3,.h4,.h5,.h6,.navbar-brand{font-family:var(--bm-font-head);font-weight:600;letter-spacing:-.01em}
+.text-secondary{color:var(--bm-muted)!important}.text-muted{color:var(--bm-muted)!important}
+
+/* --- horní lišta: světlá, v barvě karet --- */
+:root .navbar.bg-dark{background-color:var(--bm-top)!important;border-bottom:1px solid var(--bm-border)}
+.navbar.navbar-dark{--bs-navbar-brand-color:var(--bm-fg);--bs-navbar-brand-hover-color:var(--bm-fg);--bs-navbar-color:var(--bm-fg)}
+.navbar-brand{display:inline-flex;align-items:center;gap:.55rem;font-weight:700}
+.bm-logo{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--bm-primary);color:var(--bm-on-primary)}
+.bm-logo svg{width:16px;height:16px}
+.navbar .text-light{color:var(--bm-fg)!important}
+:root .navbar .btn-outline-light{--bs-btn-color:var(--bm-fg);--bs-btn-border-color:var(--bm-border);--bs-btn-hover-color:var(--bm-fg);--bs-btn-hover-bg:var(--bm-surface2);--bs-btn-hover-border-color:var(--bm-border);--bs-btn-active-color:var(--bm-fg);--bs-btn-active-bg:var(--bm-surface2);--bs-btn-active-border-color:var(--bm-border)}
+.bm-tg{color:var(--bm-fg)}.bm-tg:hover,.bm-tg:focus-visible{background:var(--bm-surface2)}
+.bm-motiv{color:var(--bm-fg);border-color:var(--bm-border)}.bm-motiv:hover,.bm-motiv:focus-visible{background:var(--bm-surface2)}
+
+/* --- levé menu: kulaté položky, vybraná v barvě Primary --- */
+.bm-side a.bm-l{border-radius:999px!important;padding:.45rem .75rem!important;font-weight:500;transition:background-color .15s,color .15s}
+.bm-side a.bm-l.text-dark{color:var(--bm-muted)!important}
+.bm-side a.bm-l.text-dark:hover,.bm-side a.bm-l.text-dark:focus-visible{background:var(--bm-surface2);color:var(--bm-fg)!important}
+.bm-side a.bm-l.bg-primary{color:var(--bm-on-primary)!important}
+.bm-side hr{border-color:var(--bm-border);opacity:1}
+.bm-ic svg{width:19px;height:19px;display:block;margin:auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav-mini .bm-side a.bm-l{border-radius:12px!important}.nav-mini .bm-ic svg{width:22px;height:22px}
+
+/* --- tlačítka: 6 px, písmo nadpisů --- */
+.btn{font-family:var(--bm-font-head);font-weight:600;letter-spacing:.005em}
+:root .btn-primary{--bs-btn-color:var(--bm-on-primary);--bs-btn-bg:var(--bm-primary);--bs-btn-border-color:var(--bm-primary);--bs-btn-hover-color:var(--bm-on-primary);--bs-btn-hover-bg:var(--bm-primary-hover);--bs-btn-hover-border-color:var(--bm-primary-hover);--bs-btn-active-color:var(--bm-on-primary);--bs-btn-active-bg:var(--bm-primary-hover);--bs-btn-active-border-color:var(--bm-primary-hover);--bs-btn-disabled-color:var(--bm-on-primary);--bs-btn-disabled-bg:var(--bm-primary);--bs-btn-disabled-border-color:var(--bm-primary);--bs-btn-focus-shadow-rgb:var(--bm-primary-rgb)}
+:root .btn-outline-primary{--bs-btn-color:var(--bm-primary);--bs-btn-border-color:var(--bm-primary);--bs-btn-hover-color:var(--bm-on-primary);--bs-btn-hover-bg:var(--bm-primary);--bs-btn-hover-border-color:var(--bm-primary);--bs-btn-active-color:var(--bm-on-primary);--bs-btn-active-bg:var(--bm-primary);--bs-btn-active-border-color:var(--bm-primary);--bs-btn-disabled-color:var(--bm-primary);--bs-btn-disabled-border-color:var(--bm-primary);--bs-btn-focus-shadow-rgb:var(--bm-primary-rgb)}
+:root .btn-secondary{--bs-btn-color:var(--bm-fg);--bs-btn-bg:var(--bm-surface2);--bs-btn-border-color:var(--bm-surface2);--bs-btn-hover-color:var(--bm-fg);--bs-btn-hover-bg:color-mix(in srgb,var(--bm-surface2) 82%,var(--bm-primary));--bs-btn-hover-border-color:transparent;--bs-btn-active-color:var(--bm-fg);--bs-btn-active-bg:color-mix(in srgb,var(--bm-surface2) 75%,var(--bm-primary));--bs-btn-active-border-color:transparent;--bs-btn-disabled-color:var(--bm-muted);--bs-btn-disabled-bg:var(--bm-surface2);--bs-btn-disabled-border-color:var(--bm-surface2)}
+:root .btn-outline-secondary{--bs-btn-color:var(--bm-fg);--bs-btn-border-color:var(--bm-border);--bs-btn-hover-color:var(--bm-fg);--bs-btn-hover-bg:var(--bm-surface2);--bs-btn-hover-border-color:var(--bm-border);--bs-btn-active-color:var(--bm-fg);--bs-btn-active-bg:var(--bm-surface2);--bs-btn-active-border-color:var(--bm-border)}
+:root .btn-dark{--bs-btn-color:var(--bm-bg);--bs-btn-bg:var(--bm-ink);--bs-btn-border-color:var(--bm-ink);--bs-btn-hover-color:var(--bm-bg);--bs-btn-hover-bg:var(--bm-ink);--bs-btn-hover-border-color:var(--bm-ink)}
+.btn-link{font-family:inherit;font-weight:500}
+/* přepínač zobrazení (Tabulka / Kanban, Den / Týden / Měsíc) */
+.bm-views{background:var(--bm-surface2);padding:3px;border-radius:6px;gap:3px}
+.bm-views>.btn{border:0!important;border-radius:4px!important;margin:0!important;color:var(--bm-muted);background:transparent}
+.bm-views>.btn:hover{color:var(--bm-fg);background:color-mix(in srgb,var(--bm-surface2) 70%,var(--bm-surface))}
+.bm-views>.btn.active{background:var(--bm-primary);color:var(--bm-on-primary)}
+
+/* --- pole formulářů: 10 px --- */
+.form-control,.form-select,.input-group-text{border-radius:10px;border-color:var(--bm-border);background-color:var(--bm-surface)}
+.form-control-sm,.form-select-sm{border-radius:8px}
+.input-group>.form-control,.input-group>.form-select,.input-group>.btn,.input-group>.input-group-text{border-radius:10px}
+.input-group>:not(:last-child):not(.dropdown-toggle):not(.dropdown-menu){border-top-right-radius:0;border-bottom-right-radius:0}
+.input-group>:not(:first-child):not(.dropdown-menu){border-top-left-radius:0;border-bottom-left-radius:0}
+.form-control:focus,.form-select:focus{border-color:var(--bm-primary);box-shadow:0 0 0 .2rem rgba(var(--bm-primary-rgb),.2)}
+.form-check-input:checked{background-color:var(--bm-primary);border-color:var(--bm-primary)}
+.form-check-input:focus{border-color:var(--bm-primary);box-shadow:0 0 0 .2rem rgba(var(--bm-primary-rgb),.2)}
+
+/* --- karty, rozbalovací menu, hlášení, okna: 12 px --- */
+.card{--bs-card-border-radius:12px;--bs-card-inner-border-radius:11px;--bs-card-bg:var(--bm-surface);--bs-card-border-color:var(--bm-border);--bs-card-cap-bg:var(--bm-surface2);box-shadow:var(--bm-shadow)}
+.dropdown-menu{--bs-dropdown-border-radius:12px;--bs-dropdown-border-color:var(--bm-border);--bs-dropdown-bg:var(--bm-surface);--bs-dropdown-link-hover-bg:var(--bm-soft);--bs-dropdown-link-active-bg:var(--bm-primary);--bs-dropdown-link-active-color:var(--bm-on-primary);--bs-dropdown-padding-x:.35rem;--bs-dropdown-box-shadow:0 12px 32px rgba(15,23,42,.18);box-shadow:var(--bs-dropdown-box-shadow)}
+.dropdown-item{border-radius:8px}
+.alert{border-radius:10px}
+.alert-warning{--bs-alert-bg:var(--bm-secondary-soft);--bs-alert-border-color:color-mix(in srgb,var(--bm-secondary) 35%,transparent);--bs-alert-color:var(--bm-fg);border-left:3px solid var(--bm-secondary)}
+.bm-dlg,.lk-modal>div,.modal-content{border-radius:12px!important}
+.bm-card{border-radius:12px;border-color:var(--bm-border);background:var(--bm-surface)}
+.bm-card:hover,.bm-card:focus-visible{border-color:var(--bm-primary);box-shadow:var(--bm-shadow)}
+.bm-col{border-radius:12px;background:var(--bm-surface2)}
+.bm-col .bm-card{border-color:transparent}
+.list-group{--bs-list-group-border-radius:12px;--bs-list-group-bg:var(--bm-surface);--bs-list-group-border-color:var(--bm-border);--bs-list-group-active-bg:var(--bm-primary);--bs-list-group-active-border-color:var(--bm-primary)}
+.nav-pills{--bs-nav-pills-border-radius:999px;--bs-nav-pills-link-active-bg:var(--bm-primary);--bs-nav-pills-link-active-color:var(--bm-on-primary)}
+.nav-tabs{--bs-nav-tabs-border-color:var(--bm-border);--bs-nav-tabs-link-active-bg:var(--bm-surface);--bs-nav-tabs-link-active-border-color:var(--bm-border) var(--bm-border) var(--bm-surface);--bs-nav-tabs-border-radius:8px}
+.nav-link{font-family:var(--bm-font-head);font-weight:500}
+.pagination{--bs-pagination-border-radius:6px;--bs-pagination-active-bg:var(--bm-primary);--bs-pagination-active-border-color:var(--bm-primary)}
+.bm-toast{border-radius:10px}#bm-vytvari .bm-karta{border-radius:12px}
+
+/* --- tabulky: bílé na podkladu, šedomodrá hlavička, bez podtržených odkazů --- */
+.table{--bs-table-bg:var(--bm-surface);--bs-table-color:var(--bm-fg);--bs-table-border-color:var(--bm-border);--bs-table-hover-bg:var(--bm-soft);--bs-table-hover-color:var(--bm-fg);--bs-table-striped-bg:color-mix(in srgb,var(--bm-surface2) 40%,var(--bm-surface))}
+.table thead th,.table>thead>tr>th{background-color:var(--bm-surface2);color:var(--bm-muted);font-family:var(--bm-font-head);font-weight:600;font-size:.86em;border-bottom-color:var(--bm-border)}
+.table a,.bm-card a,.bm-side a{text-decoration:none}.table a:hover{text-decoration:underline}
+.table td>a:first-child{font-weight:500}
+
+/* --- štítky: kulaté; stavy zakázek jemně podbarvené s tečkou (barva z Nastavení → Stavy zakázek) --- */
+.badge{border-radius:999px;font-weight:600}
+.badge[class*="bg-stav-"]{background-color:color-mix(in srgb,var(--stav) 14%,var(--bm-surface))!important;color:color-mix(in srgb,var(--stav) 52%,var(--bm-fg))!important;border:1px solid color-mix(in srgb,var(--stav) 34%,transparent);display:inline-flex;align-items:center;gap:.35em;padding:.3em .65em}
+.badge[class*="bg-stav-"]::before{content:"";width:.45em;height:.45em;border-radius:50%;background:var(--stav);flex:none}
+/* rychlé filtry nad seznamy */
+.bm-chip{background:var(--bm-surface);border-color:var(--bm-border)}
+.bm-chip:hover{border-color:var(--bm-primary);color:var(--bm-primary)}
+.bm-chip.active{background:var(--bm-ink);border-color:var(--bm-ink);color:var(--bm-bg)}
+.bm-chip.active .bm-n{background:transparent;color:inherit;opacity:.75}
+.bm-n{background:var(--bm-surface2)}
+</style>
