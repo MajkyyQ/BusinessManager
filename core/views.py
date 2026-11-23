@@ -286,17 +286,24 @@ def _url(request, **zmena):
         if x in ("", None): p.pop(k, None)
         else: p[k] = x
     return "?" + p.urlencode() if p else "?"
-def _filtr_okno(request, skupiny):
+def _bez(request, *par):
+    """Adresa bez daných parametrů (štítek s křížkem v okně Filtrovat)."""
+    p = request.GET.copy(); p.pop("page", None)
+    for x in par: p.pop(x, None)
+    return "?" + p.urlencode()
+def _filtr_okno(request, skupiny, dalsi=(), stitky=()):
     """Okno „Filtrovat“: skupiny zaškrtávacích voleb, v každé jde vybrat víc hodnot naráz (nic = vše).
-    skupiny = [(parametr, nadpis, [(hodnota, popisek, barva)])]; vrací volby pro okno a aktivní štítky s adresou bez dané volby."""
+    skupiny = [(parametr, nadpis, [(hodnota, popisek, barva[, počet])])]; dalsi = hotové skupiny jiného typu (řazení, rozsah dat),
+    stitky = jejich aktivní štítky. Vrací volby pro okno a aktivní štítky s adresou bez dané volby."""
     okno, aktivni = [], []
     for par, nadpis, volby in skupiny:
-        vyb = set(request.GET.getlist(par)); okno.append(dict(par=par, nadpis=nadpis, volby=[(str(h), l, css, str(h) in vyb) for h, l, css in volby]))
-        for h, l, _css in volby:
+        vyb = set(request.GET.getlist(par))
+        okno.append(dict(typ="check", par=par, nadpis=nadpis, volby=[(str(v[0]), v[1], v[2], str(v[0]) in vyb, v[3] if len(v) > 3 else None) for v in volby]))
+        for h, l, *_ in volby:
             if str(h) in vyb:
                 p = request.GET.copy(); p.pop("page", None); p.setlist(par, [x for x in p.getlist(par) if x != str(h)])
                 aktivni.append((nadpis, l, "?" + p.urlencode()))
-    return dict(skupiny=okno, aktivni=aktivni)
+    return dict(skupiny=okno + list(dalsi), aktivni=aktivni + list(stitky), siroke=len(okno) + len(dalsi) > 2)
 def _pohled(request, klic):
     """Přepínač tabulka / kanban (inspirace Odoo). Volba se pamatuje v relaci zvlášť pro každý seznam."""
     v = request.GET.get("v")
@@ -332,13 +339,28 @@ def lst(request, slug):
         if slug == "zakazka": f |= Q(zakaznik__firma__icontains=q) | Q(zakaznik__jmeno__icontains=q)
         qs = qs.filter(f)
     chips = None; pohled, pohledy = _pohled(request, slug) if slug in KANBAN else ("tab", None); sloupce = None
+    filtr = None
     if slug == "zakazka":
-        st = request.GET.get("st", "")
         stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True))
-        cnt = dict(qs.order_by().values("stav__nazev").annotate(n=Count("pk")).values_list("stav__nazev", "n"))
-        css = stav_css(); chips = _chips(request, "st", [(s, s, cnt.get(s, 0), css.get(s, "light")) for s in stavy], st, sum(cnt.values()))
-        if st: flt["st"] = st; qs = qs.filter(stav__nazev=st)
+        st = [x for x in dict.fromkeys(request.GET.getlist("st")) if x in stavy]  # stavy z okna Filtrovat (víc naráz, nic = vše)
+        stitky, rozsah = [], []
+        for pole, nadpis, kratce in (("prijeti", "Datum přijetí", "Přijato"), ("vydani", "Datum vydání", "Vydáno")):  # rozsah dat od–do
+            hodn = {}
+            for kraj, lookup in (("od", "gte"), ("do", "lte")):
+                try: d = date.fromisoformat(request.GET.get(f"{pole}_{kraj}", ""))
+                except ValueError: continue
+                hodn[kraj] = d; flt[f"{pole}_{kraj}"] = d.isoformat(); qs = qs.filter(**{f"{ZAK_RAZENI[pole]}__date__{lookup}": d})
+                stitky.append((kratce, f"{kraj} {d.day}. {d.month}. {d.year}", _bez(request, f"{pole}_{kraj}")))
+            rozsah.append(dict(typ="datum", nadpis=nadpis, od=(f"{pole}_od", hodn.get("od")), do=(f"{pole}_do", hodn.get("do"))))
+        cnt = dict(qs.order_by().values("stav__nazev").annotate(n=Count("pk")).values_list("stav__nazev", "n"))  # počty po hledání a datech, před stavem
+        css = stav_css()
+        if st: flt["st"] = st; qs = qs.filter(stav__nazev__in=st)
         o = request.GET.get("o", "-cislo"); key = o.lstrip("-") if o.lstrip("-") in ZAK_RAZENI else "cislo"; desc = o.startswith("-"); o = ("-" if desc else "") + key
+        razeni = [("-cislo", "Číslo zakázky ↓ (výchozí)"), ("cislo", "Číslo zakázky ↑"), ("-prijeti", "Nejnověji přijaté"), ("prijeti", "Nejdéle přijaté"),
+                  ("-vydani", "Nejnověji vydané"), ("vydani", "Nejdéle vydané")]
+        if o != "-cislo": stitky.insert(0, ("Řazení", dict(razeni)[o], _bez(request, "o")))
+        filtr = _filtr_okno(request, [("st", "Stav", [(s, s, css.get(s, "light"), cnt.get(s, 0)) for s in stavy])],
+                            [dict(typ="radio", par="o", nadpis="Řadit podle", volby=[(k, l, k == o) for k, l in razeni])] + rozsah, stitky)
         pole = models.F(ZAK_RAZENI[key]); qs = qs.select_related("zakaznik", "stav").order_by(pole.desc(nulls_last=True) if desc else pole.asc(nulls_last=True), "-pk")
     if slug == "zakaznik":
         h = HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=OuterRef("pk")).order_by("-datum").values("datum")[:1]
@@ -348,7 +370,7 @@ def lst(request, slug):
             nzak = Zakazka.objects.filter(zakaznik=OuterRef("pk")).order_by().values("zakaznik").annotate(n=Count("pk")).values("n")
             qs = qs.annotate(n_zar=Coalesce(Subquery(nzar), 0), n_zak=Coalesce(Subquery(nzak), 0))
     if slug == "zakazka" and pohled == "kan":  # kanban zakázek: sloupec = stav, karty bez stránkování
-        zz = list(qs.prefetch_related("zarizeni")[:KANBAN_MAX]); sl = [st] if st else stavy
+        zz = list(qs.prefetch_related("zarizeni")[:KANBAN_MAX]); sl = st or stavy
         # uzavřené stavy (Vydáno, Zrušeno) jsou ve výchozím kanbanu sbalené jen na počet; rozbalí se kliknutím na stav
         sloupce = [dict(s=s, css=css.get(s, "light"), items=[z for z in zz if z.stav and z.stav.nazev == s], sbaleno=not st and s in CLOSED, url=_url(request, st=s)) for s in sl]
         if not st and any(not z.stav for z in zz): sloupce.append(dict(s="Bez stavu", css="light", items=[z for z in zz if not z.stav], sbaleno=False, url=""))
@@ -371,17 +393,18 @@ def lst(request, slug):
         heads = [dict(l=x, w=w) for x, w in (("Oprávnění", 20), ("Popis", 45), ("Role", 20), ("Kód", 15))]
         rows = [(o, [o.nazev or o.kod, o.popis or "–", ", ".join(r.nazev for r in o.role_set.all() if r.aktivni) or "–", o.kod], None) for o in page]
     elif slug == "zakazka":
-        sk = {"Číslo zakázky": "cislo", "Datum přijetí": "prijeti", "Datum vydání": "vydani"}
         sirka = {"Číslo zakázky": 13, "Zákazník": 23, "Stav": 18, "Datum přijetí": 15, "Datum vydání": 15, "Identifikační číslo": 16}  # pevné šířky: tabulka se po filtru nepřeskupí
+        sk = {"Číslo zakázky": "cislo"}  # v záhlaví se řadí jen číslem, data přijetí a vydání jsou v okně Filtrovat
         heads = [dict(l=x, w=sirka[x], ord=sk.get(x) and ("" if desc or sk[x] != key else "-") + sk[x], ar=(("▼" if desc else "▲") if sk.get(x) == key else ("↕" if x in sk else "")))
                  for x in sirka]
         rows = [(o, [o.cislo_zakazky, o.zakaznik, mark_safe(f'<span class="badge bg-stav-{o.stav_id}">{escape(o.stav)}</span>') if o.stav else "–", _dt(o.datum_prijeti), _dt(o.datum_vydani), o.identifikacni_cislo or "–"], None) for o in page]
     else:
         cols = [x for x in M._meta.fields if x.name != "id" and not isinstance(x, models.TextField) and not isinstance(x, models.FileField)][:6]
         heads = [dict(l=capfirst(c.verbose_name)) for c in cols]; rows = [(o, [val(o, c) for c in cols], None) for o in page]
-    keep = urlencode({k: x for k, x in {"q": q, **flt}.items() if x})
+    fp = [(k, v) for k, x in {"q": q, **flt}.items() if x for v in (x if isinstance(x, list) else [x])]  # parametry filtru (stav může být víckrát)
+    keep = urlencode(fp)
     return R(request, "list", slug=slug, M=M, q=q, page=page, heads=heads, rows=rows, ro=slug in READONLY, bez_noveho=slug == "platba" or slug in BEZ_PRIDANI, flt=flt, keep=keep, o=o,
-             keep_o=urlencode({k: x for k, x in {"q": q, **flt, "o": o}.items() if x}), chips=chips, pohled=pohled, pohledy=pohledy, sloupce=sloupce,
+             keep_o=urlencode(fp + [("o", o)] * bool(o)), chips=chips, filtr=filtr, pohled=pohled, pohledy=pohledy, sloupce=sloupce,
              kanban_max=KANBAN_MAX, ph={"zakazka": "Číslo zakázky, zákazník, závada…", "zakaznik": "Jméno, firma, telefon, e-mail…"}.get(slug, "Hledat…"))
 
 def detail(request, slug, pk):

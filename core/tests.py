@@ -376,8 +376,8 @@ class JednotneSeznamyTest(TestCase):
 
     def test_filtr_stavu_s_pocty(self):
         r = self.client.get(reverse("list", args=["zakazka"]), {"st": "Diagnostika"})
-        chips = {c[0]: (c[2], c[3]) for c in r.context["chips"]}
-        self.assertEqual(chips["Vše"], (3, False)); self.assertEqual(chips["Nová"], (2, False)); self.assertEqual(chips["Diagnostika"], (1, True))
+        volby = {v[0]: (v[4], v[3]) for v in r.context["filtr"]["skupiny"][0]["volby"]}  # stavy jsou v okně Filtrovat (počet, zaškrtnuto)
+        self.assertEqual(volby["Nová"], (2, False)); self.assertEqual(volby["Diagnostika"], (1, True))
         self.assertEqual(len(r.context["rows"]), 1)
         self.assertContains(r, 'class="table table-sm table-hover bm-table bm-t-zakazka"')  # pevné rozložení sloupců
         self.assertContains(r, 'id="bm-reset"')
@@ -1631,3 +1631,24 @@ class OknoFiltrovatTest(TestCase):
         self.assertEqual(typy("?fi=ano"), {"Dil"}); self.assertEqual(typy("?fi=ne"), {"Bez"}); self.assertEqual(typy("?fi=ano&fi=ne"), {"Dil", "Bez"})
         r = self.client.get(url + "?f=dil&f=bez")
         self.assertContains(r, 'name="f" value="dil" checked'); self.assertContains(r, 'href="?f=bez"')  # štítek odebere jen svou volbu
+
+    def test_zakazky_stavy_data_a_razeni(self):
+        from datetime import datetime
+        from django.utils import timezone
+        from .models import StavZakazky, Zakazka
+        z = Zakaznik.objects.create(jmeno="Jan")
+        nova, dil, vyd = (StavZakazky.objects.get_or_create(nazev=n)[0] for n in ("Nová", "Čeká na díl", "Vydáno"))
+        t = lambda d: timezone.make_aware(datetime(2026, 11, d, 9))
+        a = Zakazka.objects.create(zakaznik=z, stav=nova, datum_prijeti=t(2)); b = Zakazka.objects.create(zakaznik=z, stav=dil, datum_prijeti=t(10))
+        c = Zakazka.objects.create(zakaznik=z, stav=vyd, datum_prijeti=t(5), datum_vydani=t(20))
+        url = reverse("list", args=["zakazka"])
+        pk = lambda q: [o.pk for o, *_ in self.client.get(url + q).context["rows"]]
+        self.assertEqual(set(pk("?st=Nová&st=Čeká na díl")), {a.pk, b.pk})
+        self.assertEqual(set(pk("?prijeti_od=2026-11-04&prijeti_do=2026-11-10")), {b.pk, c.pk})
+        self.assertEqual(pk("?vydani_od=2026-11-15"), [c.pk])
+        self.assertEqual(pk("?o=-prijeti"), [b.pk, c.pk, a.pk]); self.assertEqual(pk("?o=prijeti"), [a.pk, c.pk, b.pk])
+        self.assertEqual(set(pk("?prijeti_od=nesmysl")), {a.pk, b.pk, c.pk})  # neplatné datum se ignoruje
+        r = self.client.get(url + "?st=Nová&prijeti_od=2026-11-01&o=-prijeti")
+        self.assertContains(r, 'class="bm-filtr-n">3<'); self.assertNotContains(r, "<nav class=\"bm-chips")
+        self.assertContains(r, 'href="?st=Nov%C3%A1&amp;o=-prijeti"')  # štítek data odebere jen datum
+        self.assertContains(r, 'name="prijeti_od" value="2026-11-01"')

@@ -1,7 +1,7 @@
 {% extends "core/base.html" %}{% load bm %}{% block content %}
 <div class="bm-head"><h3>{{ vnp }} <small class="text-muted fs-6" id="bm-pocet">({{ page.paginator.count }})</small></h3>
 <div class="bm-actions">{% if slug == "prijatafaktura" %}<a class="btn btn-success" href="{% url 'prijata_faktura_import' %}">⬆ Z ISDOC</a>{% endif %}{% url 'create' slug as u_novy %}{% if not ro and not bez_noveho and u_novy|smi:request.user %}<a class="btn btn-primary" href="{{ u_novy }}">+ Nový</a>{% endif %}</div></div>
-<form method="get" id="lf" class="bm-toolbar">{% include "core/_hledat.html" %}{% if o %}<input type="hidden" name="o" value="{{ o }}">{% endif %}{% if flt.st %}<input type="hidden" name="st" value="{{ flt.st }}">{% endif %}
+<form method="get" id="lf" class="bm-toolbar">{% include "core/_hledat.html" %}{% if filtr %}{% include "core/_filtr.html" %}{% elif o %}<input type="hidden" name="o" value="{{ o }}">{% endif %}
 <span id="bm-reset">{% if flt or q %}<a class="btn btn-link px-1" href="?{% if o %}o={{ o }}{% endif %}">Zrušit filtr</a>{% endif %}</span>{% include "core/_pohled.html" %}</form>
 <div id="vysledky">{% include "core/_stavy.html" %}
 {% if pohled == "kan" and slug == "zakazka" %}<div class="bm-board">{% for c in sloupce %}<section class="bm-col{% if c.sbaleno %} sbaleno{% endif %}" aria-label="{{ c.s }}"><h6><span><span class="bm-dot bg-{{ c.css }}"></span> {{ c.s }}</span><span class="bm-n">{{ c.items|length }}</span></h6>
