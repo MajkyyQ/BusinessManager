@@ -1651,3 +1651,41 @@ class OknoFiltrovatTest(TestCase):
         self.assertContains(r, 'name="o" value="-prijeti" checked'); self.assertNotContains(r, 'type="date"')  # jen Vzestupně / Sestupně
         self.assertContains(r, 'href="?st=Nov%C3%A1"')  # štítek řazení vrátí výchozí řazení
         self.assertContains(self.client.get(url + "?o=cislo"), 'type="hidden" name="o" value="cislo"')  # řazení číslem ze záhlaví zůstane
+
+
+class UpravaNaMisteTest(TestCase):
+    """Detail zařízení a zákazníka: úprava přímo v kartách, náhled fotky ze zakázky vedle údajů, prohlížeč dokumentů na pracovní ploše zakázky."""
+    def setUp(self):
+        from django.core.files.base import ContentFile
+        from .models import Fotografie, Zakazka, Zarizeni
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis", vychozi_dph=Decimal("21"))
+        self.c = Zakaznik.objects.create(jmeno="Jan", telefon="602314785")
+        self.d = Zarizeni.objects.create(zakaznik=self.c, vyrobce="Narex", typ="ESP", seriove_cislo="NA1")
+        self.z = Zakazka.objects.create(zakaznik=self.c); self.z.zarizeni.add(self.d)
+        Fotografie.objects.create(zakazka=self.z, soubor=ContentFile(b"x", name="stitek.png"), popis="Štítek")
+        self.admin = User.objects.create_user("admin", password="x", is_staff=True); self.client.force_login(self.admin)
+
+    def test_zarizeni_uprava_a_nahled(self):
+        r = self.client.get(reverse("detail", args=["zarizeni", self.d.pk]))
+        self.assertContains(r, "data-upravit"); self.assertContains(r, 'name="vyrobce"'); self.assertContains(r, 'class="lk position-relative"')
+        self.assertContains(r, "Zobrazit fotku / dokument"); self.assertContains(r, 'data-soubor="0"'); self.assertContains(r, 'id="bmv"')
+        self.assertEqual(r.context["soubory"][0]["title"], "Štítek")
+        r = self.client.post(reverse("edit", args=["zarizeni", self.d.pk]) + f"?next=/zarizeni/{self.d.pk}/",
+                             {"zakaznik": self.c.pk, "vyrobce": "Narex", "typ": "ESP 200", "seriove_cislo": "NA1", "popis": "", "aktivni": "on"})
+        self.assertRedirects(r, f"/zarizeni/{self.d.pk}/", fetch_redirect_response=False)
+        self.d.refresh_from_db(); self.assertEqual(self.d.typ, "ESP 200")
+
+    def test_bez_opravneni_jen_cteni(self):
+        self.client.force_login(uzivatel("tech", "Technik"))
+        for slug, o in (("zarizeni", self.d), ("zakaznik", self.c)):
+            r = self.client.get(reverse("detail", args=[slug, o.pk])); self.assertEqual(r.status_code, 200)
+            self.assertNotContains(r, "data-upravit"); self.assertNotContains(r, reverse("edit", args=[slug, o.pk])); self.assertNotContains(r, 'name="aktivni"')
+
+    def test_zakaznik_uprava_karty_informace(self):
+        r = self.client.get(reverse("detail", args=["zakaznik", self.c.pk]))
+        self.assertContains(r, "data-upravit"); self.assertContains(r, 'name="typ_zakaznika"'); self.assertContains(r, 'name="aktivni"')
+        self.assertContains(r, 'class="bm-jen-firma"')
+
+    def test_plocha_prohlizec_v_okne(self):
+        r = self.client.get(reverse("plocha", args=[self.z.pk]))
+        self.assertContains(r, 'id="bmv"'); self.assertContains(r, "bm-zalozky")
