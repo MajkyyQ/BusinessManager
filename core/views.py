@@ -343,24 +343,15 @@ def lst(request, slug):
     if slug == "zakazka":
         stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True))
         st = [x for x in dict.fromkeys(request.GET.getlist("st")) if x in stavy]  # stavy z okna Filtrovat (víc naráz, nic = vše)
-        stitky, rozsah = [], []
-        for pole, nadpis, kratce in (("prijeti", "Datum přijetí", "Přijato"), ("vydani", "Datum vydání", "Vydáno")):  # rozsah dat od–do
-            hodn = {}
-            for kraj, lookup in (("od", "gte"), ("do", "lte")):
-                try: d = date.fromisoformat(request.GET.get(f"{pole}_{kraj}", ""))
-                except ValueError: continue
-                hodn[kraj] = d; flt[f"{pole}_{kraj}"] = d.isoformat(); qs = qs.filter(**{f"{ZAK_RAZENI[pole]}__date__{lookup}": d})
-                stitky.append((kratce, f"{kraj} {d.day}. {d.month}. {d.year}", _bez(request, f"{pole}_{kraj}")))
-            rozsah.append(dict(typ="datum", nadpis=nadpis, od=(f"{pole}_od", hodn.get("od")), do=(f"{pole}_do", hodn.get("do"))))
-        cnt = dict(qs.order_by().values("stav__nazev").annotate(n=Count("pk")).values_list("stav__nazev", "n"))  # počty po hledání a datech, před stavem
+        cnt = dict(qs.order_by().values("stav__nazev").annotate(n=Count("pk")).values_list("stav__nazev", "n"))  # počty po hledání, před filtrem stavu
         css = stav_css()
         if st: flt["st"] = st; qs = qs.filter(stav__nazev__in=st)
         o = request.GET.get("o", "-cislo"); key = o.lstrip("-") if o.lstrip("-") in ZAK_RAZENI else "cislo"; desc = o.startswith("-"); o = ("-" if desc else "") + key
-        razeni = [("-cislo", "Číslo zakázky ↓ (výchozí)"), ("cislo", "Číslo zakázky ↑"), ("-prijeti", "Nejnověji přijaté"), ("prijeti", "Nejdéle přijaté"),
-                  ("-vydani", "Nejnověji vydané"), ("vydani", "Nejdéle vydané")]
-        if o != "-cislo": stitky.insert(0, ("Řazení", dict(razeni)[o], _bez(request, "o")))
-        filtr = _filtr_okno(request, [("st", "Stav", [(s, s, css.get(s, "light"), cnt.get(s, 0)) for s in stavy])],
-                            [dict(typ="radio", par="o", nadpis="Řadit podle", volby=[(k, l, k == o) for k, l in razeni])] + rozsah, stitky)
+        # řazení podle dat: v okně jen Vzestupně / Sestupně u data přijetí a vydání; číslem se řadí v záhlaví tabulky
+        razeni = [dict(typ="radio", par="o", nadpis=n, skryte=o if i == 0 and key == "cislo" else "",
+                       volby=[(k, "Vzestupně", "↑", o == k), ("-" + k, "Sestupně", "↓", o == "-" + k)]) for i, (k, n) in enumerate((("prijeti", "Datum přijetí"), ("vydani", "Datum vydání")))]
+        stitky = [] if key == "cislo" else [(dict(prijeti="Datum přijetí", vydani="Datum vydání")[key], "sestupně" if desc else "vzestupně", _bez(request, "o"))]
+        filtr = _filtr_okno(request, [("st", "Stav", [(s, s, css.get(s, "light"), cnt.get(s, 0)) for s in stavy])], razeni, stitky)
         pole = models.F(ZAK_RAZENI[key]); qs = qs.select_related("zakaznik", "stav").order_by(pole.desc(nulls_last=True) if desc else pole.asc(nulls_last=True), "-pk")
     if slug == "zakaznik":
         h = HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=OuterRef("pk")).order_by("-datum").values("datum")[:1]

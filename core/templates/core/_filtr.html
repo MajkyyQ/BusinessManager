@@ -3,8 +3,7 @@
 <div class="bm-filtr-okno{% if filtr.siroke %} siroke{% endif %}" role="dialog" aria-label="Filtrovat" hidden><div class="bm-filtr-h"><strong>Filtrovat</strong><button type="button" class="btn-close" aria-label="Zavřít"></button></div>
 <div class="bm-filtr-cols{% if filtr.siroke %} siroke{% endif %}">{% for g in filtr.skupiny %}<fieldset class="bm-fg-{{ g.typ }}">{% if g.typ == "check" %}<legend><span>{{ g.nadpis }}</span><button type="button" class="bm-filtr-vse">Vybrat vše</button></legend>
 {% for h,l,css,on,n in g.volby %}<label class="bm-fo"><input type="checkbox" name="{{ g.par }}" value="{{ h }}"{% if on %} checked{% endif %}><span class="bm-fo-bx"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>{{ l }}{% if css %}<span class="bm-dot bg-{{ css }}"></span>{% endif %}{% if n is not None %}<span class="bm-fo-n">{{ n }}</span>{% endif %}</label>{% endfor %}
-{% elif g.typ == "radio" %}<legend><span>{{ g.nadpis }}</span></legend><select class="form-select form-select-sm" name="{{ g.par }}">{% for h,l,on in g.volby %}<option value="{{ h }}"{% if on %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
-{% else %}<legend><span>{{ g.nadpis }}</span></legend><div class="bm-fo-od"><label><span>od</span><input type="date" class="form-control form-control-sm" name="{{ g.od.0 }}" value="{{ g.od.1|date:'Y-m-d' }}"></label><label><span>do</span><input type="date" class="form-control form-control-sm" name="{{ g.do.0 }}" value="{{ g.do.1|date:'Y-m-d' }}"></label></div>{% endif %}</fieldset>{% endfor %}</div>
+{% elif g.typ == "radio" %}<legend><span>{{ g.nadpis }}</span></legend>{% if g.skryte %}<input type="hidden" name="{{ g.par }}" value="{{ g.skryte }}">{% endif %}<div class="bm-fo-2">{% for h,l,ic,on in g.volby %}<label class="bm-fo bm-fo-r"><input type="radio" name="{{ g.par }}" value="{{ h }}"{% if on %} checked{% endif %}><span class="bm-fo-ic" aria-hidden="true">{{ ic }}</span>{{ l }}</label>{% endfor %}</div>{% endif %}</fieldset>{% endfor %}</div>
 <div class="bm-filtr-f"><span class="bm-filtr-hint"></span><button type="button" class="btn btn-link bm-filtr-nic">Zrušit vše</button><button class="btn btn-primary">Filtrovat</button></div></div></div>
 {% if filtr.aktivni %}<span class="bm-filtr-stitky">{% for g,l,u in filtr.aktivni %}<span class="bm-filtr-st"><span>{{ g }}:</span> {{ l }}<a href="{{ u }}" aria-label="Odebrat {{ l }}" title="Odebrat">×</a></span>{% endfor %}</span>{% endif %}
 <style>.bm-filtr{position:relative}
@@ -28,7 +27,7 @@
 .bm-fo .bm-dot{margin-left:auto}.bm-fo-n{font-size:.72rem;border-radius:999px;padding:0 .4rem;background:var(--bm-surface2);color:var(--bm-muted)}.bm-fo .bm-dot+.bm-fo-n{margin-left:.1rem}
 .bm-fo:has(input:checked) .bm-fo-n{background:color-mix(in srgb,var(--bm-on-primary) 22%,transparent);color:inherit}
 .bm-filtr-cols.siroke>fieldset:first-child{grid-row:span 9}.bm-filtr-cols.siroke{grid-auto-rows:min-content}
-.bm-fo-od{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.4rem}.bm-fo-od input{min-width:0;padding-left:.45rem;padding-right:.35rem}.bm-fo-od label{display:grid;gap:.15rem;font-size:.75rem;color:var(--bm-muted)}
+.bm-fo-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.25rem}.bm-fo-ic{font-size:1rem;line-height:1;width:16px;text-align:center}
 .bm-fo:has(input:checked){background:var(--bm-primary);border-color:var(--bm-primary);color:var(--bm-on-primary)}
 .bm-fo:has(input:checked) .bm-fo-bx{border-color:var(--bm-on-primary);background:color-mix(in srgb,var(--bm-on-primary) 20%,transparent)}.bm-fo:has(input:checked) .bm-fo-bx svg{opacity:1}
 .bm-fo:has(input:focus-visible){outline:2px solid var(--bm-primary);outline-offset:2px}
@@ -40,14 +39,14 @@
 .bm-filtr-st a{color:inherit;text-decoration:none;width:1.15rem;height:1.15rem;border-radius:50%;display:grid;place-items:center;line-height:1}.bm-filtr-st a:hover{background:color-mix(in srgb,var(--bm-primary) 18%,transparent)}
 @media(max-width:575px){.bm-filtr-cols{grid-template-columns:1fr}}</style>
 <script>(function(){const w=document.currentScript.parentElement.querySelector('.bm-filtr');if(!w)return;
-const b=w.querySelector('.bm-filtr-btn'),o=w.querySelector('.bm-filtr-okno'),ch=()=>[...o.querySelectorAll('input[type=checkbox]')],dt=()=>[...o.querySelectorAll('input[type=date]')],se=()=>[...o.querySelectorAll('select')],hint=w.querySelector('.bm-filtr-hint');
+const b=w.querySelector('.bm-filtr-btn'),o=w.querySelector('.bm-filtr-okno'),ch=()=>[...o.querySelectorAll('input[type=checkbox],input[type=radio]')],dt=()=>[...o.querySelectorAll('input[type=date]')],se=()=>[...o.querySelectorAll('select')],hint=w.querySelector('.bm-filtr-hint');
 const pocet=()=>{const n=ch().filter(i=>i.checked).length+dt().filter(i=>i.value).length;hint.textContent=n?'Vybráno: '+n:'Nic nevybráno = zobrazit vše'};
 const zavri=(vratit)=>{if(o.hidden)return;if(vratit){ch().forEach(i=>i.checked=i.defaultChecked);dt().forEach(i=>i.value=i.defaultValue);se().forEach(x=>[...x.options].forEach(p=>p.selected=p.defaultSelected))}o.hidden=true;b.setAttribute('aria-expanded','false')};
 const otevri=()=>{o.hidden=false;b.setAttribute('aria-expanded','true');o.style.left='0';const r=o.getBoundingClientRect(),m=document.documentElement.clientWidth-16;if(r.right>m)o.style.left=(m-r.right)+'px';pocet();(o.querySelector('input:checked')||o.querySelector('input,select')).focus({preventScroll:true})};
 b.addEventListener('click',()=>o.hidden?otevri():zavri(true));
 o.querySelector('.btn-close').addEventListener('click',()=>{zavri(true);b.focus()});
 o.addEventListener('change',pocet);
-o.querySelectorAll('.bm-filtr-vse').forEach(x=>x.addEventListener('click',()=>{const s=[...x.closest('fieldset').querySelectorAll('input')],v=!s.every(i=>i.checked);s.forEach(i=>i.checked=v);pocet()}));
+o.querySelectorAll('.bm-filtr-vse').forEach(x=>x.addEventListener('click',()=>{const s=[...x.closest('fieldset').querySelectorAll('input[type=checkbox]')],v=!s.every(i=>i.checked);s.forEach(i=>i.checked=v);pocet()}));
 o.querySelector('.bm-filtr-nic').addEventListener('click',()=>{ch().forEach(i=>i.checked=false);dt().forEach(i=>i.value='');se().forEach(x=>x.selectedIndex=0);pocet()});
 document.addEventListener('click',e=>{if(!w.contains(e.target))zavri(true)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!o.hidden){zavri(true);b.focus()}});})();</script>
