@@ -1,0 +1,22 @@
+{% comment %} Úprava přímo v detailu (zařízení, zákazník). Formulář s třídou bm-na-miste: tlačítko [data-upravit] přepne na úpravu (Upravit → Uložit, Zpět → Zrušit),
+   [data-zrusit] vrátí původní údaje. Bloky .bm-nm-blok se při Zrušit obnoví do stavu před úpravou. Prvky .nm-cteni se ukazují jen při čtení, .nm-uprava jen při úpravě.
+   Ukládá se na stránku Upravit (stejné kontroly a historie změn); když údaje neprojdou kontrolou, ukáže se tam formulář s chybami. {% endcomment %}
+<style>.bm-na-miste .nm-uprava{display:none!important}.bm-na-miste.bm-upravuji .nm-uprava{display:revert!important}.bm-na-miste.bm-upravuji .nm-cteni{display:none!important}
+.bm-na-miste.bm-upravuji .bm-nm-karta{border-color:var(--bm-primary);box-shadow:0 0 0 3px rgba(var(--bm-primary-rgb),.14)}
+.bm-na-miste .bm-nm-tab th{white-space:nowrap;width:1%;padding-right:1.2rem}.bm-na-miste .bm-nm-tab td{vertical-align:middle}.bm-na-miste.bm-upravuji .bm-nm-tab td{padding-top:.2rem;padding-bottom:.2rem}
+.bm-na-miste.bm-upravuji .bm-nm-tab .form-control,.bm-na-miste.bm-upravuji .bm-nm-tab .form-select{padding-top:.3rem;padding-bottom:.3rem}
+.bm-nm-info{align-items:center;gap:.5rem;margin:-.25rem 0 .9rem;padding:.45rem .8rem;border-radius:10px;background:var(--bm-soft);color:var(--bm-primary);font-size:.88rem;font-weight:600}
+.bm-na-miste.bm-upravuji .bm-nm-info{display:flex!important}
+.bm-nm-info svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bm-nm-akt{display:flex;justify-content:flex-end;align-items:center;gap:.5rem;font-size:.9rem;color:var(--bm-muted)}.bm-nm-akt .form-check{margin:0;min-height:0}.bm-nm-akt .form-check-input{width:2.4em;height:1.3em;margin:0;cursor:pointer}
+.bm-nm-akt .form-check-input:checked{background-color:var(--bm-forest);border-color:var(--bm-forest)}.bm-nm-akt b{color:var(--bm-fg);min-width:1.5em}</style>
+<script>(function(){document.querySelectorAll('form.bm-na-miste:not([data-nm])').forEach(f=>{f.dataset.nm=1;let zaloha=null;
+ const prepni=on=>{f.classList.toggle('bm-upravuji',on);f.querySelectorAll('[data-jen-uprava]').forEach(x=>x.disabled=!on)};
+ const aktivni=()=>f.querySelectorAll('.bm-nm-akt').forEach(a=>{const i=a.querySelector('input[type=checkbox]'),t=a.querySelector('b');if(i&&t)t.textContent=i.checked?'ano':'ne'});
+ f.addEventListener('click',e=>{
+  if(e.target.closest('[data-upravit]')){zaloha=[...f.querySelectorAll('.bm-nm-blok')].map(b=>b.innerHTML);prepni(true);const i=f.querySelector('.nm-uprava input:not([type=hidden]):not([type=radio]):not([type=checkbox]),.nm-uprava textarea');if(i)i.focus()}
+  if(e.target.closest('[data-zrusit]')){if(zaloha)f.querySelectorAll('.bm-nm-blok').forEach((b,n)=>b.innerHTML=zaloha[n]);prepni(false);aktivni()}});
+ f.addEventListener('change',e=>{if(e.target.type=='checkbox')aktivni()});
+ f.addEventListener('keydown',e=>{if(e.key=='Escape'&&f.classList.contains('bm-upravuji')&&!e.target.closest('.lk')){f.querySelector('[data-zrusit]').click()}});
+ prepni(false);aktivni();
+ if(location.hash=='#upravit'){history.replaceState(null,'',location.pathname);f.querySelector('[data-upravit]')?.click()}})})();</script>

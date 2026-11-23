@@ -1,0 +1,58 @@
+{% comment %} Prohlížeč fotek a dokumentů. BMV.open(soubory, i[, j]) otevře okno přes celou obrazovku (j = druhý soubor k porovnání vedle sebe),
+   BMV.mount(prvek, soubor) vloží náhled do libovolného prvku (boční náhled v detailu zařízení). Soubor = {title, kind: img|pdf|html|jiný, url, dl}.
+   Fotka se přibližuje kolečkem myši, posouvá tažením, dvojklik ji vrátí na celou velikost. PDF a doklady mají vlastní posuvník prohlížeče. {% endcomment %}
+<dialog class="bmv" id="bmv" aria-label="Prohlížeč dokumentů"><div class="bmv-box">
+<div class="bmv-h"><strong class="bmv-t"></strong>
+<select class="form-select form-select-sm bmv-cmp" aria-label="Porovnat s jiným souborem"></select>
+<span class="bmv-jeden"><a class="btn btn-sm btn-outline-secondary bmv-dl" download><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="d-none d-md-inline">Stáhnout</span></a>
+<button type="button" class="btn btn-sm btn-outline-secondary bmv-tisk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H5a2 2 0 01-2-2v-4a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2h-2M7 14h10v7H7z"/></svg><span class="d-none d-md-inline">Tisk</span></button></span>
+<button type="button" class="btn btn-sm btn-outline-secondary bmv-zavrit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Zavřít</button></div>
+<div class="bmv-panes"></div></div></dialog>
+<style>.bmv{width:96vw;height:94vh;max-width:none;max-height:none;padding:0;border:0;border-radius:14px;background:var(--bm-surface,#fff);color:var(--bm-fg,inherit);box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.bmv::backdrop{background:rgba(10,12,14,.55)}.bmv[open]{animation:bmvIn .15s ease-out}@keyframes bmvIn{from{opacity:0;transform:scale(.985)}}
+.bmv-box{display:flex;flex-direction:column;height:100%}
+.bmv-h{display:flex;align-items:center;gap:.4rem;padding:.6rem .7rem .6rem 1.1rem;border-bottom:1px solid var(--bm-border,#ddd)}
+.bmv-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:1rem}
+.bmv-h .btn{display:inline-flex;align-items:center;gap:.35rem}.bmv svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.bmv-cmp{width:auto;max-width:15rem}.bmv-jeden{display:inline-flex;gap:.4rem}
+.bmv-panes{flex:1;display:grid;grid-template-columns:1fr;min-height:0}.bmv-panes.dva{grid-template-columns:1fr 1fr}
+.bmv-pane{display:flex;flex-direction:column;min-width:0;min-height:0}.bmv-pane+.bmv-pane{border-left:1px solid var(--bm-border,#ddd)}
+.bmv-ph{display:none;align-items:center;gap:.3rem;padding:.3rem .4rem .3rem .9rem;border-bottom:1px solid var(--bm-border,#ddd);font-size:.85rem;font-weight:600}.dva .bmv-ph{display:flex}
+.bmv-ph span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bmv-ib{border:0;background:none;color:var(--bm-muted,#666);width:28px;height:28px;border-radius:6px;display:inline-grid;place-items:center;text-decoration:none}.bmv-ib:hover{background:var(--bm-surface2,#eee);color:var(--bm-fg,#000)}
+.bmv-st{flex:1;position:relative;overflow:hidden;min-height:0;background:var(--bs-tertiary-bg,#f3f3f3);touch-action:none}
+.bmv-st.obr{cursor:grab}.bmv-st.obr.tah{cursor:grabbing}
+.bmv-st img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.bmv-st iframe{width:100%;height:100%;border:0;background:#fff}
+.bmv-tip{position:absolute;left:.6rem;bottom:.6rem;font-size:.72rem;color:var(--bm-muted,#666);background:color-mix(in srgb,var(--bm-surface,#fff) 88%,transparent);border:1px solid var(--bm-border,#ddd);padding:.05rem .5rem;border-radius:999px;pointer-events:none}
+.bmv-nic{padding:1rem;color:var(--bm-muted,#666)}
+@media(max-width:767px){.bmv{width:100vw;height:100vh;border-radius:0}.bmv-panes.dva{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.bmv-pane+.bmv-pane{border-left:0;border-top:1px solid var(--bm-border,#ddd)}}</style>
+<script>(function(){if(window.BMV)return;
+const d=document.getElementById('bmv'),Q=s=>d.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ZAVRIT='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',DL='<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',TISK='<svg viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H5a2 2 0 01-2-2v-4a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2h-2M7 14h10v7H7z"/></svg>';
+let S=[],otevreno=[];
+function mount(st,it){st.innerHTML='';st.className='bmv-st';
+ if(!it){st.innerHTML='<div class="bmv-nic">Soubor není k dispozici.</div>';return}
+ if(it.kind=='img'){st.classList.add('obr');const e=new Image();e.draggable=false;e.alt=it.title||'';let s=1,x=0,y=0,t=null;
+  const ap=()=>e.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';
+  const fit=()=>{if(!e.naturalWidth||!st.clientWidth)return;s=Math.min((st.clientWidth-16)/e.naturalWidth,(st.clientHeight-16)/e.naturalHeight,1);x=(st.clientWidth-e.naturalWidth*s)/2;y=(st.clientHeight-e.naturalHeight*s)/2;ap()};
+  st.onwheel=ev=>{ev.preventDefault();const r=st.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top,n=Math.min(30,Math.max(.05,s*Math.exp(-ev.deltaY*.0015)));x=mx-(mx-x)*n/s;y=my-(my-y)*n/s;s=n;ap()};
+  st.onpointerdown=ev=>{t={x:ev.clientX-x,y:ev.clientY-y};st.setPointerCapture(ev.pointerId);st.classList.add('tah')};
+  st.onpointermove=ev=>{if(t){x=ev.clientX-t.x;y=ev.clientY-t.y;ap()}};st.onpointerup=st.onpointercancel=()=>{t=null;st.classList.remove('tah')};
+  st.ondblclick=fit;e.onload=fit;st._fit=fit;e.src=it.url;st.appendChild(e);const p=document.createElement('span');p.className='bmv-tip';p.textContent='kolečko = zoom · tažení = posun · dvojklik = celé';st.appendChild(p)}
+ else if(it.kind=='pdf'||it.kind=='html'){st.onwheel=st.onpointerdown=st.ondblclick=null;const f=document.createElement('iframe');f.src=it.url;f.title=it.title||'Dokument';st.appendChild(f)}
+ else st.innerHTML='<div class="bmv-nic">Náhled tohoto typu souboru není k dispozici. <a href="'+esc(it.dl||it.url)+'" download>Stáhnout</a></div>'}
+function tisk(st,it){if(it.kind=='img'){const w=window.open('');if(w)w.document.write('<img src="'+esc(it.url)+'" style="max-width:100%" onload="print()">')}else{try{st.querySelector('iframe').contentWindow.print()}catch(e){window.open(it.url,'_blank')}}}
+function render(){const two=otevreno.length==2,P=Q('.bmv-panes');P.className='bmv-panes'+(two?' dva':'');
+ P.innerHTML=otevreno.map((i,n)=>'<div class="bmv-pane"><div class="bmv-ph"><span>'+esc(S[i].title)+'</span><a class="bmv-ib" href="'+esc(S[i].dl||S[i].url)+'" download title="Stáhnout">'+DL+'</a><button type="button" class="bmv-ib" data-tisk="'+n+'" title="Tisk">'+TISK+'</button><button type="button" class="bmv-ib" data-pryc="'+n+'" title="Zavřít tento soubor">'+ZAVRIT+'</button></div><div class="bmv-st"></div></div>').join('');
+ P.querySelectorAll('.bmv-st').forEach((st,n)=>mount(st,S[otevreno[n]]));
+ const it=S[otevreno[0]];Q('.bmv-t').textContent=two?'Porovnání':it.title;Q('.bmv-jeden').hidden=two;Q('.bmv-dl').href=it.dl||it.url;
+ const c=Q('.bmv-cmp');c.hidden=two||S.length<2;c.innerHTML='<option value="">Porovnat s…</option>'+S.map((x,i)=>i==otevreno[0]?'':'<option value="'+i+'">'+esc(x.title)+'</option>').join('')}
+function open(soubory,i,j){S=soubory.filter(Boolean);if(!S.length)return;otevreno=[i||0];if(j!=null&&j!=i)otevreno.push(j);render();if(!d.open)d.showModal()}
+Q('.bmv-zavrit').onclick=()=>d.close();d.addEventListener('click',e=>{if(e.target==d)d.close()});d.addEventListener('close',()=>{Q('.bmv-panes').innerHTML=''});
+Q('.bmv-cmp').onchange=e=>{if(e.target.value!==''){otevreno=[otevreno[0],+e.target.value];render()}};
+Q('.bmv-tisk').onclick=()=>tisk(Q('.bmv-st'),S[otevreno[0]]);
+Q('.bmv-panes').addEventListener('click',e=>{const p=e.target.closest('[data-pryc]'),t=e.target.closest('[data-tisk]');if(p){otevreno.splice(+p.dataset.pryc,1);render()}if(t)tisk(d.querySelectorAll('.bmv-st')[+t.dataset.tisk],S[otevreno[+t.dataset.tisk]])});
+d.addEventListener('keydown',e=>{if(otevreno.length!=1||S.length<2||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;if(e.key=='ArrowRight'||e.key=='ArrowLeft'){otevreno=[(otevreno[0]+(e.key=='ArrowRight'?1:S.length-1))%S.length];render()}});
+addEventListener('resize',()=>document.querySelectorAll('.bmv-st').forEach(st=>st._fit&&st._fit()));
+window.BMV={open:open,mount:mount};})();</script>

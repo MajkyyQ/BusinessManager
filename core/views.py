@@ -102,7 +102,9 @@ def lk_item(slug, o):
     if slug == "role": return dict(id=o.pk, label=o.nazev, sub="")
     if slug == "zarizeni": return dict(id=o.pk, label=f"{o.vyrobce} {o.typ}".strip() or "Zařízení", sub=f"S/N: {o.seriove_cislo or '–'} · {o.zakaznik} · zakázek: {getattr(o, 'n', 0)}")
     if slug == "material": return dict(id=o.pk, label=o.nazev, sub=f"{o.jednotka} · {o.posledni_cena if o.posledni_cena is not None else '–'} Kč", price=None if o.posledni_cena is None else str(o.posledni_cena))
-    return dict(id=o.pk, label=str(o), sub=" · ".join(x for x in (formatuj_telefon(o.telefon), o.email, getattr(o, "adresa", "")) if x))
+    it = dict(id=o.pk, label=str(o), sub=" · ".join(x for x in (formatuj_telefon(o.telefon), o.email, getattr(o, "adresa", "")) if x))
+    if slug == "zakaznik": it.update(tel=formatuj_telefon(o.telefon), email=o.email, adresa=o.adresa, ico=o.ico)  # úprava zařízení na místě doplní údaje vybraného zákazníka
+    return it
 
 class LookupWidget(forms.Widget):
     def __init__(self, slug, model, multi=False, dep=""):
@@ -939,7 +941,7 @@ def zakaznik_detail(request, pk):
     tabs = [("info", "Informace"), ("kont", "Kontaktní osoby"), ("zar", "Zařízení"), ("zak", "Zakázky"), ("dok", "Dokumenty"), ("hist", "Historie změn")]
     pr = P.prava(request.user); prazdne = Nabidka.objects.none()
     if not P.finance(request.user): tabs = [t for t in tabs if t[0] != "dok"]  # doklady a ceny jen s oprávněním Nabídky nebo Faktury
-    return R(request, "zakaznik_detail", sec="zakaznici", crumbs=[("👥 Zákazníci", reverse("list", args=["zakaznik"])), (str(z), None)], z=z, tabs=tabs, nxt=request.path,
+    return R(request, "zakaznik_detail", sec="zakaznici", crumbs=[("👥 Zákazníci", reverse("list", args=["zakaznik"])), (str(z), None)], z=z, tabs=tabs, nxt=request.path, form=form_na_miste(request, "zakaznik", z),
         kontakty=z.zakaznikkontakt_set.select_related("kontakt"), zarizeni=z.zarizeni_set.annotate(n=Count("zakazka")), zakazky=z.zakazka_set.select_related("stav"),
         nabidky=z.nabidka_set.all() if P.NABIDKY in pr else prazdne, objednavky=z.objednavka_set.all() if P.NABIDKY in pr else prazdne,
         faktury=z.faktura_set.all() if P.FAKTURY in pr else prazdne, hist=HistorieZmen.objects.filter(typ_objektu="zakaznik", id_objektu=pk)[:60])
@@ -1167,10 +1169,28 @@ def zarizeni_prehled(request):
     pohled, pohledy = _pohled(request, "zarizeni")
     return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtr=filtr, fs=fs, fi=fi, keep=keep,
              chips=chips, pohled=pohled, pohledy=pohledy, celkem=celkem, ph="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…")
+def form_na_miste(request, slug, o):
+    """Formulář pro úpravu přímo v detailu (zařízení, zákazník): stejná pole i kontroly jako stránka Upravit, na kterou se také odesílá.
+    Bez oprávnění k úpravám None; přepínač Aktivní jen pro toho, kdo smí deaktivovat (stejně jako na stránce Upravit)."""
+    if P.ZAKAZNICI not in P.prava(request.user): return None
+    exclude = [] if P.ma(request.user, P.MAZAT) else ["aktivni"]
+    Form = modelform_factory(type(o), form=ZakaznikForm if slug == "zakaznik" else BaseForm, fields="__all__", formfield_callback=cb, exclude=exclude)
+    f = Form(instance=o)
+    if "aktivni" in f.fields: f.fields["aktivni"].widget.attrs.update({"role": "switch", "data-jen-uprava": "1"})  # přepínač jde měnit jen při úpravě
+    if "popis" in f.fields: f.fields["popis"].widget.attrs["rows"] = 2
+    return f
+def soubory_zarizeni(zak):
+    """Fotky a přílohy ze všech zakázek zařízení pro boční náhled (štítek se přepisuje z fotky)."""
+    out = []
+    for z in zak:
+        out += [dict(title=f.popis[:60] or f"Foto {f.pk}", kind="img", url=f.soubor.url, dl=f.soubor.url, zakazka=z.cislo_zakazky) for f in z.fotografie_set.all()]
+        out += [dict(title=p.nazev[:60], kind=kind_of(p.soubor.name), url=p.soubor.url, dl=p.soubor.url, zakazka=z.cislo_zakazky) for p in z.priloha_set.all() if p.soubor]
+    for i, x in enumerate(out): x["i"] = i
+    return out
 def zarizeni_detail(request, pk):
     d = get_object_or_404(Zarizeni.objects.select_related("zakaznik"), pk=pk)
     zak = list(d.zakazka_set.select_related("stav").prefetch_related("zamestnanci", Prefetch("provedenyukon_set", queryset=ProvedenyUkon.objects.select_related("typ_ukonu").prefetch_related("zamestnanci")),
-               Prefetch("pouzitymaterial_set", queryset=PouzityMaterial.objects.select_related("material")), "zakazkakontakt_set__kontakt").order_by("-datum_prijeti", "-datum_vytvoreni"))
+               Prefetch("pouzitymaterial_set", queryset=PouzityMaterial.objects.select_related("material")), "zakazkakontakt_set__kontakt", "fotografie_set", "priloha_set").order_by("-datum_prijeti", "-datum_vytvoreni"))
     for z in zak:
         z.css = f"stav-{z.stav.pk}" if z.stav else "light text-dark border"; z.otevrena = not (z.stav and z.stav.nazev in CLOSED)
         z.cena_prace = sum((u.cena or 0) for u in z.provedenyukon_set.all())
@@ -1179,7 +1199,7 @@ def zarizeni_detail(request, pk):
     hist = HistorieZmen.objects.filter(typ_objektu="zarizeni", id_objektu=pk).select_related("uzivatel")[:60]
     posl = max([x for x in [d.datum_vytvoreni, hist[0].datum if hist else None] + [z.datum_upravy for z in zak] if x], default=None)
     return R(request, "zarizeni_detail", sec="zarizeni", crumbs=[("🔧 Zařízení", reverse("zarizeni_prehled")), (str(d) or "Zařízení", None)],
-             d=d, zak=zak, akt=akt, hist=hist, posl=posl, nxt=request.path)
+             d=d, zak=zak, akt=akt, hist=hist, posl=posl, nxt=request.path, form=form_na_miste(request, "zarizeni", d), soubory=soubory_zarizeni(zak))
 
 # ---------------- Stav zakázky (workflow) ----------------
 # Stav zakázky je samostatný od stavu nabídek, faktur a plateb – nic z toho se navzájem neovlivňuje.

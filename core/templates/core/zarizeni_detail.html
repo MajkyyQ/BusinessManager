@@ -1,18 +1,51 @@
 {% extends "core/base.html" %}{% load bm %}{% block content %}
+{% comment %} Detail zařízení. Upravit přepne údaje přímo v kartách na políčka (ukládá se přes stránku Upravit se stejnými kontrolami a historií změn).
+   Zobrazit fotku / dokument ukáže soubor ze zakázek zařízení vpravo místo karty Zákazník, takže jde přepisovat údaje ze štítku a koukat na něj. {% endcomment %}
+<form method="post"{% if form %} action="{% url 'edit' 'zarizeni' d.pk %}?next={{ nxt }}"{% endif %} class="bm-na-miste" novalidate>{% if form %}{% csrf_token %}{% endif %}
 <div class="bm-head align-items-start">
 <div><h3 class="mb-0">{{ d.vyrobce }} {{ d.typ }}{% if not d.vyrobce and not d.typ %}Zařízení {{ d.pk }}{% endif %} {% if not d.aktivni %}<span class="badge bg-secondary fs-6">neaktivní</span>{% endif %}</h3>
 <div class="mt-1">{% if akt %}<span class="badge bg-warning text-dark">Ve firmě – zakázka <a class="text-dark" href="{% url 'detail' 'zakazka' akt.pk %}">#{{ akt.cislo_zakazky }}</a> ({{ akt.stav|default:"–" }})</span>{% elif zak %}<span class="badge bg-secondary">U zákazníka</span>{% else %}<span class="badge bg-light text-dark border">Zatím bez zakázky</span>{% endif %}</div></div>
-<div class="bm-actions">{% if "zakaznici.upravit" in prava %}<a class="btn btn-sm btn-primary" href="{% url 'edit' 'zarizeni' d.pk %}?next={{ nxt }}">Upravit</a>{% endif %}
-<a class="btn btn-sm btn-secondary" href="{{ zpet|default:"/zarizeni/" }}">Zpět</a></div></div>
-<div class="row g-3 mb-3"><div class="col-lg-6"><div class="card h-100"><div class="card-header py-1 fw-semibold">Základní informace</div><div class="card-body py-2">
-<table class="table table-sm mb-0"><tr><th class="w-25">Výrobce</th><td>{{ d.vyrobce|default:"–" }}</td></tr><tr><th>Typ</th><td>{{ d.typ|default:"–" }}</td></tr>
-<tr><th>Sériové číslo</th><td>{{ d.seriove_cislo|default:"–" }}</td></tr><tr><th>Popis</th><td style="white-space:pre-line">{{ d.popis|default:"–" }}</td></tr>
+<div class="bm-actions">{% if soubory %}<div class="bm-dd"><button type="button" class="btn btn-sm btn-outline-secondary bm-dd-btn" aria-expanded="false" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-8 7"/></svg>Zobrazit fotku / dokument<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+<div class="bm-dd-menu" role="menu" hidden>{% regroup soubory by zakazka as skupiny %}{% for g in skupiny %}<div class="bm-dd-mh">Ze zakázky #{{ g.grouper }}</div>{% for s in g.list %}<button type="button" role="menuitem" data-soubor="{{ s.i }}"><span class="bm-dd-th">{% if s.kind == "img" %}<img src="{{ s.url }}" alt="" loading="lazy">{% else %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h4"/></svg>{% endif %}</span><span class="text-truncate">{{ s.title }}</span><small>{% if s.kind == "img" %}foto{% else %}dokument{% endif %}</small></button>{% endfor %}{% endfor %}</div></div>{% endif %}
+{% if form %}<button type="button" class="btn btn-sm btn-primary nm-cteni" data-upravit>Upravit</button>{% endif %}
+<a class="btn btn-sm btn-secondary nm-cteni" href="{{ zpet|default:"/zarizeni/" }}">Zpět</a>
+{% if form %}<button class="btn btn-sm btn-success nm-uprava">Uložit</button><button type="button" class="btn btn-sm btn-outline-secondary nm-uprava" data-zrusit>Zrušit</button>{% endif %}</div></div>
+{% if form %}<div class="bm-nm-info nm-uprava"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Upravujete zařízení. Změny se projeví po kliknutí na Uložit.</div>{% endif %}
+<div class="row g-3 mb-3"><div class="col-lg-6"><div class="card h-100 bm-nm-karta"><div class="card-header py-1 fw-semibold">Základní informace</div><div class="card-body py-2 bm-nm-blok">
+<table class="table table-sm mb-0 bm-nm-tab">
+<tr><th class="w-25"><label{% if form %} for="{{ form.vyrobce.id_for_label }}"{% endif %}>Výrobce</label></th><td><span class="nm-cteni">{{ d.vyrobce|default:"–" }}</span>{% if form %}<div class="nm-uprava">{{ form.vyrobce }}</div>{% endif %}</td></tr>
+<tr><th><label{% if form %} for="{{ form.typ.id_for_label }}"{% endif %}>Typ</label></th><td><span class="nm-cteni">{{ d.typ|default:"–" }}</span>{% if form %}<div class="nm-uprava">{{ form.typ }}</div>{% endif %}</td></tr>
+<tr><th><label{% if form %} for="{{ form.seriove_cislo.id_for_label }}"{% endif %}>Sériové číslo</label></th><td><span class="nm-cteni">{{ d.seriove_cislo|default:"–" }}</span>{% if form %}<div class="nm-uprava">{{ form.seriove_cislo }}</div>{% endif %}</td></tr>
+<tr><th><label{% if form %} for="{{ form.popis.id_for_label }}"{% endif %}>Popis</label></th><td><span class="nm-cteni" style="white-space:pre-line">{{ d.popis|default:"–" }}</span>{% if form %}<div class="nm-uprava">{{ form.popis }}</div>{% endif %}</td></tr>
 <tr><th>Evidováno od</th><td>{{ d.datum_vytvoreni|date:"j. n. Y" }}</td></tr><tr><th>Poslední akce</th><td>{{ posl|date:"j. n. Y H:i"|default:"–" }}</td></tr><tr><th>Počet zakázek</th><td>{{ zak|length }}</td></tr></table></div></div></div>
-<div class="col-lg-6"><div class="card h-100"><div class="card-header py-1 fw-semibold">Zákazník</div><div class="card-body py-2">{% with c=d.zakaznik %}
-<table class="table table-sm mb-0"><tr><th class="w-25">Zákazník</th><td><a href="{% url 'detail' 'zakaznik' c.pk %}">{{ c }}</a>{% if c.firma and c.jmeno %}<br><small class="text-muted">{{ c.jmeno }}</small>{% endif %}</td></tr>
-<tr><th>Telefon</th><td>{{ c.telefon|telefon|default:"–" }}</td></tr><tr><th>E-mail</th><td>{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% else %}–{% endif %}</td></tr>
-<tr><th>Adresa</th><td>{{ c.adresa|default:"–" }}</td></tr>{% if c.ico %}<tr><th>IČO</th><td>{{ c.ico }}</td></tr>{% endif %}</table>{% endwith %}</div></div></div></div>
-
+<div class="col-lg-6 d-flex flex-column gap-2"><div class="card flex-grow-1 bm-nm-karta bm-zak-karta"><div class="card-header py-1 fw-semibold">Zákazník</div><div class="card-body py-2 bm-nm-blok">{% with c=d.zakaznik %}
+<table class="table table-sm mb-0 bm-nm-tab"><tr><th class="w-25">Zákazník</th><td><span class="nm-cteni"><a href="{% url 'detail' 'zakaznik' c.pk %}">{{ c }}</a>{% if c.firma and c.jmeno %}<br><small class="text-muted">{{ c.jmeno }}</small>{% endif %}</span>{% if form %}<div class="nm-uprava">{{ form.zakaznik }}</div>{% endif %}</td></tr>
+<tr><th>Telefon</th><td data-z="tel">{{ c.telefon|telefon|default:"–" }}</td></tr><tr><th>E-mail</th><td data-z="email">{% if c.email %}<a href="mailto:{{ c.email }}">{{ c.email }}</a>{% else %}–{% endif %}</td></tr>
+<tr><th>Adresa</th><td data-z="adresa">{{ c.adresa|default:"–" }}</td></tr><tr{% if not c.ico %} hidden{% endif %}><th>IČO</th><td data-z="ico">{{ c.ico }}</td></tr></table>{% endwith %}</div></div>
+{% if soubory %}<div class="card flex-grow-1 bm-nahled" hidden><div class="card-header py-1 fw-semibold d-flex align-items-center gap-2"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-8 7"/></svg><span class="bm-nahled-t text-truncate flex-grow-1"></span><button type="button" class="bmv-ib bm-nahled-x" title="Zavřít náhled" aria-label="Zavřít náhled"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="bmv-st"></div></div>{% endif %}
+<div class="bm-nm-akt bm-nm-blok"><span>Aktivní</span><div class="form-check form-switch">{% if form.aktivni %}{{ form.aktivni }}{% else %}<input type="checkbox" class="form-check-input" role="switch" disabled aria-label="Aktivní"{% if d.aktivni %} checked{% endif %}>{% endif %}</div><b>{{ d.aktivni|yesno:"ano,ne" }}</b></div></div></div>
+</form>
+<style>.bm-dd{position:relative}.bm-dd-btn{display:inline-flex;align-items:center;gap:.4rem}.bm-dd-btn svg,.bm-nahled .card-header>svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.bm-dd-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:1060;min-width:290px;max-width:min(360px,calc(100vw - 2rem));background:var(--bm-surface);border:1px solid var(--bm-border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,.2);padding:6px}
+.bm-dd-mh{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--bm-muted);padding:6px 10px 4px}
+.bm-dd-menu button{display:flex;width:100%;align-items:center;gap:10px;border:0;background:none;color:var(--bm-fg);font-weight:500;font-size:.87rem;padding:7px 10px;border-radius:8px;text-align:left}.bm-dd-menu button:hover,.bm-dd-menu button:focus-visible{background:var(--bm-surface2)}
+.bm-dd-menu small{margin-left:auto;color:var(--bm-muted)}
+.bm-dd-th{width:34px;height:26px;border-radius:5px;background:var(--bm-surface2);display:grid;place-items:center;flex:none;overflow:hidden;border:1px solid var(--bm-border)}.bm-dd-th img{width:100%;height:100%;object-fit:cover}.bm-dd-th svg{width:16px;height:16px;fill:none;stroke:var(--bm-muted);stroke-width:1.8}
+.bm-nahled .bmv-st{flex:1;min-height:440px;border-radius:0 0 var(--bs-card-inner-border-radius) var(--bs-card-inner-border-radius)}.bm-nahled{overflow:hidden}.bm-nahled .bmv-ib svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.bm-nahled:not([hidden]){display:flex}@media(max-width:575px){.bm-dd-menu{left:0;right:auto}}</style>
+{% if form %}{% include "core/_na_miste.html" %}{% endif %}
+{% if soubory %}{% include "core/_prohlizec.html" %}{{ soubory|json_script:"zar-soubory" }}
+<script>(function(){const S=JSON.parse(document.getElementById('zar-soubory').textContent),dd=document.querySelector('.bm-dd'),b=dd.querySelector('.bm-dd-btn'),m=dd.querySelector('.bm-dd-menu'),
+ zk=document.querySelector('.bm-zak-karta'),n=document.querySelector('.bm-nahled'),st=n.querySelector('.bmv-st');
+const menu=on=>{m.hidden=!on;b.setAttribute('aria-expanded',on)};
+b.addEventListener('click',()=>{menu(m.hidden);if(!m.hidden)m.querySelector('button').focus()});
+document.addEventListener('click',e=>{if(!dd.contains(e.target))menu(false)});
+dd.addEventListener('keydown',e=>{if(e.key=='Escape'&&!m.hidden){e.stopPropagation();menu(false);b.focus()}});
+m.addEventListener('click',e=>{const x=e.target.closest('[data-soubor]');if(!x)return;const it=S[+x.dataset.soubor];menu(false);
+ zk.hidden=true;n.hidden=false;n.querySelector('.bm-nahled-t').textContent=it.title+' · zakázka #'+it.zakazka;BMV.mount(st,it);st.classList.add('flex-grow-1')});
+n.querySelector('.bm-nahled-x').addEventListener('click',()=>{n.hidden=true;zk.hidden=false;st.innerHTML=''})})();</script>{% endif %}
+{% if form %}<script>(function(){const f=document.querySelector('form.bm-na-miste'),pis=(k,v)=>{const td=f.querySelector('[data-z="'+k+'"]');if(td)td.textContent=v||'–'};
+f.addEventListener('lk-vybrano',e=>{const o=e.detail;if(e.target.dataset.name!='zakaznik')return;pis('tel',o.tel);pis('email',o.email);pis('adresa',o.adresa);pis('ico',o.ico);f.querySelector('[data-z="ico"]').parentElement.hidden=!o.ico})})();</script>{% endif %}
 <h5>Historie zařízení</h5>
 <div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr><th>Zakázka</th><th>Datum přijetí</th><th>Datum vydání</th><th>Stav</th><th>Popis závady</th><th class="text-end">Práce</th><th class="text-end">Materiál</th><th></th></tr></thead><tbody>
 {% for z in zak %}<tr><td class="text-nowrap"><a class="fw-semibold" href="{% url 'detail' 'zakazka' z.pk %}">#{{ z.cislo_zakazky }}</a></td>
