@@ -89,8 +89,8 @@ class Zarizeni(models.Model):
     def __str__(self): return f"{self.vyrobce} {self.typ} {self.seriove_cislo}".strip()
 validuj_barvu = RegexValidator(r"^#[0-9a-fA-F]{6}$", "Barvu zadejte jako #RRGGBB, např. #fd7e14.")
 # Výchozí barvy stavů (barvy Bootstrapu, které stavy měly dřív napevno); nový vlastní stav dostane modrozelenou (info)
-BARVY_STAVU = {"Nová": "#6c757d", "Rozpracováno": "#0d6efd", "Čeká na schválení": "#ffc107", "Čeká na díl": "#ffc107", "Opraveno": "#198754",
-               "Připraveno k vyzvednutí": "#198754", "Vydáno": "#212529", "Zrušeno": "#dc3545"}
+BARVY_STAVU = {"Nová": "#6b7770", "Rozpracováno": "#b45309", "Čeká na schválení": "#eab308", "Čeká na díl": "#1e3a8a", "Opraveno": "#15803d",
+               "Připraveno k vyzvednutí": "#0f766e", "Vydáno": "#1c241e", "Zrušeno": "#c5221f"}  # výchozí barvy ladí se vzhledem Copper & Forest
 BARVA_STAVU_VYCHOZI = "#0dcaf0"
 class StavZakazky(models.Model):
     class Meta: verbose_name = "stav zakázky"; verbose_name_plural = "Stavy zakázek"; ordering = ["poradi"]

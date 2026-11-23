@@ -1,34 +1,37 @@
-{% load static %}<style>/* Vzhled aplikace (návrh 4): barvy Primary #0D5C9E, Secondary #D97706, Tertiary #1E293B, Neutral #64748B,
-písma Space Grotesk (nadpisy, tlačítka) a Work Sans (text), přibalená ve static/vendor/fonts, takže fungují i bez internetu.
+{% load static %}<style>/* Vzhled aplikace „Copper & Forest“: světlý režim teplý papírový podklad #F5F1E8, lesní tmavý text #1C241E a měděná hlavní barva,
+tmavý režim „Břidlice“: neutrální chladná šedá #131517 / #1C1F22 a jasnější měď #E07A28 (bez zeleného nádechu).
+Písma Plus Jakarta Sans (nadpisy i text) a JetBrains Mono (čísla zakázek a dokladů), přibalená ve static/vendor/fonts, takže fungují i bez internetu.
+Měď ve světlém režimu je o odstín tmavší než v podkladu (#B4531A místo #C25E1A), aby bílý text na tlačítkách měl kontrast aspoň 4,5 : 1.
 Zaoblení: tlačítka 6 px, karty a menu 12 px, pole 10 px, štítky a položky levého menu kulaté.
 Soubor se vkládá na konec hlavičky v base.html, takže přepisuje výchozí barvy Bootstrapu i starší pravidla výše. */
-@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:500 700;font-display:swap;src:url("{% static 'vendor/fonts/space-grotesk-latin-ext.woff2' %}") format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
-@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:500 700;font-display:swap;src:url("{% static 'vendor/fonts/space-grotesk-latin.woff2' %}") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:"Work Sans";font-style:normal;font-weight:400 600;font-display:swap;src:url("{% static 'vendor/fonts/work-sans-latin-ext.woff2' %}") format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
-@font-face{font-family:"Work Sans";font-style:normal;font-weight:400 600;font-display:swap;src:url("{% static 'vendor/fonts/work-sans-latin.woff2' %}") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:400 800;font-display:swap;src:url("{% static 'vendor/fonts/plus-jakarta-sans-latin-ext.woff2' %}") format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Plus Jakarta Sans";font-style:normal;font-weight:400 800;font-display:swap;src:url("{% static 'vendor/fonts/plus-jakarta-sans-latin.woff2' %}") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:400 700;font-display:swap;src:url("{% static 'vendor/fonts/jetbrains-mono-latin-ext.woff2' %}") format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:400 700;font-display:swap;src:url("{% static 'vendor/fonts/jetbrains-mono-latin.woff2' %}") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 
-/* --- barvy: světlý režim --- */
+/* --- barvy: světlý režim (Copper & Forest) --- */
 :root,[data-bs-theme=light]{
- --bm-bg:#f4f7fb;--bm-surface:#fff;--bm-surface2:#e3edfc;--bm-fg:#1e293b;--bm-muted:#5b6678;--bm-border:#d3deec;
- --bm-primary:#0d5c9e;--bm-primary-hover:#0a4c84;--bm-primary-rgb:13,92,158;--bm-on-primary:#fff;--bm-soft:#e3edfc;
- --bm-secondary:#d97706;--bm-secondary-soft:#fdf1e1;--bm-ink:#1e293b;--bm-top:#fff;--bm-shadow:0 1px 3px rgba(30,41,59,.07),0 4px 14px rgba(30,41,59,.05);
- --bm-font-head:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;--bm-font-body:"Work Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
- --bs-body-font-family:var(--bm-font-body);--bs-body-bg:var(--bm-bg);--bs-body-bg-rgb:244,247,251;--bs-body-color:var(--bm-fg);--bs-body-color-rgb:30,41,59;
- --bs-emphasis-color:#0f172a;--bs-secondary-color:var(--bm-muted);--bs-secondary-bg:var(--bm-surface2);--bs-tertiary-bg:#eaf1fb;--bs-tertiary-color:var(--bm-muted);
- --bs-border-color:var(--bm-border);--bs-primary:var(--bm-primary);--bs-primary-rgb:var(--bm-primary-rgb);--bs-primary-text-emphasis:#083d6a;--bs-primary-bg-subtle:var(--bm-soft);--bs-primary-border-subtle:#a9c6e6;
- --bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb);--bs-link-hover-color:var(--bm-primary-hover);--bs-link-hover-color-rgb:10,76,132;
- --bs-focus-ring-color:rgba(var(--bm-primary-rgb),.28);
+ --bm-bg:#f5f1e8;--bm-surface:#fff;--bm-surface2:#ebe5d8;--bm-fg:#1c241e;--bm-muted:#526359;--bm-border:#d4cbc0;
+ --bm-primary:#b4531a;--bm-primary-hover:#9c450c;--bm-primary-rgb:180,83,26;--bm-on-primary:#fff;--bm-soft:#f6e7da;
+ --bm-secondary:#b7791f;--bm-secondary-soft:#f8eed8;--bm-forest:#2e6b45;--bm-forest-hover:#23573a;--bm-forest-text:#2e6b45;--bm-ink:#1c241e;--bm-top:#fff;--bm-shadow:0 1px 3px rgba(28,36,30,.06),0 4px 14px rgba(28,36,30,.05);
+ --bm-font-head:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--bm-font-body:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --bm-font-mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+ --bs-body-font-family:var(--bm-font-body);--bs-body-bg:var(--bm-bg);--bs-body-bg-rgb:245,241,232;--bs-body-color:var(--bm-fg);--bs-body-color-rgb:28,36,30;
+ --bs-emphasis-color:#111712;--bs-secondary-color:var(--bm-muted);--bs-secondary-bg:var(--bm-surface2);--bs-tertiary-bg:#f0ebe1;--bs-tertiary-color:var(--bm-muted);
+ --bs-border-color:var(--bm-border);--bs-primary:var(--bm-primary);--bs-primary-rgb:var(--bm-primary-rgb);--bs-primary-text-emphasis:#7a360a;--bs-primary-bg-subtle:var(--bm-soft);--bs-primary-border-subtle:#e2b892;
+ --bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb);--bs-link-hover-color:var(--bm-primary-hover);--bs-link-hover-color-rgb:156,69,12;
+ --bs-focus-ring-color:rgba(var(--bm-primary-rgb),.28);--bs-font-monospace:var(--bm-font-mono);
  --bs-border-radius:6px;--bs-border-radius-sm:5px;--bs-border-radius-lg:12px;--bs-border-radius-xl:14px;--bs-border-radius-pill:999px}
 :root:not([data-bs-theme=dark]){--bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb)}
-/* --- barvy: tmavý režim --- */
+/* --- barvy: tmavý režim (Břidlice) --- */
 [data-bs-theme=dark]{
- --bm-bg:#111a29;--bm-surface:#1a2537;--bm-surface2:#24324a;--bm-fg:#e2e8f0;--bm-muted:#9aa8bb;--bm-border:#2c3a52;
- --bm-primary:#5aa2e6;--bm-primary-hover:#7ab4ec;--bm-primary-rgb:90,162,230;--bm-on-primary:#0b1422;--bm-soft:#1d3350;
- --bm-secondary:#f59e0b;--bm-secondary-soft:#3a2a12;--bm-ink:#e2e8f0;--bm-top:#1a2537;--bm-shadow:none;
- --bs-body-bg:var(--bm-bg);--bs-body-bg-rgb:17,26,41;--bs-body-color:var(--bm-fg);--bs-body-color-rgb:226,232,240;--bs-emphasis-color:#f8fafc;
- --bs-secondary-color:var(--bm-muted);--bs-secondary-bg:var(--bm-surface2);--bs-tertiary-bg:#1f2b40;--bs-tertiary-color:var(--bm-muted);--bs-border-color:var(--bm-border);
- --bs-primary:var(--bm-primary);--bs-primary-rgb:var(--bm-primary-rgb);--bs-primary-text-emphasis:#a9cdf2;--bs-primary-bg-subtle:var(--bm-soft);--bs-primary-border-subtle:#2f5786;
- --bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb);--bs-link-hover-color:var(--bm-primary-hover);--bs-link-hover-color-rgb:122,180,236;
+ --bm-bg:#131517;--bm-surface:#1c1f22;--bm-surface2:#25292d;--bm-fg:#f1f3f4;--bm-muted:#9aa1a8;--bm-border:#33383d;
+ --bm-primary:#e07a28;--bm-primary-hover:#f0954a;--bm-primary-rgb:224,122,40;--bm-on-primary:#131517;--bm-soft:#3a2a1e;
+ --bm-secondary:#fbbf24;--bm-secondary-soft:#3a2f17;--bm-forest:#2f7a4f;--bm-forest-hover:#28683f;--bm-forest-text:#6fcf97;--bm-ink:#f1f3f4;--bm-top:#1c1f22;--bm-shadow:none;
+ --bs-body-bg:var(--bm-bg);--bs-body-bg-rgb:19,21,23;--bs-body-color:var(--bm-fg);--bs-body-color-rgb:241,243,244;--bs-emphasis-color:#fff;
+ --bs-secondary-color:var(--bm-muted);--bs-secondary-bg:var(--bm-surface2);--bs-tertiary-bg:#212428;--bs-tertiary-color:var(--bm-muted);--bs-border-color:var(--bm-border);
+ --bs-primary:var(--bm-primary);--bs-primary-rgb:var(--bm-primary-rgb);--bs-primary-text-emphasis:#f6b583;--bs-primary-bg-subtle:var(--bm-soft);--bs-primary-border-subtle:#6b4223;
+ --bs-link-color:var(--bm-primary);--bs-link-color-rgb:var(--bm-primary-rgb);--bs-link-hover-color:var(--bm-primary-hover);--bs-link-hover-color-rgb:240,149,74;
  --bs-focus-ring-color:rgba(var(--bm-primary-rgb),.35)}
 body{font-family:var(--bm-font-body)}
 h1,h2,h3,h4,h5,h6,.h1,.h2,.h3,.h4,.h5,.h6,.navbar-brand{font-family:var(--bm-font-head);font-weight:600;letter-spacing:-.01em}
@@ -109,10 +112,17 @@ h1,h2,h3,h4,h5,h6,.h1,.h2,.h3,.h4,.h5,.h6,.navbar-brand{font-family:var(--bm-fon
 .table a,.bm-card a,.bm-side a{text-decoration:none}.table a:hover{text-decoration:underline}
 .table td>a:first-child{font-weight:500}
 
-/* --- štítky: kulaté; stavy zakázek jemně podbarvené s tečkou (barva z Nastavení → Stavy zakázek) --- */
+/* --- štítky: kulaté; stavy zakázek celobarevné (barva i kontrastní text z Nastavení → Stavy zakázek, viz značka barvy_stavu v core/templatetags/bm.py) --- */
 .badge{border-radius:999px;font-weight:600}
-.badge[class*="bg-stav-"]{background-color:color-mix(in srgb,var(--stav) 14%,var(--bm-surface))!important;color:color-mix(in srgb,var(--stav) 52%,var(--bm-fg))!important;border:1px solid color-mix(in srgb,var(--stav) 34%,transparent);display:inline-flex;align-items:center;gap:.35em;padding:.3em .65em}
-.badge[class*="bg-stav-"]::before{content:"";width:.45em;height:.45em;border-radius:50%;background:var(--stav);flex:none}
+.badge[class*="bg-stav-"]{display:inline-flex;align-items:center;padding:.35em .75em;font-weight:700;letter-spacing:.01em}
+/* v tmavém režimu jemný světlý obrys, aby byl vidět i tmavý štítek (např. Vydáno) */
+[data-bs-theme=dark] .badge[class*="bg-stav-"],[data-bs-theme=dark] .bm-dot{box-shadow:0 0 0 1px rgba(255,255,255,.22)}
+/* zelená tlačítka (doklady, platba) v lesní zelené z palety místo výchozí zelené Bootstrapu */
+:root .btn-success{--bs-btn-color:#fff;--bs-btn-bg:var(--bm-forest);--bs-btn-border-color:var(--bm-forest);--bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--bm-forest-hover);--bs-btn-hover-border-color:var(--bm-forest-hover);--bs-btn-active-color:#fff;--bs-btn-active-bg:var(--bm-forest-hover);--bs-btn-active-border-color:var(--bm-forest-hover)}
+:root .btn-outline-success{--bs-btn-color:var(--bm-forest-text);--bs-btn-border-color:var(--bm-forest-text);--bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--bm-forest);--bs-btn-hover-border-color:var(--bm-forest);--bs-btn-active-color:#fff;--bs-btn-active-bg:var(--bm-forest);--bs-btn-active-border-color:var(--bm-forest)}
+/* čísla zakázek a dokladů strojovým písmem */
+code,kbd,pre,.font-monospace,.bm-mono,.bm-t-zakazka td:first-child>a,.bm-t-nabidka td:first-child>a,.bm-t-faktura td:first-child>a,.bm-t-objednavka td:first-child>a,.bm-t-prijatafaktura td:first-child>a,.bm-board .bm-card .t{font-family:var(--bm-font-mono)}
+.bm-t-zakazka td:first-child>a,.bm-board .bm-card .t{font-weight:600;letter-spacing:-.01em}
 /* rychlé filtry nad seznamy */
 .bm-chip{background:var(--bm-surface);border-color:var(--bm-border)}
 .bm-chip:hover{border-color:var(--bm-primary);color:var(--bm-primary)}
