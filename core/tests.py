@@ -1631,6 +1631,18 @@ class OknoFiltrovatTest(TestCase):
         self.assertEqual(typy("?fi=ano"), {"Dil"}); self.assertEqual(typy("?fi=ne"), {"Bez"}); self.assertEqual(typy("?fi=ano&fi=ne"), {"Dil", "Bez"})
         r = self.client.get(url + "?f=dil&f=bez")
         self.assertContains(r, 'name="f" value="dil" checked'); self.assertContains(r, 'href="?f=bez"')  # štítek odebere jen svou volbu
+        # stavy poslední zakázky jsou v okně Filtrovat (víc naráz, s počty), řádek stavů nad tabulkou už není
+        from urllib.parse import urlencode
+        st = lambda *x: "?" + urlencode([("st", v) for v in x])
+        self.assertEqual(typy(st("Čeká na díl")), {"Dil"}); self.assertEqual(typy(st("Bez zakázky")), {"Bez"})
+        self.assertEqual(typy(st("Čeká na díl", "Bez zakázky")), {"Dil", "Bez"})
+        r = self.client.get(url + st("Bez zakázky"))
+        self.assertContains(r, 'name="st" value="Bez zakázky" checked'); self.assertNotContains(r, '<nav class="bm-chips'); self.assertContains(r, "Zrušit filtr")
+
+    def test_dokumenty_typ_bez_zrusit_filtr(self):
+        r = self.client.get(reverse("dokumenty"), {"typ": "faktura"})
+        self.assertContains(r, '<nav class="bm-chips'); self.assertNotContains(r, "Zrušit filtr")  # přepínání typu je jen záložka
+        self.assertContains(self.client.get(reverse("dokumenty"), {"typ": "faktura", "q": "x"}), 'href="/dokumenty/?typ=faktura">Zrušit filtr')
 
     def test_zakazky_stavy_data_a_razeni(self):
         from datetime import datetime

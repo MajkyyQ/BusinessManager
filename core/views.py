@@ -1131,7 +1131,9 @@ def _zar_posledni_akce(d, hist):
     t = [d.datum_vytvoreni, hist.get(d.pk)] + [z.datum_upravy for z in d.zz]
     return max((x for x in t if x), default=None)
 def zarizeni_prehled(request):
-    q = request.GET.get("q", "").strip(); o = request.GET.get("o", "-akce"); fs = request.GET.get("st", "")  # hledání, řazení, rychlý filtr stavu
+    q = request.GET.get("q", "").strip(); o = request.GET.get("o", "-akce")  # hledání, řazení
+    stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True)) + ["Bez zakázky"]
+    vyb = [x for x in dict.fromkeys(request.GET.getlist("st")) if x in stavy]  # stavy poslední zakázky z okna Filtrovat (víc naráz, nic = vše)
     f = [x for x in dict.fromkeys(request.GET.getlist("f")) if x in ("firma", "oprava", "dil", "zakaznik", "bez", "neaktivni")]  # skupiny (víc naráz)
     fi = [x for x in dict.fromkeys(request.GET.getlist("fi")) if x in ("ano", "ne")]; fi1 = fi[0] if len(fi) == 1 else ""  # obě volby = bez omezení
     skup = [x for x in f if x != "neaktivni"]
@@ -1152,8 +1154,8 @@ def zarizeni_prehled(request):
         if d.aktivni and skup and not any(sk[g] for g in skup): continue
         stav = st or ("Bez zakázky" if not z else "–")
         if (fi1 == "ano" and not otevrena) or (fi1 == "ne" and otevrena): continue
-        pocty[stav] = pocty.get(stav, 0) + 1; celkem += 1  # počty pro rychlý filtr stavu se berou před filtrem stavu
-        if fs and stav != fs: continue
+        pocty[stav] = pocty.get(stav, 0) + 1; celkem += 1  # počty u stavů v okně Filtrovat se berou před filtrem stavu
+        if vyb and stav not in vyb: continue
         rows.append(dict(d=d, z=z, stav=stav, css=css.get(st, "light text-dark border"), n=len(d.zz), firma=otevrena,
                          prijeti=z.datum_prijeti if z else None, akce=_zar_posledni_akce(d, hist)))
     far = timezone.make_aware(datetime(1900, 1, 1))
@@ -1162,13 +1164,12 @@ def zarizeni_prehled(request):
     rows.sort(key=sk, reverse=desc)
     sirka = {"zarizeni": 22, "zakaznik": 17, "telefon": 11, "stav": 20, "prijeti": 11, "akce": 12}  # pevné šířky sloupců (zbytek: Zakázek)
     heads = [(k, l, ("" if desc or k != key else "-") + k, ("▼" if desc else "▲") if k == key else "", sirka[k]) for k, l in ZAR_RAZENI.items()]
-    stavy = list(StavZakazky.objects.filter(aktivni=True).order_by("poradi", "nazev").values_list("nazev", flat=True)) + ["Bez zakázky"]
-    chips = _chips(request, "st", [(s, s, pocty.get(s, 0), css.get(s, "light")) for s in stavy], fs, celkem)
-    keep = urlencode([("q", q)] * bool(q) + [("f", x) for x in f] + [("st", fs)] * bool(fs) + [("fi", x) for x in fi])
-    filtr = _filtr_okno(request, [("f", "Stav zařízení", [(k, n, "") for k, n in ZAR_FILTRY]), ("fi", "Umístění", [(k, n, "") for k, n in ZAR_UMISTENI])])
+    keep = urlencode([("q", q)] * bool(q) + [("f", x) for x in f] + [("st", x) for x in vyb] + [("fi", x) for x in fi])
+    filtr = _filtr_okno(request, [("st", "Stav zakázky", [(s, s, css.get(s, "light"), pocty.get(s, 0)) for s in stavy]),
+                                  ("f", "Stav zařízení", [(k, n, "") for k, n in ZAR_FILTRY]), ("fi", "Umístění", [(k, n, "") for k, n in ZAR_UMISTENI])])
     pohled, pohledy = _pohled(request, "zarizeni")
-    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtr=filtr, fs=fs, fi=fi, keep=keep,
-             chips=chips, pohled=pohled, pohledy=pohledy, celkem=celkem, ph="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…")
+    return R(request, "zarizeni_prehled", sec="zarizeni", crumbs=None, rows=rows, f=f, q=q, o=o, heads=heads, filtr=filtr, st=vyb, fi=fi, keep=keep,
+             pohled=pohled, pohledy=pohledy, celkem=celkem, ph="Výrobce, typ, S/N, zákazník, telefon, č. zakázky…")
 def form_na_miste(request, slug, o):
     """Formulář pro úpravu přímo v detailu (zařízení, zákazník): stejná pole i kontroly jako stránka Upravit, na kterou se také odesílá.
     Bez oprávnění k úpravám None; přepínač Aktivní jen pro toho, kdo smí deaktivovat (stejně jako na stránce Upravit)."""
