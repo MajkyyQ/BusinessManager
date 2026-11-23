@@ -64,7 +64,11 @@ Při výběru technologií byla rozhodující tři kritéria. Aplikace musí bě
 
 - *vyhledávací pole s našeptávačem* pro výběr zákazníka, zařízení, kontaktní osoby a materiálu, které se dotazuje serveru na adrese `/lookup/<typ>/` a umožňuje nový záznam založit přímo v dialogu bez opuštění formuláře,
 
-- *prohlížeč dokumentů* na pracovní ploše zakázky (přibližování kolečkem myši, posun tažením, přepínání šipkami, porovnání dvou dokumentů vedle sebe, tisk),
+- *prohlížeč dokumentů* v okně přes celou obrazovku (přibližování kolečkem myši, posun tažením, přepínání šipkami, porovnání dvou souborů vedle sebe, stažení, tisk),
+
+- *úprava na místě* v detailu zařízení a zákazníka (přepnutí údajů na políčka, doplnění údajů vybraného zákazníka, náhled fotky ze zakázky vedle údajů zařízení),
+
+- *okno Filtrovat* u seznamu zakázek, zařízení a v kalendáři,
 
 - *editor Excelových šablon*, který zobrazuje list šablony jako mřížku buněk a umožňuje přetahovat pole (kapitola [Šablony dokumentů](08-sablony-dokumentu.md)),
 
