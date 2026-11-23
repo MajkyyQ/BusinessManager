@@ -1644,11 +1644,10 @@ class OknoFiltrovatTest(TestCase):
         url = reverse("list", args=["zakazka"])
         pk = lambda q: [o.pk for o, *_ in self.client.get(url + q).context["rows"]]
         self.assertEqual(set(pk("?st=Nová&st=Čeká na díl")), {a.pk, b.pk})
-        self.assertEqual(set(pk("?prijeti_od=2026-11-04&prijeti_do=2026-11-10")), {b.pk, c.pk})
-        self.assertEqual(pk("?vydani_od=2026-11-15"), [c.pk])
         self.assertEqual(pk("?o=-prijeti"), [b.pk, c.pk, a.pk]); self.assertEqual(pk("?o=prijeti"), [a.pk, c.pk, b.pk])
-        self.assertEqual(set(pk("?prijeti_od=nesmysl")), {a.pk, b.pk, c.pk})  # neplatné datum se ignoruje
-        r = self.client.get(url + "?st=Nová&prijeti_od=2026-11-01&o=-prijeti")
-        self.assertContains(r, 'class="bm-filtr-n">3<'); self.assertNotContains(r, "<nav class=\"bm-chips")
-        self.assertContains(r, 'href="?st=Nov%C3%A1&amp;o=-prijeti"')  # štítek data odebere jen datum
-        self.assertContains(r, 'name="prijeti_od" value="2026-11-01"')
+        self.assertEqual(pk("?o=-vydani")[0], c.pk)
+        r = self.client.get(url + "?st=Nová&o=-prijeti")
+        self.assertContains(r, 'class="bm-filtr-n">2<'); self.assertNotContains(r, "<nav class=\"bm-chips")
+        self.assertContains(r, 'name="o" value="-prijeti" checked'); self.assertNotContains(r, 'type="date"')  # jen Vzestupně / Sestupně
+        self.assertContains(r, 'href="?st=Nov%C3%A1"')  # štítek řazení vrátí výchozí řazení
+        self.assertContains(self.client.get(url + "?o=cislo"), 'type="hidden" name="o" value="cislo"')  # řazení číslem ze záhlaví zůstane
