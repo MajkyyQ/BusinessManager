@@ -379,7 +379,7 @@ class JednotneSeznamyTest(TestCase):
         chips = {c[0]: (c[2], c[3]) for c in r.context["chips"]}
         self.assertEqual(chips["Vše"], (3, False)); self.assertEqual(chips["Nová"], (2, False)); self.assertEqual(chips["Diagnostika"], (1, True))
         self.assertEqual(len(r.context["rows"]), 1)
-        self.assertContains(r, 'class="table table-sm table-hover bm-table"')  # pevné rozložení sloupců
+        self.assertContains(r, 'class="table table-sm table-hover bm-table bm-t-zakazka"')  # pevné rozložení sloupců
         self.assertContains(r, 'id="bm-reset"')
 
     def test_kanban_se_pamatuje(self):
@@ -1145,7 +1145,7 @@ class BarvaStavuTest(TestCase):
 
     def test_vychozi_barvy(self):
         from .models import StavZakazky
-        self.assertEqual(StavZakazky.objects.get(nazev="Rozpracováno").barva, "#0d6efd")
+        self.assertEqual(StavZakazky.objects.get(nazev="Rozpracováno").barva, "#b45309")
         self.assertEqual(self.s.barva, "#0dcaf0")
 
     def test_zmena_barvy_a_stitky(self):
