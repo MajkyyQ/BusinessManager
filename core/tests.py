@@ -1701,3 +1701,25 @@ class UpravaNaMisteTest(TestCase):
     def test_plocha_prohlizec_v_okne(self):
         r = self.client.get(reverse("plocha", args=[self.z.pk]))
         self.assertContains(r, 'id="bmv"'); self.assertContains(r, "bm-zalozky")
+
+
+class ChyboveStrankyTest(TestCase):
+    """Vlastní stránky 404 a 500 (core/templates/404.html, 500.html), které Django použije při DEBUG=0."""
+
+    def test_404_vlastni_stranka(self):
+        from django.test import override_settings
+        self.client.force_login(uzivatel())
+        with override_settings(DEBUG=False):
+            r = self.client.get("/tahle-stranka-neexistuje/")
+        self.assertEqual(r.status_code, 404)
+        self.assertContains(r, "Ups, špatná stránka", status_code=404)
+        self.assertContains(r, "Tu klikni a budeš zpět v aplikaci", status_code=404)
+
+    def test_500_bez_databaze(self):
+        from django.test import RequestFactory
+        from django.views.defaults import server_error
+        with self.assertNumQueries(0):
+            r = server_error(RequestFactory().get("/"))
+        self.assertEqual(r.status_code, 500)
+        self.assertIn("Jejda, server šel do opravy", r.content.decode())
+        self.assertIn('href="/"', r.content.decode())

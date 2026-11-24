@@ -8,9 +8,11 @@ Soubory jsou součástí aplikace, aby fungovala i bez připojení k internetu (
 | `htmx.min.js` | htmx (https://htmx.org/) | 2.0.3 | 0BSD |
 | `fonts/plus-jakarta-sans-*.woff2` | Plus Jakarta Sans (https://github.com/tokotype/PlusJakartaSans) | Google Fonts v12 | SIL OFL 1.1 (`fonts/OFL-PlusJakartaSans.txt`) |
 | `fonts/jetbrains-mono-*.woff2` | JetBrains Mono (https://github.com/JetBrains/JetBrainsMono) | Google Fonts v24 | SIL OFL 1.1 (`fonts/OFL-JetBrainsMono.txt`) |
+| `fonts/caveat-*.woff2` | Caveat (https://github.com/googlefonts/caveat) | Google Fonts v23 | SIL OFL 1.1 (`fonts/OFL-Caveat.txt`) |
 
 Staženo z registru npm (`npm pack bootstrap@5.3.3 htmx.org@2.0.3`), soubory nejsou upravené
 (jen z `bootstrap.min.css` je odstraněn odkaz na neexistující `.map` soubor).
 Při aktualizaci verze nahraďte oba soubory a upravte tuto tabulku.
 
 Písma jsou stažená z Google Fonts (sady latin a latin-ext, proměnná tloušťka) a vkládá je `core/templates/core/_vzhled.html`.
+Ruční písmo Caveat používají jen chybové stránky 404 a 500 (`core/templates/core/chyba.html`).
