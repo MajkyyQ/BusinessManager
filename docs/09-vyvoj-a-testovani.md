@@ -91,11 +91,12 @@ Každý test si vytvoří vlastní prázdnou databázi, takže výsledek nezávi
 | `PlatbaNaMisteTest` | 6 | vydání zakázky se zaplacením na místě bez faktury (hotově, QR kódem, kartou): předvyplněná částka, chybná částka zakázku nevydá, dodatečný zápis platby, výchozí volba u zakázky s fakturou |
 | `OknoFiltrovatTest` | 4 | okno Filtrovat u zakázek, zařízení a kalendáře: zaškrtnuté volby, stavy s počty, štítky aktivních filtrů, řazení zakázek podle data přijetí a vydání; přepínání typu v Dokumentech bez „Zrušit filtr“ |
 | `UpravaNaMisteTest` | 4 | úprava zařízení a zákazníka přímo v detailu (jen s oprávněním), náhled fotky ze zakázky u zařízení, prohlížeč dokumentů v okně na pracovní ploše |
-| **Celkem** | **150** | |
+| `OmezeniPokusuPrihlaseniTest` | 7 | omezení pokusů o přihlášení: hláška o zbývajících pokusech, blokace 5 a pak 10 minut i pro správné heslo, vynulování po přihlášení a po 24 hodinách, blokace v databázi přežije restart |
+| **Celkem** | **157** | |
 
 ### Výsledky
 
-Všech 150 testů prošlo v databázi SQLite, ve které se aplikace vyvíjí. Původních 117 testů (stav před doplněním testů pro moduly, bezpečnostní audit a zpevnění po něm) prošlo i v databázi PostgreSQL, nad kterou aplikace běží v Dockeru ve firmě. Aplikace k databázi přistupuje jen přes ORM Django, takže stejný kód funguje nad oběma systémy; spuštění nad PostgreSQL ověřuje rozdíly mezi nimi, např. v kontrole integritních omezení nebo v porovnávání textu.
+Všech 157 testů prošlo v databázi SQLite, ve které se aplikace vyvíjí. Původních 117 testů (stav před doplněním testů pro moduly, bezpečnostní audit a zpevnění po něm) prošlo i v databázi PostgreSQL, nad kterou aplikace běží v Dockeru ve firmě. Aplikace k databázi přistupuje jen přes ORM Django, takže stejný kód funguje nad oběma systémy; spuštění nad PostgreSQL ověřuje rozdíly mezi nimi, např. v kontrole integritních omezení nebo v porovnávání textu.
 
 Testy nad PostgreSQL se spustí stejně jako vývoj proti PostgreSQL (viz výše), jen místo `runserver` příkazem `python manage.py test core`.
 

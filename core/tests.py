@@ -1723,3 +1723,78 @@ class ChyboveStrankyTest(TestCase):
         self.assertEqual(r.status_code, 500)
         self.assertIn("Jejda, server šel do opravy", r.content.decode())
         self.assertIn('href="/"', r.content.decode())
+class OmezeniPokusuPrihlaseniTest(TestCase):
+    """Po 3 špatných heslech se přihlášení zablokuje na 5 minut, po dalších 3 na 10 minut. Blokace je v databázi (přežije restart)."""
+    def setUp(self):
+        NastaveniFirmy.objects.get_or_create(nazev_firmy="Servis")
+        User.objects.create_user("petr", password="Spravne-heslo-1")
+
+    def prihlas(self, heslo, jmeno="petr"):
+        return self.client.post(reverse("login"), {"username": jmeno, "password": heslo})
+
+    def zaznam(self):
+        from .models import BlokacePrihlaseni
+        return BlokacePrihlaseni.objects.get(uzivatelske_jmeno="petr")
+
+    def vyprsi(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        z = self.zaznam(); z.blokovano_do = timezone.now() - timedelta(seconds=1); z.save()
+
+    def minut_blokace(self):
+        from django.utils import timezone
+        return round((self.zaznam().blokovano_do - timezone.now()).total_seconds() / 60)
+
+    def test_hlaska_o_zbyvajicich_pokusech(self):
+        self.assertContains(self.prihlas("spatne"), "Zbývají 2 pokusy")
+        self.assertContains(self.prihlas("spatne"), "Zbývá poslední pokus")
+        self.assertContains(self.prihlas("spatne"), "zkuste to znovu za 5 minut")
+
+    def test_po_trech_pokusech_nepusti_ani_spravne_heslo(self):
+        for _ in range(3): self.prihlas("spatne")
+        self.assertEqual(self.minut_blokace(), 5)
+        r = self.prihlas("Spravne-heslo-1")
+        self.assertEqual(r.status_code, 200); self.assertContains(r, "Přihlášení je zablokované")
+        self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertFalse(self.client.login(username="petr", password="Spravne-heslo-1"))  # backend blokuje i /admin/ a jiná přihlášení
+        self.assertEqual(self.minut_blokace(), 5)  # pokusy během blokace ji neprodlužují
+
+    def test_eskalace_5_a_pak_10_minut(self):
+        for _ in range(3): self.prihlas("spatne")
+        self.assertEqual(self.minut_blokace(), 5)
+        self.vyprsi()
+        self.assertContains(self.prihlas("spatne"), "Zbývají 2 pokusy")  # po blokaci znovu 3 pokusy
+        for _ in range(2): self.prihlas("spatne")
+        self.assertEqual(self.minut_blokace(), 10)
+        self.vyprsi()
+        for _ in range(3): self.prihlas("spatne")
+        self.assertEqual(self.minut_blokace(), 10)  # další blokace zůstávají na 10 minutách
+
+    def test_po_vyprseni_blokace_spravne_heslo_projde_a_vse_se_vynuluje(self):
+        from .models import BlokacePrihlaseni
+        for _ in range(3): self.prihlas("spatne")
+        self.vyprsi()
+        self.assertEqual(self.prihlas("Spravne-heslo-1").status_code, 302)
+        self.assertFalse(BlokacePrihlaseni.objects.exists())
+
+    def test_po_24_hodinach_se_zacina_znovu_od_5_minut(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        for _ in range(3): self.prihlas("spatne")
+        z = self.zaznam(); z.blokovano_do = None; z.pocet_blokaci = 1; z.neuspesne_pokusy = 2
+        z.posledni_pokus = timezone.now() - timedelta(hours=25); z.save()
+        self.assertContains(self.prihlas("spatne"), "Zbývají 2 pokusy")
+        for _ in range(2): self.prihlas("spatne")
+        self.assertEqual(self.minut_blokace(), 5)
+
+    def test_blokace_jen_pro_dane_jmeno_bez_ohledu_na_velka_pismena(self):
+        User.objects.create_user("jana", password="Heslo-jany-1")
+        for jmeno in ("petr", "PETR", " Petr"): self.prihlas("spatne", jmeno)
+        self.assertContains(self.prihlas("Spravne-heslo-1"), "Přihlášení je zablokované")
+        self.assertEqual(self.prihlas("Heslo-jany-1", "jana").status_code, 302)
+
+    def test_blokace_je_v_databazi_restart_ji_nezrusi(self):
+        from django.core.cache import cache
+        for _ in range(3): self.prihlas("spatne")
+        cache.clear(); self.client.cookies.clear()  # nová relace prohlížeče a prázdná paměť jako po restartu
+        self.assertContains(self.prihlas("Spravne-heslo-1"), "Přihlášení je zablokované")
