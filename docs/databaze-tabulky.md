@@ -36,6 +36,7 @@ Zkratky: **PK** primární klíč, **FK** cizí klíč, **M:N** vazba přes vaze
 - [CiselnaRada](#ciselnarada) – číselná řada
 - [SazbaDPH](#sazbadph) – sazba DPH
 - [SablonaDokumentu](#sablonadokumentu) – šablona dokumentu
+- [BlokacePrihlaseni](#blokaceprihlaseni) – blokace přihlášení
 
 ## Zakaznik
 
@@ -563,6 +564,19 @@ Tabulka `core_sablonadokumentu` – šablona dokumentu.
 | `verze` | celé kladné číslo | ano |  (výchozí 1) |
 | `datum_vytvoreni` | datum a čas | ne | datum vytvoření |
 | `datum_upravy` | datum a čas | ne |  |
+
+## BlokacePrihlaseni
+
+Tabulka `core_blokaceprihlaseni` – blokace přihlášení.
+
+| Sloupec | Datový typ | Povinné | Popis |
+|:--|:--|:--|:--|
+| `id` | celé číslo, PK | ano |  |
+| `uzivatelske_jmeno` | text (150), unikátní | ano | uživatelské jméno |
+| `neuspesne_pokusy` | PositiveSmallIntegerField | ano | neúspěšné pokusy od poslední blokace (výchozí 0) |
+| `pocet_blokaci` | PositiveSmallIntegerField | ano | počet blokací (výchozí 0) |
+| `blokovano_do` | datum a čas | ne | blokováno do |
+| `posledni_pokus` | datum a čas | ano | poslední neúspěšný pokus |
 
 ## Vazební tabulky (M:N)
 

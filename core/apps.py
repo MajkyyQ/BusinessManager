@@ -48,6 +48,7 @@ class CoreConfig(AppConfig):
     name = "core"; verbose_name = "BusinessManager"
     def ready(self):
         post_migrate.connect(seed, sender=self)
+        from . import prihlaseni  # noqa: F401  signály pro omezení pokusů o přihlášení
         # Jednotná česká hláška pro špatný e-mail ve všech formulářích (zákazník, zaměstnanec, průvodce, firma, admin…)
         from django import forms
         forms.EmailField.default_error_messages = {**forms.EmailField.default_error_messages, "invalid": CHYBA_EMAIL}
