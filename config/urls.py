@@ -3,9 +3,15 @@ from django.urls import path, include, re_path
 from core.soubory import media
 from django.conf import settings
 from django.contrib.auth import views as av
+from django.contrib.auth.decorators import login_not_required
+from django.views.generic import TemplateView
 from core.prihlaseni import PrihlaseniForm
 urlpatterns = [path("admin/", admin.site.urls),
     path("login/", av.LoginView.as_view(authentication_form=PrihlaseniForm), name="login"), path("logout/", av.LogoutView.as_view(), name="logout"),
     re_path(r"^media/(?P<path>.*)$", media),  # soubory jen pro přihlášené, s bezpečnostními hlavičkami (core/soubory.py)
     *[path(f"moduly/{m}/", include(f"moduly.{m}.urls")) for m in settings.MODULY if (settings.BASE_DIR / "moduly" / m / "urls.py").exists()],  # volitelné moduly
     path("", include("core.urls"))]
+
+if settings.DEBUG:  # náhled chybových stránek při vývoji (s DEBUG=1 Django místo nich ukazuje technický výpis chyby)
+    urlpatterns.insert(-1, path("_chyba/404/", login_not_required(TemplateView.as_view(template_name="404.html"))))
+    urlpatterns.insert(-1, path("_chyba/500/", login_not_required(TemplateView.as_view(template_name="500.html"))))

@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from .models import NastaveniFirmy, Role, Zamestnanec, TEL_PRIKLAD
 
-VOLNE = ("/static/", "/media/", "/pruvodce/", "/logout/")  # adresy, které průvodce nepřesměrovává
+VOLNE = ("/static/", "/media/", "/pruvodce/", "/logout/", "/_chyba/")  # adresy, které průvodce nepřesměrovává (/_chyba/ je náhled chybových stránek při DEBUG=1)
 
 
 def je_admin(user): return user.is_staff or user.is_superuser

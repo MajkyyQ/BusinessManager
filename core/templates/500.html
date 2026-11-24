@@ -1,0 +1,14 @@
+{% extends "core/chyba.html" %}
+{# Stránka „chyba serveru“ (Django ji použije sám, když DEBUG=0): zakázka Z-500 s razítkem REKLAMACE. Vykresluje se bez kontextu a bez databáze, viz core/chyba.html. #}
+{% block titulek %}Chyba serveru{% endblock %}
+{% block nadpis %}Jejda, server šel do opravy{% endblock %}
+{% block text %}Něco se nám pokazilo u nás, ne u vás. Zkuste to prosím za chvilku znovu.{% endblock %}
+{% block cislo %}Z-500{% endblock %}
+{% block radky %}
+ <div class="r"><dt>Zákazník</dt><dd>My sami</dd></div>
+ <div class="r"><dt>Zařízení</dt><dd>Náš server</dd></div>
+ <div class="r"><dt>Popis závady</dt><dd>Při práci něco cvaklo a zakouřilo se. Zkusili jsme ho vypnout a zapnout.</dd></div>
+ <div class="r"><dt>Stav</dt><dd><span class="stav" style="background:#b7791f">V opravě</span></dd></div>
+{% endblock %}
+{% block razitko %}REKLAMACE{% endblock %}
+{% block tlacitko %}Zkusit to znovu{% endblock %}

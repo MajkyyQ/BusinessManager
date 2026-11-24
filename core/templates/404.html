@@ -1,0 +1,13 @@
+{% extends "core/chyba.html" %}
+{# Stránka „nenalezeno“ (Django ji použije sám, když DEBUG=0): chyba jako zakázka Z-404 s razítkem ZTRACENO. #}
+{% block titulek %}Stránka nenalezena{% endblock %}
+{% block nadpis %}Ups, špatná stránka{% endblock %}
+{% block text %}Tohle jsme v systému nenašli. Ani pod stolem.{% endblock %}
+{% block cislo %}Z-404{% endblock %}
+{% block radky %}
+ <div class="r"><dt>Zákazník</dt><dd>Vy</dd></div>
+ <div class="r"><dt>Zařízení</dt><dd>Stránka, kterou hledáte</dd></div>
+ <div class="r"><dt>Popis závady</dt><dd>Zákazník tvrdí, že tu stránka byla. Technik prohledal celou dílnu a nic nenašel.</dd></div>
+ <div class="r"><dt>Stav</dt><dd><span class="stav" style="background:#b42318">Nenalezeno</span></dd></div>
+{% endblock %}
+{% block razitko %}ZTRACENO{% endblock %}
