@@ -14,7 +14,7 @@ BusinessManager je určený pro malou firmu: aplikace běží na jednom firemní
 
 **Co aplikace neřeší:** kdo má přístup přímo k serverovému PC (fyzicky nebo jako jeho správce), má přístup i k databázi, souborům a `.env` a žádné zabezpečení uvnitř aplikace ho nezastaví. Ochrana serverového PC (heslo k Windows, šifrování disku, aktualizace) patří k provozu firmy, ne k aplikaci. Aplikace také není určená k vystavení do internetu. Přístup zvenku, např. z telefonu na výjezdu, je vhodné řešit soukromou sítí (VPN, např. Tailscale), ne přesměrováním portu v routeru.
 
-Proto se zpevnění po auditu omezilo na základní opatření (viz [Zpevnění po auditu](#zpevnění-po-auditu)). Složitější ochrany (omezení pokusů o přihlášení, HTTPS, pevné verze knihoven) jsou vedené jako [doporučení](#doporučení-do-budoucna) pro případ, že by se aplikace používala v otevřenější síti.
+Proto se zpevnění po auditu omezilo na základní opatření (viz [Zpevnění po auditu](#zpevnění-po-auditu)). Složitější ochrany (HTTPS, pevné verze knihoven) jsou vedené jako [doporučení](#doporučení-do-budoucna) pro případ, že by se aplikace používala v otevřenější síti.
 
 ## Jak audit probíhal
 
@@ -106,6 +106,7 @@ Doporučení z auditu se postupně zapracovávají:
 | Bezpečné výchozí nastavení | hotovo: `DEBUG` je bez `.env` vypnutý; chybí-li `SECRET_KEY`, vygeneruje se náhodný klíč do souboru `.secret_key` (dřív platil pevný klíč známý z repozitáře); `.env` se načte i při spuštění bez Dockeru; volba `HTTPS=1` pro šifrované cookies (test `BezpecneNastaveniTest`) |
 | Limit velikosti nahrávaných souborů | hotovo: jeden soubor nejvýš 50 MB, jedno nahrání (např. víc fotek najednou) nejvýš 500 MB; obojí jde změnit v `.env` (`MAX_VELIKOST_SOUBORU_MB`, `MAX_VELIKOST_NAHRAVANI_MB`). Příliš velké nahrání se odmítne dřív, než se začne ukládat na disk (test `LimitVelikostiSouboruTest`) |
 | Heslo ke schránce SMTP šifrovaně | hotovo v modulu e-mail 1.2: heslo se ukládá zašifrované (Fernet, knihovna `cryptography`) klíčem odvozeným z `SECRET_KEY`, takže z databáze ani ze zálohy nejde přečíst. Při jiném `SECRET_KEY` (obnova bez původního `.env`) aplikace požádá o nové zadání hesla (test modulu `test_heslo_je_v_databazi_zasifrovane`) |
+| Omezení pokusů o přihlášení | hotovo: po 3 špatných heslech se přihlášení k danému uživatelskému jménu zablokuje na 5 minut, po dalších 3 na 10 minut (a dál vždy na 10). Během blokace neprojde ani správné heslo, přihlašovací stránka ukáže, kolik pokusů zbývá a do kdy blokace trvá. Pokusy se ukládají do databáze (tabulka `BlokacePrihlaseni`), takže restart aplikace blokaci nezruší. Platí i pro `/admin/`. Po úspěšném přihlášení nebo 24 hodinách bez chyby se počítá znovu. Zablokovaný účet odblokuje administrátor smazáním záznamu v `/admin/` → Blokace přihlášení (`core/prihlaseni.py`, test `OmezeniPokusuPrihlaseniTest`) |
 | Záloha mimo serverové PC | hotovo: `zaloha.bat` ukládá i `.env`, na PC nechá posledních 7 záloh a při nastavení `ZALOHA_KOPIE` v `.env` zkopíruje poslední zálohu na jiný disk nebo PC (drží tam poslední 2) |
 
 ## Co audit ověřil jako bezpečné
@@ -123,7 +124,6 @@ Doporučení z auditu se postupně zapracovávají:
 Tyto body nejsou zranitelnosti, ale zvyšují bezpečnost provozu:
 
 - **HTTPS:** aplikace běží na `http://…:8080`, hesla jdou po firemní síti nešifrovaně. Pro provoz mimo malou uzavřenou síť je vhodné předřadit HTTPS (např. Caddy) a v `.env` nastavit `HTTPS=1`: cookies přihlášení se pak posílají jen šifrovaně.
-- **Omezení pokusů o přihlášení:** např. knihovna `django-axes`. V malé firemní síti není nutné, smysl má při přístupu z otevřenější sítě.
 - **Přístup zvenku (telefon na výjezdu):** přes soukromou síť (VPN, např. Tailscale) mezi serverovým PC a telefonem. Aplikace pak dál není vidět z internetu; serverové PC ale musí být zapnuté.
 - **Průvodce prvním spuštěním:** dokud není založený první účet, stane se administrátorem ten, kdo stránku otevře jako první. Průvodce je proto potřeba dokončit hned po instalaci.
 - **Závislosti:** knihovny v `requirements.txt` kromě Django a openpyxl nemají pevné verze. Před vydáním nové verze je vhodné zkontrolovat známé zranitelnosti (např. `pip-audit`).

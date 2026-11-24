@@ -59,6 +59,8 @@ LANGUAGE_CODE = "cs"; TIME_ZONE = "Europe/Prague"; USE_I18N = True; USE_TZ = Tru
 STATIC_URL = "static/"; STATIC_ROOT = BASE_DIR / "staticfiles"; MEDIA_URL = "media/"; MEDIA_ROOT = BASE_DIR / "media"
 X_FRAME_OPTIONS = "SAMEORIGIN"  # PDF a dokumenty v pracovní ploše (iframe)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+# Omezení pokusů o přihlášení (core/prihlaseni.py): blokace se kontroluje před ověřením hesla
+AUTHENTICATION_BACKENDS = ["core.prihlaseni.BlokacePrihlaseniBackend", "django.contrib.auth.backends.ModelBackend"]
 LOGIN_URL = "login"; LOGIN_REDIRECT_URL = "/"; LOGOUT_REDIRECT_URL = "login"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 # Limit nahrávaných souborů v MB: jeden soubor a celé nahrání najednou (např. víc fotek), viz core/soubory.py

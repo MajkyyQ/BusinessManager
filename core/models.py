@@ -440,3 +440,15 @@ class SablonaDokumentu(models.Model):
         if self.vychozi:  # v každém typu je výchozí jen jedna
             SablonaDokumentu.objects.filter(typ_dokumentu=self.typ_dokumentu, vychozi=True).exclude(pk=self.pk).update(vychozi=False)
     def __str__(self): return self.nazev
+
+# ---------------- Omezení pokusů o přihlášení ----------------
+class BlokacePrihlaseni(models.Model):
+    """Neúspěšné pokusy o přihlášení k jednomu uživatelskému jménu a případná blokace (core/prihlaseni.py).
+    Je v databázi, takže blokaci nezruší restart aplikace. Smazáním záznamu (v /admin/) se účet hned odblokuje."""
+    class Meta: verbose_name = "blokace přihlášení"; verbose_name_plural = "Blokace přihlášení"; ordering = ["-posledni_pokus"]
+    uzivatelske_jmeno = models.CharField("uživatelské jméno", max_length=150, unique=True)  # malými písmeny, viz prihlaseni.klic()
+    neuspesne_pokusy = models.PositiveSmallIntegerField("neúspěšné pokusy od poslední blokace", default=0)
+    pocet_blokaci = models.PositiveSmallIntegerField("počet blokací", default=0)
+    blokovano_do = models.DateTimeField("blokováno do", null=True, blank=True)
+    posledni_pokus = models.DateTimeField("poslední neúspěšný pokus", default=timezone.now)
+    def __str__(self): return self.uzivatelske_jmeno
