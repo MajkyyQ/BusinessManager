@@ -1,0 +1,7 @@
+% ============================================================
+% Struktura projektu (zkrácená verze; úplný popis je v dokumentaci
+% aplikace: docs/05-struktura-projektu.md v repozitáři)
+% ============================================================
+\section{Struktura projektu}\label{sec:struktura-projektu}
+
+Zdrojový kód je uspořádán podle konvencí frameworku Django. Projekt tvoří konfigurační balíček \path{config} a~jediná aplikace \path{core}, která obsahuje veškerou funkcionalitu. Rozdělení do více aplikací Django nebylo pro rozsah projektu potřebné; logické části jsou místo toho odděleny do modulů (modely, pohledy evidence, pohledy šablon, číslování dokladů) a~do samostatného balíčku \path{core/sablony/} se systémem šablon dokumentů, který na pohledech nezávisí. Závislosti mezi moduly tak směřují jedním směrem, což odpovídá vrstvené architektuře z~předchozího oddílu. Strom souborů s~popisem každé složky je součástí dokumentace aplikace\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/05-struktura-projektu.md}}.

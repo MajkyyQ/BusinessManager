@@ -1,0 +1,135 @@
+% Praktická část: porovnání databáze aplikace s principy z kapitoly kap:principy-db.
+% Vkládá se do kapitoly 07-navrh.tex.
+\section{Databázový model a~jeho soulad s~principy návrhu}\label{sec:db-soulad}
+
+Tento oddíl porovnává databázi aplikace s~principy z~kapitoly~\ref{kap:principy-db}. U~každého principu uvádí, jak se v~návrhu uplatnil, a~na konci popisuje místa, kde se návrh od doporučení knihy záměrně odchyluje. Konkrétní tabulky a~sloupce popisuje oddíl~\ref{sec:databaze}.
+
+\subsection{Klíče}
+
+V~souladu s~doporučením má v~aplikaci každá tabulka umělý primární klíč \texttt{id}, celé číslo generované databází. Údaje, které uživatelé používají k~vyhledání záznamu, jako číslo zakázky, číslo faktury nebo číslo nabídky, jsou uloženy jako samostatné sloupce s~omezením \texttt{UNIQUE}. Jsou to tedy kandidátní klíče, ale ne primární klíče. Uživatel je může změnit, aniž by se musely měnit odkazy z~jiných tabulek. Všechny vazby mezi tabulkami jsou v~aplikaci vyjádřeny cizími klíči a~databáze nedovolí uložit odkaz na neexistující záznam. Například zakázku nelze přiřadit neexistujícímu zákazníkovi.
+
+\subsection{E-R model a~převod na tabulky}
+
+V~aplikaci jsou zastoupeny všechny druhy kardinality:
+\begin{itemize}
+\item \textbf{1:N} -- zákazník má více zařízení a~více zakázek, každé zařízení a~každá zakázka patří právě jednomu zákazníkovi (úplná účast zakázky);
+\item \textbf{N:1 s~částečnou účastí} -- zakázka může, ale nemusí mít přiřazený stav;
+\item \textbf{M:N} -- zakázka zahrnuje více zařízení a~jedno zařízení může být opravováno v~několika zakázkách; obdobně zakázky a~zaměstnanci nebo faktury a~zakázky;
+\item \textbf{1:1} -- zaměstnanec má nejvýše jeden uživatelský účet a~účet patří nejvýše jednomu zaměstnanci.
+\end{itemize}
+
+Slabými entitami jsou v~aplikaci položky nabídek a~faktur: položka bez dokladu neexistuje a~při smazání dokladu se smaže i~ona. Nabídka a~faktura sdílejí zákazníka, kopii jeho údajů, částky a~vazbu na zakázky; společné atributy jsou proto popsány jednou, v~obecném dokladu. Podmínka disjunktní a~úplné generalizace platí, protože každý doklad je buď nabídka, nebo faktura. Aplikace proto podle druhé metody převodu má samostatné tabulky Nabidka a~Faktura a~stejně tak PolozkaNabidky a~PolozkaFaktury.
+
+Databáze aplikace je vytvořena přesně podle pravidel převodu z~oddílu~\ref{sec:principy-er}. Vztahy N:1 jsou cizí klíče, například \texttt{zakaznik\_id} v~tabulce Zakazka. Vztahy M:N mají vazební tabulky, například \path{core_zakazka_zarizeni}. Vztahy s~popisnými atributy mají vlastní tabulku: ZakaznikKontakt nese poznámku ke kontaktní osobě a~ZakazkaKontakt roli osoby na zakázce, například \enquote{přinesl zařízení}. Vazební tabulky mají kvůli frameworku Django vlastní sloupec \texttt{id}, a~proto mají nad dvojicí cizích klíčů omezení \texttt{UNIQUE}. Stejná kontaktní osoba tak nemůže být u~jednoho zákazníka uvedena dvakrát. Zákazník proto nemá sloupec se seznamem svých zařízení. Vztah je uložen jen jednou, cizím klíčem v~tabulce Zarizeni.
+
+\subsection{Normalizace}
+
+Tabulky aplikace neobsahují množinové atributy. Vícehodnotové údaje, například zařízení na zakázce, jsou uloženy ve vazebních tabulkách. Výjimky z~1NF jsou popsány v~oddílu~\ref{sec:principy-odchylky}. Kniha uvádí, že pečlivě navržený E-R model vede ke schématu, které další normalizaci nepotřebuje \cite[s.~344]{Silberschatz2020}. To se u~aplikace potvrdilo. Údaje, které by se jinak opakovaly, jsou ve vlastních tabulkách -- číselnících: stavy zakázek, typy úkonů, materiál a~sazby DPH. Zakázka tak neukládá název stavu, ale jen odkaz na řádek tabulky StavZakazky. Přejmenování stavu se proto projeví u~všech zakázek najednou. V~tabulkách zákazníků, zařízení, zakázek a~číselníků určuje všechny ostatní atributy jen primární klíč, případně kandidátní klíč (číslo zakázky). Tyto tabulky jsou tedy v~BCNF. Na tomto principu stojí kopie údajů zákazníka na vystavených dokladech (oddíl~\ref{sec:principy-odchylky}).
+
+\subsection{Integritní omezení}
+
+Tabulka~\ref{tab:principy-omezeni} ukazuje, jak jsou tato omezení použita v~aplikaci. Omezení jsou deklarována v~modelech a~Django je převádí do databázového schématu. Formuláře aplikace je kontrolují už před uložením, takže uživatel dostane srozumitelné hlášení místo chyby databáze.
+
+\begin{longtable}{p{0.20\textwidth}p{0.72\textwidth}}
+\caption{Integritní omezení v~databázi aplikace}\label{tab:principy-omezeni}\\
+\hline \textbf{Druh omezení} & \textbf{Použití v~aplikaci} \\ \hline\endfirsthead
+\hline \textbf{Druh omezení} & \textbf{Použití v~aplikaci} \\ \hline\endhead
+PRIMARY KEY & sloupec \texttt{id} v~každé tabulce \\
+UNIQUE & číslo zakázky, nabídky a~faktury; druh dokladu v~číselné řadě; kód oprávnění; dvojice (dodavatel, číslo faktury dodavatele); dvojice (zákazník, kontaktní osoba); trojice (zakázka, kontaktní osoba, role) \\
+NOT NULL & cizí klíče s~úplnou účastí (zákazník zakázky, zařízení a~dokladu), názvy v~číselnících, popis položky dokladu \\
+CHECK -- výčet & typ zákazníka, role kontaktní osoby, stav a~způsob platby, stav přijaté faktury, typ události kalendáře, měna, druh dokladu a~způsob nulování číselné řady \\
+CHECK --\newline podmínka & zákazník musí mít vyplněné jméno nebo firmu; sazba DPH v~rozsahu 0--100~\%; datum zaplacení přijaté faktury jen u~zaplacené faktury \\
+FOREIGN KEY & všechny vazby mezi tabulkami; chování při smazání PROTECT (odmítnutí), CASCADE (např. položky dokladu) nebo SET NULL \\
+\hline
+\end{longtable}
+
+\subsection{Datové typy}
+
+Aplikace se řídí doporučeními knihy k~datovým typům:
+\begin{itemize}
+\item \textbf{Peněžní částky} jsou typu \texttt{numeric(12,2)}.
+\item \textbf{Texty} jsou typu \texttt{varchar(n)} s~maximální délkou.
+\item \textbf{Datum a~čas}: údaje, u~kterých záleží jen na dni (splatnost, datum zdanitelného plnění), jsou typu \texttt{date}. Okamžiky, například vytvoření záznamu nebo přijetí zakázky, jsou typu \texttt{timestamp} s~časovým pásmem.
+\item \textbf{Soubory} (fotografie, přílohy, šablony) se do databáze jako typ \texttt{blob} neukládají, i~když to kniha umožňuje. Ukládají se do souborového systému a~databáze obsahuje jen cestu k~souboru. Databáze tak zůstává malá a~zálohu souborů lze dělat zvlášť.
+\end{itemize}
+
+Pro rychlé vyhledávání mají indexy sloupce, podle kterých uživatelé hledají, například sériové číslo zařízení a~identifikační číslo zakázky. Cizí klíče dostávají index automaticky. Tabulky aplikace mají české názvy v~jednotném čísle a~vazební tabulky se jmenují spojením názvů propojených tabulek, například \path{core_zakazka_zarizeni}.
+
+\subsection{Objektově-relační mapování a~aplikační logika}
+
+Aplikace nepracuje s~databází přímo pomocí SQL, ale přes \emph{objektově-relační mapování} (ORM) frameworku Django. Model v~souboru \path{core/models.py} je tedy zároveň definicí relačního schématu a~všechna omezení z~tabulky~\ref{tab:principy-omezeni} jsou zapsána v~něm. Část pravidel aplikace hlídá ve vrstvě aplikační logiky. Patří sem například kontrolní součet IČO nebo automatické vytváření událostí kalendáře. Změny dat zaznamenává tabulka HistorieZmen.
+
+\subsection{Ochrana proti SQL injection}\label{sec:db-sql-injection}
+
+Aplikace obě doporučení z~oddílu~\ref{sec:principy-sql-injection} splňuje:
+\begin{itemize}
+\item Všechny dotazy vytváří Django ORM (oddíl~\ref{sec:principy-orm}), které hodnoty předává databázi vždy jako parametry dotazu \cite{django-security}. V~kódu aplikace se nepoužívá žádné ručně psané SQL.
+\item Přihlášení zajišťuje vestavěný modul Djanga. Uživatel se vyhledá podle jména parametrizovaným dotazem a~heslo se v~databázi vůbec nehledá.
+\item Seznam zakázek lze řadit podle sloupce zvoleného v~adrese stránky. Název sloupce se do dotazu nepřipojuje přímo, ale vybírá se z~pevného seznamu povolených sloupců. Neznámá hodnota se nahradí výchozím řazením podle čísla zakázky.
+\end{itemize}
+
+Hesla se v~databázi neukládají jako text. Django přesně takto postupuje a~ve výchozím nastavení používá algoritmus PBKDF2 s~hašovací funkcí SHA-256 a~náhodnou solí \cite{django-hesla}. Omezení znaků, které smí uživatel zadat do jména nebo hesla, se jako ochrana proti SQL injection nepoužívá. Přihlašovací jméno je omezené jen tím, co povoluje Django: písmena, číslice a~znaky \texttt{@~.~+~-~\_}.
+
+Odolnost aplikace ověřují automatické testy (třída \texttt{SQLInjectionTest} v~souboru \path{core/tests.py}). Testy zkoušejí přihlášení s~devíti typickými útočnými řetězci, například \texttt{' OR '1'='1}, \texttt{admin'-{}-} nebo \texttt{'; DROP TABLE auth\_user; -{}-}, ve jménu, v~hesle i~v~obou polích zároveň. Žádný pokus uživatele nepřihlásí a~tabulka uživatelů zůstane beze změny. Testy dále ověřují, že heslo obsahující uvozovky a~pomlčky funguje jako běžné heslo a~že útočné řetězce ve vyhledávání ani v~parametru řazení nevrátí cizí data ani nezpůsobí chybu. Testy prošly v~databázi SQLite i~PostgreSQL.
+
+\section{Odchylky od doporučení a~jejich zdůvodnění}\label{sec:principy-odchylky}
+
+Návrh databáze se na několika místech od doporučení knihy odchyluje. Každá odchylka je záměrná: doporučený postup by buď omezil funkce aplikace, nebo by si vyžádal rozsáhlé změny bez odpovídajícího přínosu. Tabulka~\ref{tab:principy-odchylky} shrnuje odchylky, podrobnější zdůvodnění následuje.
+
+\begin{longtable}{p{0.27\textwidth}p{0.27\textwidth}p{0.38\textwidth}}
+\caption{Odchylky návrhu od doporučení knihy}\label{tab:principy-odchylky}\\
+\hline \textbf{Řešení v~aplikaci} & \textbf{Doporučení knihy} & \textbf{Důvod odchylky} \\ \hline\endfirsthead
+\hline \textbf{Řešení v~aplikaci} & \textbf{Doporučení knihy} & \textbf{Důvod odchylky} \\ \hline\endhead
+kopie údajů zákazníka na dokladu & bez redundance (s.~303--304) & doklad musí zachytit stav v~den vystavení (s.~347--348) \\
+uložené součty dokladu a~ceny položek & odvozený atribut se neukládá (s.~251) & vystavená částka se nesmí měnit, rychlé přehledy (s.~346) \\
+uložená cena použitého materiálu & bez redundance & historická cena se nesmí měnit se změnou ceníku \\
+číslo dokladu obsahuje rok a~pořadí & atomické domény, 1NF (s.~342) & formát čísla si určuje firma, číslo se zobrazuje i~tiskne celé \\
+adresa v~jednom sloupci & složený atribut (s.~250, 342) & adresy se zadávají volně, rozklad potřebuje jen export ISDOC \\
+platba odkazuje na fakturu i~zakázku & bez redundantních vztahů (s.~261--262) & platba může existovat i~bez faktury \\
+události kalendáře s~kopií data & odvozený údaj se neukládá & kalendář obsahuje i~ruční události a~události bez dokladu \\
+pořadové číslo dokladu z~existujících čísel & čítač nebo sekvence (s.~160--161) & pořadí závisí na formátu a~období, jedinečnost zajišťuje UNIQUE \\
+historie změn bez cizího klíče & referenční integrita (s.~149) & záznam musí přežít smazání objektu (s.~445) \\
+kontrolní součet IČO jen v~aplikaci & omezení ve schématu (s.~146) & výpočet nelze zapsat podmínkou CHECK, IČO z~ISDOC nemusí být platné \\
+nepovinná cena položky a~nejednotné typy datumů & NOT NULL (s.~146), typ podle významu (s.~154) & textové položky bez ceny, nabídka a~platba evidují i~čas \\
+\hline
+\end{longtable}
+
+\subsection{Kopie údajů zákazníka na dokladu}
+
+Nabídka a~faktura obsahují kromě odkazu na zákazníka i~kopii jeho jména, firmy, adresy, IČO a~DIČ. Údaje jsou tak uloženy dvakrát, což je redundance, před kterou kniha varuje \cite[s.~303--304]{Silberschatz2020}. Jde ale o~časově proměnná data. Funkční závislost \enquote{zákazník $\rightarrow$ adresa} platí jen pro aktuální stav, ne pro celou historii \cite[s.~347--348]{Silberschatz2020}. Vystavený doklad musí i~po letech obsahovat údaje platné v~den vystavení. Kdyby se četly z~tabulky zákazníků, změna adresy by zpětně změnila všechny vystavené faktury. Kniha pro takové údaje navrhuje doplnit k~záznamům období platnosti \cite[s.~348]{Silberschatz2020}. Pro doklad, který se po vystavení nemění, je jednodušší a~srozumitelnější uložit kopii. Ze stejného důvodu se při použití materiálu na zakázce kopíruje jeho aktuální cena. Pozdější změna ceníku tak nezmění cenu na již provedených zakázkách.
+
+\subsection{Uložené součty a~ceny}
+
+Cena položky dokladu (množství krát jednotková cena) a~součty dokladu jsou odvozené atributy. Kniha uvádí, že odvozený atribut se obvykle neukládá, ale počítá se při použití \cite[s.~251]{Silberschatz2020}. V~aplikaci se součty ukládají ze dvou důvodů. Částka vystavené faktury je účetní údaj a~nesmí se změnit, ani kdyby se později změnil způsob zaokrouhlení. Přehledy dokladů navíc zobrazují částky bez nutnosti načítat všechny položky. Jde o~denormalizaci, kterou kniha připouští, pokud aplikace udržuje redundantní údaje v~souladu \cite[s.~346]{Silberschatz2020}. Aplikace to zajišťuje přepočtem součtů při každém uložení položky.
+
+\subsection{Struktura čísel dokladů}
+
+Podobu čísel zakázek, nabídek a~faktur si firma určí sama v~nastavení aplikace. Administrátor napíše ukázkové číslo, například \texttt{Fa260001}, a~aplikace v~něm pozná rok, měsíc, den a~pořadové číslo. Vzor uloží do tabulky CiselnaRada jako formát se značkami, například \texttt{Fa\{YY\}\{N4\}}. Dokud firma řadu nezmění, platí dosavadní tvary \texttt{RRRR-NNN} pro zakázku a~nabídku a~\texttt{NNN-DD-MM/RRRR} pro fakturu (například 001-27-10/2026). Hotové číslo dokladu tedy obsahuje rok a~pořadí. Podle knihy takové hodnoty nemají atomickou doménu a~schéma s~nimi formálně není v~1NF. Kniha uvádí, že informace je pak zakódována v~programu místo v~databázi \cite[s.~342--343]{Silberschatz2020}. Formát čísla je ale v~aplikaci uložen v~databázi a~rozklad čísla se používá jen na jednom místě, při generování nového čísla (modul \path{core/cislovani.py}). Jinak je číslo atomickým identifikátorem: zobrazuje se, tiskne a~vyhledává vždy celé. Uživatel navíc může zadat vlastní číslo, které formátu odpovídat nemusí, a~vystavené doklady si svá čísla ponechají i~po změně formátu. Rozdělení do samostatných sloupců by vyžadovalo změnu tiskových šablon a~exportu ISDOC a~přineslo by dvě kopie stejné informace. Proto zůstává číslo v~jednom sloupci.
+
+Pořadí nového čísla se počítá z~existujících čísel: aplikace najde nejvyšší pořadí v~daném období a~přičte jedna. Kniha upozorňuje, že prohledávání existujících hodnot je pomalé, a~doporučuje čítač v~samostatné tabulce nebo sekvenci databáze \cite[s.~160--161]{Silberschatz2020}. Sekvence ale nezná formát čísla a~neumí začínat od jedné každý rok nebo měsíc podle nastavení firmy. Čítač by se navíc musel opravovat při každém ručně zadaném nebo smazaném čísle. Jedinečnost čísla zajišťuje omezení \texttt{UNIQUE} a~aplikace obsazená čísla přeskočí, takže ani při současném uložení dvou dokladů nemůže vzniknout duplicita. V~nejhorším případě aplikace ohlásí chybu a~uživatel doklad uloží znovu. U~malé firmy s~několika zaměstnanci je taková situace velmi nepravděpodobná.
+
+\subsection{Adresa jako jeden údaj}
+
+Adresa je podle knihy \emph{složený atribut} (ulice, město, PSČ) \cite[s.~250]{Silberschatz2020}. Kniha doporučuje rozdělit ho do samostatných sloupců, pokud aplikace pracuje s~jednotlivými částmi \cite[s.~342]{Silberschatz2020}. Aplikace adresu ukládá jako jeden text. Uživatelé ji zadávají ve tvaru, v~jakém se tiskne na doklady, a~jednotlivé části potřebuje jen export faktury do formátu ISDOC. Ten adresu rozdělí podle čárek a~PSČ a~nerozpoznanou část ponechá, aby se údaj neztratil. Rozdělení adresy do sloupců by změnilo všechny formuláře a~tiskové šablony. Proto je ponecháno jako možné budoucí rozšíření.
+
+\subsection{Vazby platby a~událostí kalendáře}
+
+Platba má cizí klíč na fakturu i~na zakázku. Pokud je platba vázaná na fakturu, je zakázka odvoditelná z~faktury a~údaj je redundantní \cite[s.~261--262]{Silberschatz2020}. Platba ale může vzniknout i~bez faktury, například při zaplacení drobné opravy v~hotovosti. Odkaz na zakázku je proto nutný.
+
+Události kalendáře se vytvářejí automaticky při přijetí zakázky, vystavení faktury nebo zaplacení. Obsahují kopii data a~odkaz na zakázku nebo doklad. Datum by šlo odvodit z~dokladu, ale kalendář musí v~jednom seznamu zobrazit i~ruční události a~události bez dokladu. Kopie se při každé změně zakázky nebo faktury aktualizuje. Kniha k~takovým automatickým akcím, které odpovídají triggerům, doporučuje opatrnost \cite[s.~213]{Silberschatz2020}. Aplikace je proto drží jednoduché: každá akce jen vytvoří nebo upraví jednu událost a~nespouští další akce.
+
+\subsection{Historie změn bez cizího klíče}
+
+Tabulka HistorieZmen ukládá typ objektu a~jeho \texttt{id}, ale nemá na objekt cizí klíč. Databáze tedy referenční integritu této vazby nehlídá. Je to záměrné: auditní záznam musí uchovat i~informaci o~smazání objektu \cite[s.~445]{Silberschatz2020}. Cizí klíč by smazání buď zakázal, nebo by smazal i~záznam historie. Sloupec \texttt{id\_objektu} má stejný datový typ jako primární klíče, jak kniha požaduje u~odkazujících sloupců \cite[s.~149]{Silberschatz2020}.
+
+\subsection{Pravidla kontrolovaná aplikací}
+
+Některá omezení nejsou v~databázi, ale jen v~aplikaci. Kontrolní součet IČO nelze rozumně zapsat podmínkou \texttt{CHECK} \cite[s.~147]{Silberschatz2020}. Údaje dodavatele z~importovaného souboru ISDOC navíc nemusí být platné, a~aplikace je musí umět uložit a~nechat uživatele je opravit. Kontrolu proto provádí validátor ve formuláři.
+
+Cena položky dokladu může zůstat prázdná. Kniha doporučuje omezení NOT NULL u~atributů, u~kterých prázdná hodnota nemá smysl \cite[s.~146]{Silberschatz2020}. Položky se do dokladu převezmou ze zakázky, v~detailu dokladu je ale lze upravit, takže na dokladu může zůstat i~textová položka bez ceny, například poznámka k~rozsahu opravy.
+
+Datum vystavení nabídky a~datum zaplacení platby jsou uloženy včetně času, zatímco datum vystavení faktury jen jako datum. Kniha doporučuje volit typ podle významu údaje \cite[s.~154]{Silberschatz2020}. Faktura podle zákona o~DPH nese jen datum. Čas nabídky a~platby se zobrazuje v~kalendáři a~v~historii zakázky.
+
+\subsection{Ochrana při mazání v~aplikační vrstvě}
+
+Chování při smazání odkazovaného záznamu (PROTECT, CASCADE, SET NULL) určuje v~aplikaci Django, nikoli klauzule \texttt{ON DELETE} v~databázi. Django ve verzi 5.2 vytváří cizí klíče bez této klauzule a~kaskádové mazání nebo jeho odmítnutí provede samo před odesláním příkazu do databáze. Databáze přesto hlídá referenční integritu: neplatný odkaz by odmítla. Výsledek je stejný, jaký kniha popisuje pro \texttt{ON DELETE CASCADE} a~odmítnutí operace \cite[s.~149--150]{Silberschatz2020}. Rozdíl je jen v~tom, kdo akci provádí.

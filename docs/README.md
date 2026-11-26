@@ -39,6 +39,6 @@ BusinessManager je webová aplikace pro malou servisní firmu: eviduje zákazní
 
 ## Bakalářská práce
 
-Aplikace vznikla jako bakalářská práce *Návrh a implementace systému pro evidenci servisních zakázek a automatizovanou tvorbu faktur* (Univerzita J. E. Purkyně v Ústí nad Labem, Přírodovědecká fakulta, 2026). Celý text: **[bakalarska-prace.pdf](bakalarska-prace.pdf)**.
+Aplikace vznikla jako bakalářská práce *Návrh a implementace systému pro evidenci servisních zakázek a automatizovanou tvorbu faktur* (Univerzita J. E. Purkyně v Ústí nad Labem, Přírodovědecká fakulta, 2026). Celý text: **[thesis/ki-thesis.pdf](thesis/ki-thesis.pdf)**, zdrojové texty v LaTeXu, obrázky a podklady k rešerši jsou ve složce [thesis/](thesis/README.md).
 
 Aplikace je open source pod licencí [MIT](../LICENSE).

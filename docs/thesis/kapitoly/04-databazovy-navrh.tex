@@ -1,0 +1,95 @@
+% ============================================================
+% Teoretická část, bod 4: Principy databázového návrhu
+% Jen to, co doporučuje literatura (hlavně Silberschatz et al., 7. vyd.).
+% Porovnání s návrhem databáze aplikace je v praktické části,
+% oddíl sec:db-soulad (kapitoly/navrh/databaze-soulad.tex).
+% ============================================================
+\chapter{Principy databázového návrhu}\label{kap:principy-db}
+
+Učebnice \emph{Database System Concepts} autorů Silberschatze, Kortha a~Sudarshana \cite{Silberschatz2020} patří ke standardním vysokoškolským učebnicím databázových systémů a~popisuje celý postup návrhu: od konceptuálního modelu přes převod na relační schéma až po normalizaci a~integritní omezení. Tato kapitola shrnuje principy z~této knihy, o~které se opírá návrh databáze. Jak se jednotlivé principy uplatnily v~databázi aplikace a~kde se od nich návrh záměrně odchyluje, popisuje oddíl~\ref{sec:db-soulad} v~praktické části.
+
+\section{Relační model a~klíče}\label{sec:principy-klice}
+
+Relační databáze ukládá data v~relacích (tabulkách), jejichž řádky musí být navzájem rozlišitelné podle hodnot atributů. Množina atributů, která jednoznačně určuje řádek, se nazývá \emph{nadklíč}; nadklíč, z~něhož nelze žádný atribut odebrat, je \emph{kandidátní klíč}. Jeden z~kandidátních klíčů vybere návrhář jako \emph{primární klíč} \cite[s.~43--44]{Silberschatz2020}. Kniha zdůrazňuje, že primární klíč se má volit tak, aby se jeho hodnota nikdy nebo jen velmi výjimečně neměnila. Jako nevhodné kandidáty uvádí jméno osoby, které není jedinečné, a~adresu, která se mění \cite[s.~44--45]{Silberschatz2020}.
+
+Kniha dále uvádí, že pro identifikátory, které nenesou žádnou informaci z~reálného světa, se běžně používá umělý klíč, jehož hodnoty generuje sám databázový systém (v~PostgreSQL typ \texttt{serial}) \cite[s.~160--161]{Silberschatz2020}. \emph{Cizí klíč} je atribut, jehož hodnota musí odpovídat primárnímu klíči řádku v~jiné relaci \cite[s.~45]{Silberschatz2020}.
+
+\section{Konceptuální návrh pomocí E-R modelu}\label{sec:principy-er}
+
+Kniha doporučuje začít návrh konceptuálním modelem entit a~vztahů (E-R modelem) a~teprve z~něj odvodit relační schéma \cite[s.~241--243]{Silberschatz2020}. \emph{Entitní množina} je skupina objektů stejného druhu (zákazníci, zařízení, zakázky). \emph{Vztahová množina} popisuje vazbu mezi entitami a~může mít vlastní, tzv.~popisné atributy \cite[s.~244--248]{Silberschatz2020}.
+
+\subsection{Kardinalita a~účast ve vztahu}
+
+U~binárního vztahu se určuje \emph{kardinalita}: 1:1, 1:N, N:1 nebo M:N \cite[s.~252]{Silberschatz2020}. Účast entity ve vztahu je \emph{úplná}, pokud se ho musí účastnit každá entita, jinak je \emph{částečná} \cite[s.~255]{Silberschatz2020}.
+
+\subsection{Slabé entity a~generalizace}
+
+\emph{Slabá entitní množina} nemá vlastní smysl bez entity, na které existenčně závisí \cite[s.~259]{Silberschatz2020}.
+
+\emph{Generalizace} sdružuje entitní množiny se společnými atributy do jedné obecnější množiny \cite[s.~271--275]{Silberschatz2020}. Kniha uvádí dvě metody převodu generalizace na tabulky. Druhá z~nich vytvoří tabulku jen pro každou nižší entitní množinu, která obsahuje i~atributy obecné množiny. Lze ji použít, pokud je generalizace disjunktní a~úplná \cite[s.~278]{Silberschatz2020}.
+
+\subsection{Převod E-R modelu na tabulky}
+
+Postup převodu je v~knize popsán pravidly \cite[s.~265--271]{Silberschatz2020}:
+\begin{enumerate}
+\item každá silná entitní množina se převede na tabulku se stejnými atributy;
+\item vztahová množina M:N se převede na samostatnou tabulku, jejíž atributy tvoří primární klíče účastníků a~popisné atributy vztahu; nad klíči účastníků se vytvoří cizí klíče \cite[s.~268]{Silberschatz2020};
+\item vztah N:1 se sloučí do tabulky na straně \enquote{mnoha} jako cizí klíč; při částečné účasti může mít cizí klíč hodnotu NULL \cite[s.~270--271]{Silberschatz2020};
+\item vztah 1:1 lze sloučit do kterékoli z~obou tabulek \cite[s.~271]{Silberschatz2020}.
+\end{enumerate}
+
+Pokud má vztah popisný atribut, který vyjadřuje, jakou funkci entita ve vztahu plní, kniha tento údaj nazývá \emph{rolí} entity ve vztahu \cite[s.~247]{Silberschatz2020}. Primárním klíčem vztahu M:N je podle knihy sjednocení primárních klíčů účastníků \cite[s.~257--258]{Silberschatz2020}. Kniha také varuje před redundantními atributy. Pokud je vztah mezi entitami vyjádřen vztahovou množinou, nemá být stejná informace uložena ještě jako atribut entity \cite[s.~261--262, 280]{Silberschatz2020}.
+
+\section{Normalizace}\label{sec:principy-normalizace}
+
+Cílem relačního návrhu je schéma, které ukládá informace bez zbytečné redundance a~zároveň umožňuje data snadno získat \cite[s.~303]{Silberschatz2020}. Redundance vede k~anomáliím. Kniha je ukazuje na relaci, která spojuje údaje o~vyučujícím a~o~katedře: rozpočet katedry se opakuje u~každého vyučujícího, při změně se musí přepsat ve všech řádcích a~katedru bez vyučujících nelze vůbec zaznamenat \cite[s.~303--304]{Silberschatz2020}.
+
+\subsection{První normální forma}
+
+Relace je v~\emph{první normální formě} (1NF), pokud jsou domény všech atributů atomické, tedy pokud aplikace hodnoty nerozkládá na menší části \cite[s.~342]{Silberschatz2020}. Kniha uvádí, že atomicita nezávisí na hodnotě samotné, ale na tom, jak s~ní databáze a~aplikace zacházejí. Identifikátor složený z~částí s~vlastním významem je atomický, dokud z~něj aplikace tyto části nevyčítá \cite[s.~342--343]{Silberschatz2020}.
+
+\subsection{Třetí a~Boyce--Coddova normální forma}
+
+Normální formy vyšších řádů se definují pomocí \emph{funkčních závislostí}. Relace je v~\emph{Boyce--Coddově normální formě} (BCNF), pokud je levá strana každé netriviální funkční závislosti nadklíčem relace \cite[s.~313--314]{Silberschatz2020}. \emph{Třetí normální forma} (3NF) tuto podmínku mírně uvolňuje. Každá relace v~BCNF je zároveň ve 3NF \cite[s.~317]{Silberschatz2020}.
+
+Kniha uvádí, že pečlivě navržený E-R model, ve kterém jsou správně určeny všechny entitní množiny, vede ke schématu, které další normalizaci nepotřebuje \cite[s.~344]{Silberschatz2020}.
+
+\subsection{Denormalizace}
+
+Kniha připouští, že návrhář někdy záměrně zvolí schéma s~redundantními údaji, například kvůli rychlosti. Cenou je dodatečná práce s~udržováním redundantních kopií v~souladu \cite[s.~346]{Silberschatz2020}. Zvláštním případem jsou \emph{časově proměnná data}. Pokud se má zachovat stav údaje k~určitému okamžiku, přestává platit funkční závislost, která platí pro aktuální stav \cite[s.~347--348]{Silberschatz2020}.
+
+\section{Integritní omezení}\label{sec:principy-omezeni}
+
+Integritní omezení zajišťují, že změny v~databázi neporuší konzistenci dat. Obvykle se určují při návrhu schématu a~deklarují v~příkazu \texttt{CREATE TABLE} \cite[s.~145--146]{Silberschatz2020}. Jazyk SQL nabízí tato omezení pro jednu relaci \cite[s.~146--149]{Silberschatz2020}:
+\begin{itemize}
+\item \textbf{NOT NULL} zakazuje prázdnou hodnotu u~atributů, u~kterých nemá smysl. Kniha jako příklad uvádí studenta bez jména, protože takový řádek nenese užitečnou informaci \cite[s.~146]{Silberschatz2020}.
+\item \textbf{UNIQUE} určuje, že zadané atributy tvoří nadklíč, takže dva řádky nemohou mít stejné hodnoty \cite[s.~147]{Silberschatz2020}.
+\item \textbf{CHECK} zadává podmínku, kterou musí splnit každý řádek. Kniha ho doporučuje i~pro simulaci výčtového typu, kdy atribut smí nabývat jen hodnot z~daného seznamu \cite[s.~147--148]{Silberschatz2020}.
+\end{itemize}
+\emph{Referenční integrita} zajišťuje, že hodnota cizího klíče odkazuje na existující řádek. Pro případ smazání odkazovaného řádku SQL nabízí tři možnosti: operaci odmítnout, smazat i~odkazující řádky (\texttt{ON DELETE CASCADE}) nebo odkaz vynulovat (\texttt{SET NULL}) \cite[s.~149--150]{Silberschatz2020}. Odkazující sloupec musí mít s~primárním klíčem kompatibilní datový typ \cite[s.~149]{Silberschatz2020}.
+
+\section{Datové typy}\label{sec:principy-typy}
+
+Pro každý atribut se volí doména, tedy datový typ a~případná omezení hodnot \cite[s.~68]{Silberschatz2020}. Kniha k~volbě typů uvádí:
+\begin{itemize}
+\item typ \texttt{numeric(p,d)} ukládá číslo s~pevným počtem desetinných míst přesně, na rozdíl od typů s~plovoucí čárkou \cite[s.~67]{Silberschatz2020}, a~kniha jej používá i~ve svém příkladu pro peněžní částky \cite[s.~68]{Silberschatz2020};
+\item pro texty se má používat \texttt{varchar} místo \texttt{char}, který hodnoty doplňuje mezerami a~komplikuje porovnávání \cite[s.~67--68]{Silberschatz2020};
+\item pro kalendářní údaje slouží typ \texttt{date}, pro okamžik typ \texttt{timestamp}, případně s~časovým pásmem \cite[s.~154]{Silberschatz2020};
+\item velké objekty, například obrázky, lze ukládat do databáze jako typ \texttt{blob} \cite[s.~156]{Silberschatz2020}.
+\end{itemize}
+
+Kniha uvádí, že indexy nejsou nutné pro správnost dat, ale jsou důležité pro rychlé dotazy i~pro kontrolu primárních a~cizích klíčů \cite[s.~164]{Silberschatz2020}. Kniha dále doporučuje jednotné pojmenování: jedno jméno atributu má mít v~celé databázi jeden význam a~pro entitní množiny se má důsledně používat buď jednotné, nebo množné číslo \cite[s.~345--346]{Silberschatz2020}.
+
+\section{Objektově-relační mapování}\label{sec:principy-orm}
+
+ORM automaticky převádí objekty programovacího jazyka na řádky relací a~zpět \cite[s.~431]{Silberschatz2020}. Kniha jako příklad takového nástroje přímo popisuje ORM frameworku Django. Tabulky se definují třídami (modely), vztah M:N atributem \texttt{ManyToManyField} a~nástroj \texttt{migrate} z~modelů vytvoří nebo upraví databázové schéma \cite[s.~433--434]{Silberschatz2020}. Kniha tuto vrstvu popisuje jako místo, kde se zajišťuje dodržování obchodních pravidel \cite[s.~431]{Silberschatz2020}. Kniha dále doporučuje vést \emph{auditní záznam} (audit trail): u~každého vložení, změny a~smazání se uloží, kdo změnu provedl a~kdy \cite[s.~445]{Silberschatz2020}.
+
+\section{Ochrana dat před útokem SQL injection}\label{sec:principy-sql-injection}
+
+\emph{SQL injection} je útok, při kterém útočník místo běžného údaje, například jména, zadá do formuláře kus kódu SQL. Pokud aplikace sestaví dotaz prostým spojením textu dotazu a~vstupu uživatele, databáze tento kód provede. Kniha uvádí příklad, kdy vstup \texttt{X' or 'Y' = 'Y} změní podmínku dotazu tak, že platí vždy a~dotaz vrátí celou tabulku. Vstup \texttt{X'; drop table instructor; -{}-} dokonce tabulku smaže \cite[s.~189--190]{Silberschatz2020}. Stejným postupem lze obejít přihlášení, protože podmínka na jméno a~heslo se stane vždy pravdivou.
+
+Kniha jako obranu doporučuje \emph{předpřipravené dotazy} (prepared statements). Vstup uživatele se databázi předá jako parametr dotazu, ne jako součást jeho textu, a~databáze ho proto vždy považuje za data, nikdy za kód. Podle knihy se vstup uživatele smí do databáze předávat pouze přes parametry a~sestavování dotazů spojováním textu je vážné bezpečnostní riziko \cite[s.~190]{Silberschatz2020}. Druhým zdrojem rizika jsou dotazy, jejichž část se skládá podle volby uživatele, například název sloupce pro řazení. Takovou hodnotu má aplikace před použitím porovnat se seznamem povolených hodnot \cite[s.~438--439]{Silberschatz2020}.
+
+Hesla se podle knihy nemají ukládat jako text, ale jen jako jejich otisk (hash) spočítaný z~hesla a~náhodného řetězce (soli). Ani správce databáze pak heslo nezjistí a~stejná hesla dvou uživatelů mají různé otisky \cite[s.~414]{Silberschatz2020}.
+
+Omezovat znaky, které smí uživatel zadat, není podle dalších zdrojů vhodná ochrana. Organizace OWASP uvádí jako hlavní obranu parametrizované dotazy. Seznam povolených hodnot doporučuje jen pro části dotazu, jako je název sloupce nebo směr řazení, a~upozorňuje, že ani zkontrolovaná hodnota se nesmí do dotazu připojovat jako text \cite{owasp-sqli}. U~hesla by omezení znaků bezpečnost dokonce snížilo, protože zmenšuje počet možných hesel. Americký standard pro ověřování totožnosti proto doporučuje, aby systém v~hesle přijímal všechny tisknutelné znaky ASCII včetně mezery i~znaky Unicode \cite[odd.~3.1.1.2]{nist-800-63b}.

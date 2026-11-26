@@ -1,0 +1,77 @@
+% ============================================================
+% Architektura aplikace (zkrácená verze; úplný popis je v dokumentaci
+% aplikace: docs/04-architektura.md v repozitáři)
+% ============================================================
+\section{Architektura aplikace}\label{sec:architektura}
+
+BusinessManager je webová aplikace s~architekturou \emph{klient--server}. Klientem je webový prohlížeč zaměstnance, serverem aplikace Django běžící na firemním počítači. Serverová část je rozdělena do vrstev: pohledy zpracovávají požadavky, modely obsahují doménovou logiku a~přístup k~datům přes ORM a~datovou vrstvu tvoří databáze a~úložiště souborů. Samostatným subsystémem je systém šablon dokumentů, který pro převod do PDF využívá LibreOffice. Uspořádání ukazuje obrázek~\ref{fig:architektura}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=5mm and 7mm, font=\small]
+  % klient
+  \node[bm blok, minimum width=4.6cm] (prohlizec) {\textbf{Webový prohlížeč}\\\footnotesize HTML, Bootstrap, JavaScript, htmx};
+  % kontejner web
+  \node[bm blok, below=13mm of prohlizec, minimum width=4.6cm] (gunicorn) {\textbf{Gunicorn} (WSGI server)\\\footnotesize při vývoji \texttt{manage.py runserver}};
+  \node[bm blok, below=of gunicorn, minimum width=4.6cm] (mw) {\textbf{Django: middleware a URL}\\\footnotesize přihlášení, CSRF, relace, směrování};
+  \node[bm blok, below=of mw, minimum width=4.6cm] (views) {\textbf{Pohledy}\\\footnotesize \texttt{views.py}, \texttt{views\_sablony.py}};
+  \node[bm blok, left=of views, minimum width=2.6cm] (tpl) {\textbf{Šablony UI}\\\footnotesize \texttt{templates/}};
+  \node[bm blok, right=of views, minimum width=3.2cm] (sab) {\textbf{Systém šablon}\\\footnotesize \texttt{core/sablony/}\\\footnotesize openpyxl, lxml};
+  \node[bm blok, below=of views, minimum width=4.6cm] (orm) {\textbf{Modely a ORM}\\\footnotesize \texttt{models.py}, signály};
+  \node[bm blok, below=7mm of sab, minimum width=3.2cm] (lo) {\textbf{LibreOffice}\\\footnotesize headless, převod do PDF\\\footnotesize pypdfium2: miniatury};
+  % data
+  \node[bm uloziste, below=14mm of orm] (db) {\textbf{Databáze}\\\footnotesize SQLite / PostgreSQL};
+  \node[bm uloziste] (media) at (db -| lo) {\textbf{Soubory}\\\footnotesize složka \texttt{media/}};
+  % hranice kontejneru
+  \begin{scope}[on background layer]
+    \node[draw, dashed, rounded corners, inner sep=3mm, fit=(gunicorn) (tpl) (sab) (orm) (lo),
+          label={[font=\footnotesize\itshape, anchor=north east]north east:kontejner \texttt{web}}] (web) {};
+  \end{scope}
+  % vazby
+  \draw[bm obousmerna] (prohlizec) -- node[right, font=\footnotesize, align=left] {HTTP požadavek / odpověď\\(HTML, JSON, PDF, soubory)} (gunicorn);
+  \draw[bm sipka] (gunicorn) -- (mw);
+  \draw[bm sipka] (mw) -- (views);
+  \draw[bm sipka] (views) -- (tpl);
+  \draw[bm sipka] (views) -- (sab);
+  \draw[bm obousmerna] (views) -- (orm);
+  \draw[bm sipka] (sab) -- (lo);
+  \draw[bm sipka] (sab.south west) -- (orm.north east);
+  \draw[bm obousmerna] (orm) -- node[right, font=\footnotesize] {SQL} (db);
+  \draw[bm obousmerna] (lo) -- node[right, font=\footnotesize, align=left] {PDF\\cache} (media);
+  \draw[bm obousmerna] (orm.south east) -- node[pos=0.55, below left, font=\footnotesize] {soubory} (media.north west);
+\end{tikzpicture}
+\caption{Architektura aplikace BusinessManager}\label{fig:architektura}
+\end{figure}
+
+\paragraph{Frontend} tvoří HTML stránky, které server generuje ze šablon Django. Nejde o~samostatnou klientskou aplikaci (\emph{single-page application}), ale o~klasickou serverově vykreslovanou aplikaci: každé kliknutí nebo odeslání formuláře je běžný požadavek HTTP. Tento přístup je jednoduchý, spolehlivý a~celá logika zůstává na jednom místě.
+
+\paragraph{Backend.} Požadavek přijme server Gunicorn, projde řetězcem \emph{middleware} (bezpečnost, relace, ochrana CSRF, průvodce prvním spuštěním, ověření přihlášení, kontrola oprávnění), URL směrování vybere pohled a~ten vrátí HTML stránku, data JSON nebo soubor. Většinu tabulek (číselníky, platby, kontaktní osoby) obsluhují \emph{obecné pohledy} pro seznam, detail, formulář a~smazání, které formulář vytvoří automaticky z~definice modelu. Hlavní agendy (nová zakázka, pracovní plocha, tvorba dokladů, kalendář) mají specializované pohledy. Doménová logika, která musí platit bez ohledu na to, odkud se data mění, je přímo v~modelech: číslování dokladů, výpočet cen a~součtů, kopie údajů zákazníka do dokladu. Zápis událostí do kalendáře zajišťují signály. Operace, které mění více tabulek najednou, probíhají v~databázové transakci.
+
+\paragraph{Soubory} nahrané uživateli (fotografie, přílohy, šablony, logo) se ukládají do složky \texttt{media}, databáze obsahuje jen jejich cestu.
+
+\paragraph{Zabezpečení.} Všechny stránky i~soubory jsou dostupné jen přihlášeným uživatelům. Formuláře jsou chráněny proti CSRF, výstupy šablon proti vložení kódu (XSS) a~dotazy do databáze skládá ORM bezpečně. Co smí který uživatel, určují role a~oprávnění. Oprávnění kontroluje middleware na serveru u~každého požadavku podle adresy, takže nestačí jen skrýt tlačítko; Nastavení a~šablony dokumentů vidí jen uživatel s~oprávněním Nastavení. Formuláře kontroluje server a~chybu hlásí česky u~políčka. Záznamy, na které navazuje historie, se nemažou, ale deaktivují. Hesla a~tajný klíč se nezapisují do zdrojového kódu, ale načítají se ze souboru \path{.env}.
+
+\paragraph{Nasazení.} Ve firmě běží aplikace v~kontejnerech Docker (obrázek~\ref{fig:docker}). Kontejner \texttt{web} obsahuje aplikaci, LibreOffice a~písma, kontejner \texttt{db} databázi PostgreSQL, jejíž port není dostupný mimo Docker. Data jsou ve svazcích \texttt{pgdata} a~\texttt{media}, takže přežijí restart počítače i~aktualizaci aplikace. Při každém spuštění kontejner aplikuje migrace databáze a~po první instalaci se automaticky vytvoří výchozí data (stavy zakázek, oprávnění a~výchozí role, sazby DPH, vestavěné šablony). Instalaci, aktualizaci a~zálohování zajišťují skripty \path{instalace.bat}, \path{aktualizace.bat} a~\path{zaloha.bat}; postup popisuje oddíl~\ref{sec:nasazeni} a~instalační návod v~repozitáři. Při vývoji lze aplikaci spustit i~bez Dockeru nad databází SQLite. Podrobný popis vrstev, složek se soubory, komunikace komponent a~spuštění je v~dokumentaci aplikace\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/04-architektura.md}}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=6mm and 10mm, font=\small]
+  \node[bm blok, minimum width=4.2cm] (web) {\textbf{kontejner \texttt{web}}\\\footnotesize Python 3.12, Django, Gunicorn\\\footnotesize LibreOffice, písma\\\footnotesize port 8080};
+  \node[bm blok, right=18mm of web, minimum width=4.2cm] (dbk) {\textbf{kontejner \texttt{db}}\\\footnotesize PostgreSQL 17\\\footnotesize port 5432 jen uvnitř};
+  \node[bm uloziste, below=10mm of web] (vmedia) {svazek \texttt{media}\\\footnotesize fotky, přílohy, šablony};
+  \node[bm uloziste, below=10mm of dbk] (vpg) {svazek \texttt{pgdata}\\\footnotesize data databáze};
+  \node[bm blok, above=10mm of web, minimum width=4.2cm] (pc) {\textbf{prohlížeče zaměstnanců}\\\footnotesize \texttt{http://<firemní-pc>:8080}};
+  \node[bm blok, minimum width=4.2cm] (env) at (pc -| dbk) {\textbf{soubor \texttt{.env}}\\\footnotesize tajný klíč, hesla, adresy};
+  \begin{scope}[on background layer]
+    \node[draw, dashed, rounded corners, inner sep=3mm, fit=(web) (dbk) (vmedia) (vpg),
+          label={[font=\footnotesize\itshape, anchor=north]south:Docker Compose na firemním počítači}] {};
+  \end{scope}
+  \draw[bm obousmerna] (pc) -- node[right, font=\footnotesize] {HTTP} (web);
+  \draw[bm obousmerna] (web) -- node[above, font=\footnotesize] {SQL} (dbk);
+  \draw[bm obousmerna] (web) -- (vmedia);
+  \draw[bm obousmerna] (dbk) -- (vpg);
+  \draw[bm sipka, dashed] (env) -- node[right, font=\footnotesize] {konfigurace} (dbk);
+  \draw[bm sipka, dashed] (env.south west) -- (web.north east);
+\end{tikzpicture}
+\caption{Nasazení aplikace pomocí Docker Compose}\label{fig:docker}
+\end{figure}

@@ -1,0 +1,46 @@
+% ============================================================
+% Použité technologie (zkrácená verze; úplný popis je v dokumentaci
+% aplikace: docs/03-technologie.md v repozitáři)
+% ============================================================
+\section{Použité technologie}\label{sec:technologie}
+
+Při výběru technologií byla rozhodující tři kritéria vyplývající z~analýzy požadavků. Aplikace musí běžet na jednom firemním počítači bez placených licencí, musí být udržovatelná jedním vývojářem a~musí umět pracovat se stávajícími Excelovými formuláři firmy. Všechny použité technologie jsou proto open-source, rozšířené a~dobře zdokumentované. Jejich roli v~aplikaci shrnuje tabulka~\ref{tab:technologie}. Podrobný popis každé technologie (co to je, proč byla zvolena a~jak ji aplikace používá) je součástí dokumentace aplikace v~repozitáři na GitHubu\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/03-technologie.md}}. Následující odstavce zdůvodňují jen klíčová rozhodnutí.
+
+\paragraph{Django místo Flasku.} Aplikace je svou povahou převážně evidenční: obsahuje desítky provázaných tabulek, formulářů a~seznamů. Framework Django vychází z~principu \enquote{batteries included} a~většinu potřebných součástí (objektově relační mapování, migrace, přihlašování, formuláře s~validací, administraci) poskytuje přímo. U~minimalistického frameworku, jako je Flask, by bylo nutné tyto součásti skládat z~jednotlivých rozšíření. Díky ORM je navíc aplikace nezávislá na databázovém systému. Použita je verze Django~5.2 s~dlouhodobou podporou (LTS).
+
+\paragraph{SQLite pro vývoj, PostgreSQL pro provoz.} Mezi oběma systémy se přepíná jen proměnnou prostředí, kód aplikace je stejný. Přepnutí zajišťuje objektově relační mapování (ORM) frameworku Django: aplikace pracuje s~daty přes modely a~SQL dotazy pro zvolenou databázi sestavuje Django samo. V~konfiguraci se podle proměnné \texttt{DB\_ENGINE} vybere buď ovladač pro SQLite, nebo pro PostgreSQL (knihovna psycopg). SQLite nevyžaduje žádnou instalaci a~celá databáze je jeden soubor, proto se používá při vývoji a~při spuštění bez Dockeru. PostgreSQL~17 se používá při provozu ve firmě, protože lépe zvládá současnou práci více zaměstnanců, důsledně kontroluje datové typy a~délky textů a~umožňuje standardní zálohování nástrojem \texttt{pg\_dump}.
+
+\paragraph{Serverově vykreslované rozhraní.} Obrazovky se generují na serveru šablonovacím jazykem Django, vzhled zajišťuje Bootstrap~5.3. Aplikace záměrně nepoužívá velký frontendový framework (React, Vue), protože rozhraní je převážně formulářové. JavaScript a~knihovna htmx jsou použity jen tam, kde výrazně zrychlují práci: u~vyhledávacích polí s~našeptávačem, v~prohlížeči dokumentů, v~editoru šablon a~v~náhledu položek nového dokladu. Knihovny jsou přibaleny přímo k~aplikaci, takže fungují i~bez připojení k~internetu.
+
+\paragraph{openpyxl a LibreOffice místo ReportLabu.} Firma požadovala, aby dokumenty vypadaly stejně jako její dosavadní Excelové formuláře. Knihovna openpyxl umí načíst existující sešit se všemi styly, sloučenými buňkami, vzorci a~obrázky, změnit hodnoty buněk a~sešit znovu uložit. Grafické tvary, které openpyxl při uložení ztrácí, obnovuje aplikace pomocí knihovny lxml. Vyplněný sešit pak převede do PDF LibreOffice spuštěný bez grafického rozhraní. Generování PDF knihovnou typu ReportLab by vyžadovalo nakreslit každý dokument znovu v~kódu a~uživatel by pak nemohl vzhled dokumentu sám měnit. Microsoft Excel nebylo možné použít, protože není dostupný v~Linuxovém kontejneru a~neumožňuje spolehlivé automatizované spouštění na serveru.
+
+\paragraph{Docker.} Aplikace kromě Pythonu potřebuje i~LibreOffice, písma kompatibilní s~Arial a~Calibri a~databázový server. Docker zajišťuje, že se všechny tyto součásti nainstalují vždy ve stejných verzích a~konfiguraci. Instalace ve firmě se tak omezí na spuštění jednoho skriptu a~aktualizace na nové sestavení kontejneru, při kterém proběhnou migrace databáze automaticky.
+
+\begin{longtable}{p{0.24\textwidth}p{0.12\textwidth}p{0.56\textwidth}}
+\caption{Přehled technologií a jejich role v aplikaci}\label{tab:technologie}\\
+\hline
+\textbf{Technologie} & \textbf{Verze} & \textbf{Role v aplikaci} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Technologie} & \textbf{Verze} & \textbf{Role v aplikaci} \\
+\hline
+\endhead
+\hline
+\endfoot
+Python & 3.12 & hlavní programovací jazyk, veškerá serverová logika \\
+Django & 5.2 LTS & webový framework: modely, pohledy, šablony, formuláře, přihlašování, migrace, administrace \\
+SQLite & -- & databáze pro vývoj a provoz bez Dockeru \\
+PostgreSQL & 17 & databáze při nasazení v Dockeru \\
+psycopg & 3 & ovladač pro připojení Django k PostgreSQL \\
+HTML, CSS, šablony Django & -- & generování obrazovek uživatelského rozhraní a HTML šablon dokumentů \\
+Bootstrap & 5.3 & vzhled a rozvržení uživatelského rozhraní \\
+JavaScript, htmx & --, 2.0 & našeptávač, prohlížeč dokumentů, editor šablon, dynamický náhled položek \\
+openpyxl & 3.1 & čtení, analýza a vyplňování Excelových šablon \\
+lxml & -- & zachování kreseb (tvarů) v Excelových šablonách, export a import faktur ISDOC \\
+LibreOffice & -- & převod vyplněných šablon do PDF, převod \texttt{.xls} na \texttt{.xlsx} \\
+pypdfium2, Pillow & -- & miniatury šablon, ukládání fotografií a loga \\
+Gunicorn, WhiteNoise & -- & provozní aplikační server a obsluha statických souborů \\
+Docker, Docker Compose & -- & zabalení a nasazení aplikace včetně databáze a LibreOffice \\
+Git, GitHub & -- & správa verzí zdrojového kódu a dokumentace \\
+\end{longtable}

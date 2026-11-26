@@ -1,0 +1,35 @@
+% ============================================================
+% Celkový popis aplikace (zkrácená verze; úplný popis je v dokumentaci
+% aplikace: docs/01-popis-aplikace.md v repozitáři)
+% ============================================================
+\section{Celkový popis aplikace}\label{sec:popis-aplikace}
+
+Výsledkem praktické části práce je aplikace \textbf{BusinessManager}, informační systém pro evidenci servisních zakázek navržený pro malou servisní firmu zabývající se opravami elektromotorů a~dalších technických zařízení. Aplikace sdružuje na jednom místě vše, co se ve firmě dříve evidovalo odděleně v~papírových formulářích, tabulkách aplikace Excel a~složkách s~fotografiemi: zákazníky, jejich zařízení, průběh opravy, provedené práce, použitý materiál a~z~nich vytvářené zakázkové listy, cenové nabídky a~faktury. Podrobný popis aplikace pro uživatele je součástí její dokumentace\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/01-popis-aplikace.md}}.
+
+\subsection{Hlavní myšlenky aplikace}\label{sec:popis-aplikace-problem}
+
+Analýza procesů (kapitola~\ref{kap:analyza-procesu}) ukázala, že se stejné údaje ve firmě opakovaně přepisovaly mezi dokumenty, stav zakázek a~historie oprav se dohledávaly pracně a~součty, DPH i~číslování dokladů se počítaly ručně. Aplikace na to odpovídá dvěma myšlenkami:
+
+\begin{itemize}
+\item \textbf{Každý údaj se zadává pouze jednou.} Zákazník, zařízení nebo položka materiálu se zapíší, když se poprvé objeví, a~dále se na ně jen odkazuje. Nabídku nebo fakturu aplikace sestaví sama z~prací a~materiálu evidovaných u~zakázky a~doplní údaje o~zákazníkovi a~o~firmě.
+\item \textbf{Vzhled dokumentů zůstává v~rukou firmy.} Aplikace pracuje s~firemními Excelovými formuláři, do kterých se vloží značky (například \texttt{\{\{dokument.cislo\}\}}). Při tvorbě dokumentu je nahradí údaji z~databáze (oddíl~\ref{sec:sablony}).
+\end{itemize}
+
+Aplikace je určena pro administrativní pracovníky, kteří přijímají zařízení a~vystavují doklady, a~pro techniky, kteří doplňují provedené práce a~materiál. Jde o~uživatele bez specializovaných znalostí IT, proto je rozhraní celé v~češtině a~používá pojmy z~praxe firmy. Účetnictví, mzdy ani skladová evidence nejsou předmětem aplikace. BusinessManager je webová aplikace, která běží na jednom firemním počítači, a~zaměstnanci s~ní pracují v~prohlížeči po přihlášení svým účtem. Co kdo smí, určují role přidělené zaměstnancům.
+
+\subsection{Typický průběh práce s aplikací}\label{sec:popis-aplikace-proces}
+
+Středobodem aplikace je \textbf{zakázka}. Její průběh odpovídá pracovnímu postupu firmy z~kapitoly~\ref{kap:analyza-workflow}:
+
+\begin{enumerate}
+\item \textbf{Přijetí zařízení.} Pracovník ve formuláři \enquote{Nová zakázka} vyhledá nebo založí zákazníka a~zařízení, zadá kontaktní osobu, popis závady a~případně fotografie. Aplikace přidělí zakázce číslo, nastaví stav \enquote{Nová} a~zapíše událost do kalendáře.
+\item \textbf{Zakázkový list.} Ihned po přijetí lze vytisknout zakázkový list, který slouží jako průvodní list zařízení.
+\item \textbf{Diagnostika a~oprava.} Technici doplňují provedené práce, použitý materiál z~katalogu, další fotografie a~přílohy. Stav zakázky se mění tlačítky, přidáním první práce se nová zakázka sama přepne do stavu \enquote{Rozpracováno}.
+\item \textbf{Cenová nabídka} se vytvoří ze zakázky jedním kliknutím; aplikace převezme práce a~materiál jako položky a~spočítá ceny s~DPH.
+\item \textbf{Dokončení a vydání.} Při předání zákazníkovi aplikace uloží datum vydání a~kdo zařízení vydal.
+\item \textbf{Faktura} vznikne ze zakázky stejně jako nabídka a~dostane číslo podle firemní číselné řady.
+\item \textbf{Výsledné dokumenty} lze zobrazit, vytisknout nebo stáhnout jako PDF ve firemní šabloně, fakturu také jako elektronickou fakturu ISDOC.
+\item \textbf{Platba.} Spolu s~fakturou vznikne platba, kterou uživatel po úhradě označí jako zaplacenou.
+\end{enumerate}
+
+Mimo průběh zakázky aplikace eviduje také \textbf{přijaté faktury} od dodavatelů, které stačí nahrát ve formátu ISDOC. Všechny části aplikace pracují nad společnou databází, takže zákazník založený při přijetí zakázky je hned vidět v~evidenci zákazníků a~práce zakázky se stanou položkami nabídky i~faktury. Systém šablon určuje pouze vzhled dokumentů a~nikdy nemění uložená data.

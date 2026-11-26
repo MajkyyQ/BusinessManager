@@ -1,0 +1,52 @@
+% ============================================================
+% Teoretická část, bod 1: Charakteristika servisních zakázek
+% a fakturačních procesů v malé firmě
+% Zdroje: Monk a Wagner (2013), zákon o DPH, Anggraini et al. (2024),
+% Jordan et al. (2022). U Monka a Wagnera jsou uvedeny tištěné strany.
+% ============================================================
+\chapter{Servisní zakázky a~fakturační procesy v~malé firmě}\label{kap:zakazky-fakturace}
+
+Tato kapitola popisuje, jak obecně probíhá servisní zakázka a~fakturace, jaké doklady při tom vznikají a~jaké problémy přináší jejich evidence v~několika nepropojených nástrojích. Konkrétní postup ve firmě, pro kterou je aplikace určena, popisuje praktická část v~kapitole~\ref{kap:analyza-workflow}.
+
+\section{Servisní zakázka jako cyklus událostí}\label{sec:zakazka-cyklus}
+
+Servisní zakázkou se v~této práci rozumí požadavek zákazníka na diagnostiku a~opravu zařízení, který firma přijme, zpracuje a~vyúčtuje. Z~pohledu informačního systému jde o~obdobu prodejního procesu, jak ho popisují Monk a~Wagner. Prodejní modul systému SAP ERP chápe prodej jako \emph{cyklus událostí} a~rozlišuje až šest událostí: předprodejní činnosti, zpracování objednávky, zajištění zásob, dodání, fakturaci a~platbu \cite[s.~56]{MonkWagner2013}. Každá událost se zaznamenává do společné databáze, takže na ni mohou navazovat další kroky \cite[s.~56]{MonkWagner2013}.
+
+V~servisní firmě mají tyto události přirozený protějšek:
+\begin{itemize}
+\item \textbf{předprodejní činnosti} odpovídají přijetí zařízení a~případné cenové nabídce,
+\item \textbf{zpracování objednávky} odpovídá založení zakázky a~zakázkového listu,
+\item \textbf{zajištění zásob} odpovídá objednání a~použití materiálu a~náhradních dílů,
+\item \textbf{dodání} odpovídá dokončení opravy a~předání zařízení zákazníkovi,
+\item \textbf{fakturace a~platba} zůstávají beze změny.
+\end{itemize}
+
+Monk a~Wagner rozlišují mezi poptávkou a~nabídkou. Nabídka je písemný a~závazný dokument: prodávající se v~ní zavazuje, že zákazník po stanovenou dobu získá plnění za nabídnutou cenu. Poptávka je jen sdělení ceny bez záruky \cite[s.~56]{MonkWagner2013}. Pro servisní firmu z~toho plyne, že nabídka musí vycházet z~přesných údajů o~provedených pracích a~materiálu, protože se jí firma zavazuje.
+
+\section{Doklady v~průběhu zakázky}\label{sec:zakazka-doklady}
+
+Během zakázky vzniká několik dokladů. Každý z~nich slouží jinému účelu a~jinému adresátovi:
+\begin{itemize}
+\item \textbf{Zakázkový list} je interní doklad o~přijetí zařízení. Obsahuje údaje o~zákazníkovi a~zařízení, popis závady a~později záznam o~provedené opravě.
+\item \textbf{Předávací protokol} potvrzuje převzetí a~vrácení zařízení.
+\item \textbf{Cenová nabídka} je závazný návrh ceny pro zákazníka \cite[s.~56]{MonkWagner2013}.
+\item \textbf{Faktura} je doklad, na jehož základě zákazník platí.
+\end{itemize}
+
+Monk a~Wagner popisují, že integrovaný systém vytváří fakturu \emph{zkopírováním údajů objednávky} do dokladu faktury a~současně aktualizuje účetní záznamy \cite[s.~57]{MonkWagner2013}. Platba se pak zaznamená k~vystavenému dokladu \cite[s.~57]{MonkWagner2013}. Údaje se tedy zadávají jednou, při vzniku zakázky, a~další doklady z~nich vycházejí.
+
+Pokud je firma plátcem DPH, je faktura \emph{daňovým dokladem} a~musí obsahovat náležitosti podle §~29 zákona o~dani z~přidané hodnoty \cite{zakon-dph}. Patří mezi ně zejména označení a~daňové identifikační číslo plátce i~odběratele, evidenční číslo dokladu, rozsah a~předmět plnění, datum vystavení a~datum uskutečnění plnění, jednotková cena bez daně, základ daně, sazba daně a~výše daně. Systém pro tvorbu faktur proto musí tyto údaje evidovat a~na doklad je doplnit sám.
+
+\section{Problémy nepropojené evidence}\label{sec:zakazka-problemy}
+
+Monk a~Wagner ukazují problémy firmy, jejíž oddělení používají samostatné, nepropojené evidence. Údaje z~nabídky se nedostanou do zákaznické databáze, zákazník je proto musí opakovat a~může vzniknout duplicitní objednávka. Ručně psané formuláře mohou být nečitelné \cite[s.~53]{MonkWagner2013}. Stejné problémy se objevují i~v~malé servisní firmě, která vede zakázky v~papírové evidenci a~doklady v~samostatných tabulkách.
+
+Podobně popisují situaci přehledové studie systémů pro správu dokumentů (DMS). Anggraini et~al.\ uvádějí, že v~mnoha odvětvích se opakují stejné potíže: dokumenty nejsou uložené na jednom místě a~obtížně se dohledávají a~papírové dokumenty se mohou poškodit nebo ztratit \cite[s.~264]{Anggraini2024}. Jordan et~al.\ citují průzkum, podle kterého je u~ruční správy dokumentů největším rizikem ztráta souborů (92~\%) a~nutnost znovu vytvářet chybějící dokumenty (83~\%) \cite[s.~46]{Jordan2022}. Jako přínos elektronické evidence uvádějí mimo jiné auditní stopu, tedy záznam všech kroků provedených s~dokumentem \cite[s.~46]{Jordan2022}.
+
+\section{Integrovaný systém se společnou databází}\label{sec:zakazka-integrace}
+
+Řešením popsaných problémů je systém, ve kterém všechny části pracují nad \emph{společnou databází}. Monk a~Wagner uvádějí, že společná databáze omezuje chyby při zadávání dat a~poskytuje všem uživatelům přesné informace v~reálném čase \cite[s.~56]{MonkWagner2013}. Systémy ERP jsou proto složené z~modulů pro jednotlivé oblasti (prodej, nákup, účetnictví), které sdílejí jednu databázi \cite[s.~29--31]{MonkWagner2013}.
+
+Velké systémy ERP však pro malou firmu nemusí být vhodné. Monk a~Wagner upozorňují, že tyto systémy mají zabudované \enquote{nejlepší postupy} a~firma, jejíž postupy jim neodpovídají, je musí změnit, aby mohla software používat \cite[s.~34]{MonkWagner2013}. Zavedení systému je navíc nákladné a~řada implementací selže \cite[s.~40]{MonkWagner2013}. Jordan et~al.\ uvádějí, že neúspěchem končí až polovina zavádění DMS, a~mezi hlavní faktory úspěchu řadí jednoduché ovládání, zaškolení uživatelů a~jejich zapojení do zavádění \cite[s.~46, 48]{Jordan2022}.
+
+Z~uvedeného plyne, že malé servisní firmě nejlépe poslouží jednoduchý systém, který pokryje celý cyklus zakázky nad jednou databází, přizpůsobí se jejím postupům a~nebude obsahovat funkce, které nevyužije. Které hotové systémy tyto požadavky splňují, zkoumá rešerše v~kapitole~\ref{kap:reserse}.

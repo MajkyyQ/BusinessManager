@@ -1,0 +1,74 @@
+% ============================================================
+% Kapitola 2 – Rešerše existujících řešení
+% Jednotlivá řešení jsou v samostatných souborech ve složce
+% kapitoly/reserse/ a vkládají se příkazem \input
+% (\include nelze uvnitř jiného \include použít).
+% Zdroje jsou v thesis.bib, obrázky ve složce obrazky/reserse/.
+% Údaje z webů výrobců ověřeny 2.–3. 11. 2026.
+% ============================================================
+\chapter{Rešerše existujících řešení}\label{kap:reserse}
+
+Před návrhem vlastní aplikace byla provedena rešerše softwarových řešení, která firmy v~České republice běžně používají pro evidenci zákazníků, dokladů a~zakázek. Cílem bylo zjistit, do jaké míry tato řešení pokrývají potřeby malé servisní firmy popsané v~kapitole~\ref{kap:analyza-workflow}, co dělají dobře a~lze se jimi inspirovat a~co jim naopak z~pohledu firmy chybí.
+
+\section{Metodika rešerše}\label{sec:reserse-metodika}
+
+Do srovnání bylo vybráno šest řešení, která tvoří tři dvojice podle velikosti a~zaměření:
+\begin{itemize}
+\item \textbf{online fakturační nástroje} pro živnostníky a~malé firmy: Fakturoid a~iDoklad,
+\item \textbf{open-source podnikové systémy (ERP)}: Odoo a~ERPNext,
+\item \textbf{tradiční české ERP systémy}: ABRA a~HELIOS.
+\end{itemize}
+
+U~každého řešení byly nejprve z~oficiálních webových stránek, ceníků a~nápovědy výrobce zjištěny základní údaje: společnost, typ aplikace, způsob hostování, licence, cena a~dostupnost zkušební verze. U~open-source řešení byl využit i~zdrojový kód. Údaje odpovídají stavu ke dni 2.~11.~2026, není-li uvedeno jinak.
+
+Následně bylo každé řešení, které nabízí zkušební verzi, vyzkoušeno na stejném modelovém postupu: založení zákazníka, vytvoření cenové nabídky a~faktury, zobrazení náhledu a~tisk dokumentu, práce s~ceníkem a~nastavení aplikace. Pozornost byla věnována především uživatelskému rozhraní (navigaci, přehlednosti a~průběhu práce) a~tomu, zda řešení pokrývá oblasti, které řeší navrhovaná aplikace: evidenci zákazníků, zařízení, zakázek, provedené práce a~materiálu, tvorbu dokumentů podle vlastních šablon, platby, kalendář, uživatele a~role, historii změn a~import či export dat. Průběh byl zdokumentován snímky obrazovky, z~nichž jsou v~textu uvedeny ty nejpodstatnější. Hodnocení vychází z~pohledu malé servisní firmy, pro kterou je aplikace navrhována.
+
+\input{kapitoly/reserse/01-fakturoid}
+\input{kapitoly/reserse/02-idoklad}
+\input{kapitoly/reserse/03-abra}
+\input{kapitoly/reserse/04-erpnext}
+\input{kapitoly/reserse/05-odoo}
+\input{kapitoly/reserse/06-helios}
+
+\section{Souhrnné srovnání}\label{sec:reserse-srovnani}
+
+Tabulka~\ref{tab:reserse-souhrn} shrnuje základní charakteristiky všech srovnávaných řešení. Pro úplnost je v~ní uvedena i~navrhovaná aplikace BusinessManager.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.0cm}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{1.9cm}>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{1.8cm}}
+\hline
+\textbf{Řešení} & \textbf{Společnost} & \textbf{Typ} & \textbf{Hostování} & \textbf{Licence} & \textbf{Cena (měsíčně)} & \textbf{Vhodnost pro malou firmu} \\
+\hline
+Fakturoid & Fakturoid s.r.o. (CZ) & web, mobil & cloud & proprietární & 0--519 Kč s DPH & vysoká (jen fakturace) \\
+iDoklad & Seyfor, a.s. (CZ) & web, mobil & cloud & proprietární & 0--750 Kč bez DPH & vysoká (jen fakturace) \\
+ABRA Flexi & ABRA Software s.r.o. (CZ) & web, desktop & cloud (vlastní server s příplatkem) & proprietární & 390--1 375 Kč za uživatele & střední \\
+ERPNext & Frappe Technologies (IN) & web & cloud i vlastní server & GPLv3 & zdarma;\newline cloud od 5~USD & střední (bez české lokalizace) \\
+Odoo & Odoo S.A. (BE) & web, mobil & cloud i vlastní server & LGPLv3 / proprietární & jedna aplikace zdarma; 11,90--22,90 € za uživatele & střední \\
+HELIOS iNuvio & Asseco Solutions, a.s. (CZ) & desktop (Windows) & vlastní server, cloud u partnerů & proprietární & na poptávku & nízká \\
+\hline
+Business\-Manager & vlastní řešení & web & vlastní server / lokální PC & open-source & zdarma & cílové řešení \\
+\hline
+\end{tabular}}
+\caption{Souhrnné srovnání základních charakteristik řešení}\label{tab:reserse-souhrn}
+\end{table}
+
+Ze srovnání vyplývá, že řešení se dělí do dvou skupin. Fakturační nástroje Fakturoid a~iDoklad jsou levné, přehledné a~mají vyřešenou českou legislativu, nepokrývají však servisní část procesu: evidenci zařízení, zakázek, provedené práce ani kalendář. Podnikové systémy ABRA, ERPNext, Odoo a~HELIOS některé z~těchto oblastí obsahují, ale za cenu složitého rozhraní, nutnosti delšího zaškolení a~u~proprietárních řešení i~vyšších nákladů. Pojem zakázky navíc tyto systémy chápou jinak než servisní firma: ABRA jako obchodní příležitost, ERPNext jako projekt a~Odoo jako opravu výrobku s~velmi jednoduchými stavy. Žádné ze srovnávaných řešení tak nespojuje evidenci servisních zakázek a~zařízení, tvorbu dokumentů podle vlastních šablon, podporu formátu ISDOC, jednoduché rozhraní a~bezplatný provoz na vlastním počítači či serveru. Tato mezera je hlavním důvodem pro vývoj vlastní aplikace.
+
+\section{Inspirace pro návrh aplikace}\label{sec:reserse-inspirace}
+
+Rešerše přinesla řadu podnětů, které byly při návrhu aplikace využity, nebo jsou zaznamenány jako možná rozšíření:
+\begin{itemize}
+\item \textbf{Náhled dokumentu před jeho vytvořením} (Fakturoid, obrázek~\ref{obr:fakturoid-nahled}). Na rozdíl od Fakturoidu však aplikace náhled neblokuje kvůli nevyplněným údajům, pouze na ně upozorní.
+\item \textbf{Upozornění místo blokování} (iDoklad, obrázek~\ref{obr:idoklad-faktura}): chybějící údaje jsou zobrazeny jako varování a~dokument lze přesto uložit. Podobně má aplikace upozornit na nevyplněné údaje o~firmě po první instalaci.
+\item \textbf{Soukromá poznámka} k~dokladu (Fakturoid), oddělená od textu určeného zákazníkovi, například pro poznámky o~potřebném materiálu.
+\item \textbf{Upozornění a~upomínky} (iDoklad, ABRA): přehled událostí, které je třeba vyřešit, například blížící se splatnost faktur nebo naposledy vytvořené dokumenty, aby další pracovník věděl, kde předchozí den skončila práce. V~aplikaci mohou vycházet z~části Kalendář.
+\item \textbf{Souhrn počtu a~celkové částky dokladů} pod tabulkou (ABRA), zobrazovaný jen uživatelům s~oprávněním vidět finanční údaje; využití popisuje oddíl~\ref{sec:ui-inspirace}.
+\item \textbf{Kanbanové zobrazení} zákazníků, zařízení či zakázek jako alternativa k~tabulce (Odoo); využití popisuje oddíl~\ref{sec:ui-inspirace}.
+\item \textbf{Číslování dokumentů podle vzoru}: formát čísla se zadá ukázkou, například \texttt{NAB001-26}, místo složitého zápisu se zástupnými znaky, jaký používají Fakturoid a~iDoklad.
+\item \textbf{Pokladna} pro evidenci hotovostních plateb (iDoklad) jako možný rozšiřující modul.
+\end{itemize}
+Naopak jako odstrašující příklady posloužily výrazná vyskakovací upozornění uprostřed obrazovky, zdvojené ovládací prvky se stejnou funkcí, chybějící tlačítko \enquote{Zpět} a~nejednotný jazyk rozhraní.

@@ -1,0 +1,100 @@
+% ============================================================
+% Praktická část, bod 1: Analýza požadavků firmy a popis workflow zakázky
+% Sloučeno z dřívějších kapitol 04-analyza-pozadavku-workflow.tex
+% a 05-analyza-procesu.tex (jsou v zaloha-pred-preskupenim).
+% ============================================================
+\chapter{Analýza požadavků firmy a~popis workflow zakázky}\label{kap:analyza-workflow}\label{kap:analyza-procesu}
+
+\section{Způsob získání požadavků}
+
+Sommerville popisuje získávání požadavků jako proces, při kterém se vývojář snaží porozumět práci zainteresovaných osob a~tomu, jak by jim nový systém mohl pomoci \cite[s.~112]{Sommerville2016}. Požadavky na navrhovaný systém byly získány na základě konzultací s~ředitelem firmy, zároveň také na základě vlastních zkušeností ve firmě a~konverzací s~ostatními zaměstnanci, kteří se podílí na administrativním zpracování servisních zakázek. Díky tomu bylo možné identifikovat reálné potřeby uživatelů a~problémy spojené se stávajícím způsobem evidence zakázek a~fakturací.
+
+Jako autor této práce zároveň pracuji v~blíže nejmenované firmě, ve které zastávám činnost administrativního pracovníka a~mezi mé činnosti patří tvorba zakázkových a~předávacích protokolů, vytváření fakturací a~tvorba nabídky a~vlastně mám na starost celý proces zakázky. Díky této skutečnosti mám dobré znalosti pracovních postupů a~reálných potřeb a~nedostatků, které vznikají při evidenci zakázek a~následné fakturaci.
+
+\section{Charakteristika firmy a~pracovního prostředí}
+
+Firma se zaměřuje na poskytování servisních služeb, zejména na opravy elektromotorů a~souvisejících technických zařízení. Provoz firmy odpovídá typickému modelu servisní opravny, kde zákazníci přinášejí zařízení k~diagnostice a~následné opravě. Zakázky zahrnují technická zařízení, u~nichž je nutné evidovat základní identifikační údaje, popis závady, průběh opravy a~související administrativní úkony.
+
+Administrativní agenda je v~současném stavu řešena kombinací více nástrojů, zejména ruční papírovou evidencí, excelovými soubory a~fotodokumentací. Tento způsob práce není ideální pro přehled o~aktuálním stavu zakázek, není efektivní pro jejich zpracování a~zvyšuje riziko chyb při přepisování údajů mezi jednotlivými dokumenty. Odpovídá to problémům nepropojené evidence popsaným v~oddílu~\ref{sec:zakazka-problemy}.
+
+\section{Workflow servisní zakázky}\label{sec:workflow}
+
+Servisní zakázka obvykle začíná přijetím zařízení od zákazníka, který zpravidla uvede základní informace o~zařízení a~popis závady, případně sdělí své předpoklady o~jejím vzniku. V~této fázi jsou zaznamenány základní identifikační údaje o~zákazníkovi, předmětu zakázky a~stručný popis požadované služby nebo závady na zařízení. Následně je zařízení převzato pracovníkem firmy, zaevidováno a~předáno k~diagnostice.
+
+Následuje samotné zpracování zakázky. Zařízení je nejprve proměřeno a~na základě diagnostiky je vytvořena cenová nabídka. Po jejím schválení zákazníkem je provedena oprava. V~procesu opravy jsou evidovány provedené práce, použité materiály a~případné doplňující informace vzniklé v~průběhu. Zakázka může být řešena jedním nebo více pracovníky a~její realizace může probíhat v~různém časovém rozsahu. To vše záleží na poruše zařízení, požadavcích od zákazníka, dostupnosti materiálů a~součástek potřebných pro opravu.
+
+Po dokončení servisních prací je zákazník informován o~připravenosti zařízení k~vyzvednutí. Na základě evidovaných údajů a~hodnot je vystavena faktura, která je zákazníkovi předána společně s~opraveným zařízením, případně zákazník zaplatí na místě bez faktury v~hotovosti, QR kódem nebo kartou. Tak se obvykle platí i~samotný poplatek za diagnostiku, pokud se zařízení neopravuje. Poté je zakázka administrativně uzavřena. Celý proces vyžaduje precizní a~konzistentní práci s~daty, a~to jak od zákazníka, tak i~ze samotné opravy, aby bylo možné zajistit správnost účtovaných položek a~dohledatelnost veškerých informací o~zakázce.
+
+Ve zkratce má workflow zakázky tyto kroky:
+\begin{enumerate}
+\item zákazník přinese zařízení a~založí se nová zakázka,
+\item vypíší se informace o~zakázce do zakázkového listu,
+\item po diagnostice se vytvoří cenová nabídka,
+\item po schválení nabídky a~opravě se zapíše, kdo opravu provedl, jaké práce a~materiál byly použity a~za kolik,
+\item zákazník je informován, že si může zařízení vyzvednout,
+\item zákazník si přijde pro zařízení, vystaví se mu faktura nebo zaplatí na místě (hotově, QR kódem, kartou) a~zakázka je uzavřena.
+\end{enumerate}
+Tyto kroky odpovídají cyklu událostí prodejního procesu popsanému v~oddílu~\ref{sec:zakazka-cyklus}.
+
+\section{Evidované informace v~průběhu zakázky}
+
+V~průběhu životního cyklu servisní zakázky je nutné evidovat různé typy informací, které vznikají v~jednotlivých fázích jejího zpracování. Jedná se zejména o~údaje vztahující se k~zákazníkovi, zakázce samotné a~provedeným servisním úkonům.
+
+Mezi základní a~důležité evidované informace patří identifikační údaje zakázky, datum přijetí a~stručný popis problému. Dále je také potřeba zaznamenat celý proces opravy, čímž jsou technické informace o~servisovaném zařízení, použité materiály a~provedené práce včetně jejich časové náročnosti. Po opravě zařízení se spočítá použitý materiál a~společně s~provedenou prací se udělá celková cena opravy.
+
+Součástí evidence mohou být rovněž doprovodné dokumenty, například fotografie, technické listy nebo dokumenty dodané zákazníkem. Tyto informace jsou důležité nejen pro samotné vyřízení zakázky, ale také pro případné budoucí dohledání historie oprav nebo řešení reklamací.
+
+\section{Identifikace klíčových problémů}
+
+Z~popisu současného stavu vyplývají tyto hlavní problémy:
+\begin{itemize}
+\item údaje o~jedné zakázce jsou rozdělené mezi papírovou evidenci, excelové soubory a~fotografie, takže chybí jedno místo, kde je celá zakázka,
+\item stejné údaje (zákazník, zařízení, položky opravy) se ručně přepisují do zakázkového listu, nabídky i~faktury, což vede k~chybám,
+\item není rychle vidět, v~jakém stavu je která zakázka a~co na ni čeká,
+\item dohledání historie oprav jednoho zařízení nebo zákazníka je pracné.
+\end{itemize}
+
+\section{Požadavky firmy na zakázkový a~fakturační systém}
+
+Na základě konzultací s~vedením firmy a~vlastních zkušeností s~administrativní prací ve firmě byly definovány základní požadavky na navrhovaný zakázkový a~fakturační systém. Po mém návrhu tohoto projektu vedení firmy jsem dostal jediné zadání, a~to optimalizaci a~zpřehlednění správy servisních zakázek včetně navazující fakturace.
+
+Sommerville dělí požadavky na \emph{funkční}, které popisují, jaké služby má systém poskytovat a~jak má reagovat na vstupy, a~\emph{nefunkční}, které omezují služby systému, například z~hlediska času, procesu vývoje nebo norem, a~obvykle se týkají systému jako celku \cite[s.~105]{Sommerville2016}.
+
+\subsection{Funkční požadavky}
+
+Systém musí umožnit:
+\begin{enumerate}
+\item evidovat zákazníky (osoby i~firmy), jejich kontaktní osoby a~zařízení,
+\item založit zakázku k~zákazníkovi a~jednomu či více zařízením a~vytisknout zakázkový list,
+\item průběžně k~zakázce zapisovat provedené práce, použitý materiál, fotografie a~přílohy,
+\item sledovat stav zakázky od přijetí po vydání zařízení,
+\item vytvořit z~údajů zakázky cenovou nabídku a~fakturu bez opětovného přepisování,
+\item tisknout doklady podle šablon firmy a~ukládat je do PDF,
+\item evidovat platby faktur,
+\item vyhledat zakázku, zákazníka nebo zařízení a~zobrazit historii oprav,
+\item zaznamenávat, kdo a~kdy změnil údaje.
+\end{enumerate}
+
+\subsection{Nefunkční požadavky}
+
+\begin{itemize}
+\item \textbf{Jednoduchost.} Aplikaci musí zvládnout i~zaměstnanec bez zkušeností s~prací na počítači. Obsahuje jen funkce, které firma potřebuje.
+\item \textbf{Jednotné ovládání.} Tabulky, formuláře a~tlačítka vypadají a~fungují všude stejně.
+\item \textbf{Oddělení správy.} Nastavení systému vidí jen administrátor, běžný zaměstnanec vidí jen to, co potřebuje k~práci.
+\item \textbf{Provoz ve firmě.} Aplikace běží na firemním počítači nebo serveru a~používá se ve webovém prohlížeči v~místní síti. Připojení k~internetu není nutné.
+\item \textbf{Bez licenčních poplatků.} Aplikace i~všechny použité komponenty jsou open-source.
+\item \textbf{Rozšiřitelnost.} Aplikace má jádro pro evidenci zakázek a~doklady a~umožňuje doplnit další moduly.
+\item \textbf{Správnost dat.} Databáze nedovolí uložit neúplné nebo nesmyslné údaje a~odolá běžným útokům.
+\end{itemize}
+
+\subsection{Uživatelské role}
+
+Z~provozu firmy vyplývají dvě základní skupiny uživatelů. \textbf{Běžný zaměstnanec} zakládá zakázky a~doplňuje opravy, podle své práce také vytváří nabídky a~faktury. \textbf{Administrátor} navíc spravuje nastavení: údaje o~firmě, sazby DPH, číselníky, šablony dokumentů, zaměstnance a~uživatelské účty a~zálohování. Práce se mezi zaměstnanci může dělit různě (technik, administrativa), proto oprávnění nemají být pevně dána, ale má je jít seskupit do rolí, které si administrátor upraví.
+
+\section{Shrnutí analýzy}
+
+Tato kapitola se zaměřila na analýzu procesů a~požadavků servisní firmy v~oblasti evidence zakázek a~související administrativy. Byl popsán charakter firmy a~její pracovní prostředí, průběh servisní zakázky od jejího přijetí až po administrativní uzavření, a~dále typy informací, které je nutné v~průběhu zakázky evidovat.
+
+Analýza ukázala, že stávající způsob evidence zakázek, realizovaný kombinací papírové dokumentace, tabulkových souborů a~fotodokumentace, není z~dlouhodobého hlediska efektivní a~zvyšuje riziko chyb při přenosu a~zpracování dat. Zároveň neumožňuje přehlednou správu zakázek v~průběhu jejich celého životního cyklu.
+
+Na základě konzultací s~vedením firmy a~osobních praktických zkušeností ve firmě byly definovány funkční a~nefunkční požadavky na nový zakázkový a~fakturační systém. Hlavním cílem je optimalizace a~zpřehlednění správy servisních zakázek a~jejich provázání s~navazujícím fakturačním procesem v~rámci jednoho řešení. Výsledky této analýzy slouží jako východisko pro návrh architektury systému a~implementaci aplikace v~následujících kapitolách.

@@ -1,0 +1,19 @@
+% ============================================================
+% Teoretická část, bod 5: Přehled použitých technologií
+% Popis technologií je v kapitoly/dokumentace/technologie.tex.
+% ============================================================
+\chapter{Přehled použitých technologií}\label{kap:technologie}
+
+Tato kapitola představuje technologie, na kterých je aplikace postavena, a~zdůvodňuje jejich výběr. Na konci kapitoly je popsáno, co znamená, že je aplikace open-source, a~proč byla zvolena licence MIT.
+
+\input{kapitoly/dokumentace/technologie}
+
+\section{Open-source vývoj a~licence}\label{sec:open-source}
+
+\emph{Open-source} vývoj je přístup, při kterém je zdrojový kód systému zveřejněn a~kdokoli se může zapojit do jeho vývoje \cite[s.~219]{Sommerville2016}. Sommerville uvádí, že open-source software lze obvykle získat levně nebo zdarma a~že široce používané open-source systémy bývají velmi spolehlivé, protože chyby v~nich rychle nacházejí a~opravují sami uživatelé \cite[s.~219]{Sommerville2016}. Na open-source komponentách je postavena i~tato aplikace: Python, Django, PostgreSQL, Bootstrap, htmx i~LibreOffice jsou open-source projekty.
+
+Co smí uživatel se zdrojovým kódem dělat, určuje licence. Organizace Open Source Initiative stanoví podmínky, které musí licence splnit, aby šlo o~open-source software. Patří mezi ně volné šíření, dostupnost zdrojového kódu a~povolení upravovat ho \cite{OSI-definice}. Sommerville rozlišuje licence, které vyžadují, aby i~odvozený software byl open-source (GNU GPL), a~licence, které to nevyžadují. Licence MIT je varianta licence BSD a~dovoluje zahrnout kód i~do uzavřeného produktu, pokud je zachováno uvedení původního autora \cite[s.~220--221]{Sommerville2016}.
+
+Aplikace je zveřejněna pod licencí MIT. Je krátká a~srozumitelná, organizace OSI ji schválila a~jakákoli firma může aplikaci zdarma používat, upravovat a~šířit. Jedinou podmínkou je zachovat text licence a~jméno autora. To odpovídá cíli práce, aby si jednoduchý systém mohla nasadit a~přizpůsobit i~malá firma bez licenčních poplatků. Licence GPL by vyžadovala zveřejnit i~všechny úpravy, což může být pro firmu, která si aplikaci upraví pro vlastní potřebu, překážkou. Přibalené knihovny Bootstrap (MIT) a~htmx (0BSD) jsou s~licencí MIT slučitelné.
+
+Johansson a~Sudzina zkoumali, proč malé a~střední firmy volí open-source systémy ERP. Zjistili, že nízká cena hraje při rozhodování jen druhotnou roli \cite{Johansson2008}. Hlavní výhodou open-source řešení je proto možnost přizpůsobit si systém vlastním postupům a~nezávislost na jednom dodavateli.
