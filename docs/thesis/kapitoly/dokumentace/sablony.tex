@@ -1,0 +1,93 @@
+% ============================================================
+% Systém šablon dokumentů (zkrácená verze; úplný popis včetně editoru
+% šablon, formátu mapování a importu ISDOC je v dokumentaci aplikace:
+% docs/08-sablony-dokumentu.md v repozitáři)
+% ============================================================
+\section{Systém šablon dokumentů}\label{sec:sablony}
+
+Systém šablon určuje, jak se data uložená v~databázi promění ve výsledný dokument: zakázkový list, cenovou nabídku nebo fakturu. Hlavním požadavkem firmy bylo zachovat vzhled dosavadních Excelových formulářů a~umožnit jejich pozdější úpravy bez zásahu do zdrojového kódu. Systém proto stojí na třech principech:
+
+\begin{enumerate}
+\item \textbf{Oddělení dat a vzhledu.} Šablona obsahuje pouze vzhled dokumentu a~informaci o~tom, kam se vkládají jednotlivé údaje. Data dokumentu se vždy sestavují z~databáze. Šablona nikdy data nemění a~stejná data lze zobrazit v~libovolné šabloně.
+\item \textbf{Šablonou je běžný soubor aplikace Excel.} Firma může vzít svůj stávající formulář, vložit do něj značky a~nahrát ho do aplikace. Formátování, sloučené buňky, vzorce, obrázky i~tvary zůstanou zachovány.
+\item \textbf{Rozšiřitelnost.} Typy dokumentů a~formáty šablon jsou v~kódu samostatné třídy, takže nový typ dokumentu nebo nový formát lze přidat bez změny ostatních částí.
+\end{enumerate}
+
+Průběh od nahrání šablony po vytvoření PDF ukazuje obrázek~\ref{fig:sablony}. Horní řada znázorňuje přípravu šablony, která proběhne jednou při jejím nahrání nebo úpravě, dolní řada tvorbu dokumentu při každém zobrazení. Podrobný popis jednotlivých kroků, formátu uloženého mapování a~webového editoru šablon je součástí dokumentace aplikace\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/08-sablony-dokumentu.md}}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=6mm and 4mm, font=\footnotesize]
+  \node[bm blok, text width=2.8cm] (soubor) {\textbf{soubor šablony}\\\texttt{.xlsx}, \texttt{.xls}, \texttt{.html}};
+  \node[bm blok, right=of soubor, text width=2.8cm] (prevod) {převod \texttt{.xls} $\rightarrow$ \texttt{.xlsx}\\(LibreOffice)};
+  \node[bm blok, right=of prevod, text width=2.8cm] (analyza) {\textbf{analýza}\\značky, sloučení, rozpoznání polí};
+  \node[bm uloziste, right=of analyza, text width=2.9cm, font=\footnotesize] (sablona) {\textbf{Sablona\-Dokumentu}\\soubor + mapování (JSON)};
+  \node[bm blok, below=14mm of soubor, text width=2.8cm] (objekt) {\textbf{zakázka / nabídka / faktura} v databázi};
+  \node[bm blok, right=of objekt, text width=2.8cm] (data) {\textbf{typ dokumentu}\\\texttt{data()}: pole a~seznamy};
+  \node[bm blok, right=of data, text width=2.8cm] (vypln) {\textbf{vyplnění}\\openpyxl, vložení řádků, lxml};
+  \node[bm blok, right=of vypln, text width=2.9cm] (pdf) {\textbf{PDF}\\LibreOffice, cache};
+  \draw[bm sipka] (soubor) -- (prevod);
+  \draw[bm sipka] (prevod) -- (analyza);
+  \draw[bm sipka] (analyza) -- (sablona);
+  \draw[bm sipka] (objekt) -- (data);
+  \draw[bm sipka] (data) -- (vypln);
+  \draw[bm sipka] (vypln) -- (pdf);
+  \draw[bm sipka] (sablona) -- node[pos=0.45, right=1mm, align=left] {soubor a~mapování} (vypln);
+\end{tikzpicture}
+\caption{Příprava šablony a tvorba dokumentu}\label{fig:sablony}
+\end{figure}
+
+\subsection{Typy dokumentů a data dokumentu}
+
+Pro každý typ dokumentu (zakázkový list, nabídka, faktura) definuje modul \path{core/sablony/typy.py} katalog asi osmdesáti polí, která lze do šablony vložit. Pole mají klíč ve tvaru \texttt{skupina.nazev} (například \texttt{zakaznik.ico}), druh hodnoty (text, číslo, peníze, datum, obrázek), podle kterého se hodnota formátuje, a~synonyma, podle kterých je lze najít v~šabloně bez značek. Kromě jednoduchých polí existují tři seznamy opakujících se řádků: položky dokladu, materiál a~práce. Metoda \texttt{data()} typu dokumentu sestaví z~objektu v~databázi data, která mají vždy stejný tvar, nezávislý na typu dokumentu i~na formátu šablony (výpis~\ref{lst:data}).
+
+\begin{lstlisting}[showstringspaces=false, columns=fullflexible, keepspaces=true, basicstyle=\footnotesize\ttfamily, caption={Tvar dat dokumentu (zkráceno)}, label={lst:data}]
+{"pole": {"dokument.cislo": "001-27-10/2026",
+          "dokument.datum_splatnosti": date(2026, 11, 10),
+          "firma.nazev": "...", "zakaznik.ico": "12345678",
+          "zakazka.cislo": "2026-048", "zarizeni.typ": "GSR 18V",
+          "soucty.s_dph": Decimal("3633.75"), ...},
+ "polozky":  [{"polozka.popis": "Diagnostika", "polozka.mnozstvi": Decimal("1"),
+               "polozka.cena_bez_dph": Decimal("1500.00"), ...}, ...],
+ "material": [{"material.nazev": "Ložisko 6204-2RS", ...}, ...],
+ "prace":    [{"prace.popis": "Petr Svoboda: Diagnostika", ...}, ...]}
+\end{lstlisting}
+
+\subsection{Značky a rozpoznání šablony}
+
+Místo pro údaj se v~šabloně označí \emph{značkou} ve tvaru \texttt{\{\{skupina.pole\}\}}, například \texttt{\{\{zakaznik.nazev\}\}}. Značka může tvořit celý obsah buňky, nebo být součástí textu, například \texttt{Faktura č. \{\{dokument.cislo\}\}}. Řádek se značkou některého seznamu (\texttt{\{\{polozka.\ldots\}\}}) je vzorovým řádkem tabulky, který se zopakuje pro každou položku. Při nahrání šablony ji aplikace analyzuje, značky uloží jako \emph{mapování} ve formátu JSON a~upozorní na neznámé značky, typicky překlepy. Pokud šablona značky neobsahuje, pokusí se aplikace najít místa pro údaje podle popisků formuláře (například \enquote{IČO:} nebo hlavičky tabulky \enquote{Popis}, \enquote{Množství}, \enquote{Celkem}). Výsledek je jen návrh, který uživatel může opravit ve webovém editoru šablon. Ten zobrazí list šablony jako mřížku buněk a~pole do ní uživatel přetahuje myší, takže k~úpravě šablony nepotřebuje Excel.
+
+\subsection{Vyplnění šablony}
+
+Šablonu vyplňuje funkce \texttt{vypln} vždy v~kopii sešitu, původní soubor se nemění. Je-li v~buňce jen značka, zapíše se skutečná hodnota odpovídajícího typu (číslo jako číslo, datum jako datum), aby s~ní mohly počítat vzorce šablony; pokud buňka nemá vlastní formát, nastaví se český formát. Značka uvnitř textu se nahradí naformátovaným textem. Logo firmy se vloží jako obrázek zmenšený do vyhrazené oblasti. Firemní formuláře intenzivně využívají sloučené buňky, proto aplikace nepracuje s~jednotlivými buňkami, ale s~oblastmi.
+
+Nejsložitější částí je \textbf{rozšíření tabulky položek}. Faktura může mít jednu položku i~dvacet, šablona ale obsahuje jen jeden vzorový řádek a~pod tabulkou často pokračuje dalším obsahem (součty, platební údaje, podpisy). Aplikace nejprve využije předkreslené prázdné řádky tabulky. Pokud nestačí, vloží chybějící řádky a~přitom posune sloučené oblasti, výšky řádků, obrázky a~tiskovou oblast, zkopíruje styly vzorového řádku a~upraví odkazy ve vzorcích, takže například \texttt{=SUM(H21:H21)} se změní na \texttt{=SUM(H21:H25)}. Tabulky se vyplňují odspodu nahoru, aby vložení řádků do spodní tabulky neposunulo tabulky nad ní. Grafické tvary (rámečky, čáry, textová pole), které knihovna openpyxl při uložení ztrácí, přenese aplikace pomocí knihovny lxml z~původního souboru a~posune je o~vložené řádky.
+
+Kromě Excelových šablon podporuje aplikace i~šablony HTML v~šablonovacím jazyce Django. Jejich náhled se zobrazí i~bez LibreOffice, a~proto slouží jako záložní řešení.
+
+\subsection{Export do PDF}
+
+Vyplněný sešit převede do PDF LibreOffice spuštěný bez grafického rozhraní s~vlastním profilem s~českým národním prostředím, aby se čísla a~data formátovala česky. LibreOffice při převodu přepočítá vzorce a~respektuje tiskovou oblast, sloučené buňky, ohraničení, obrázky i~tvary. Převody probíhají postupně, protože LibreOffice nesmí běžet se stejným profilem dvakrát současně. Hotové PDF se uloží do vyrovnávací paměti pod klíčem, který je hašem verze šablony, mapování a~kompletních dat dokumentu. Opakované zobrazení stejného dokumentu je proto okamžité a~jakákoli změna dat nebo šablony vytvoří nové PDF.
+
+\subsection{Export do formátu ISDOC}\label{sec:isdoc}
+
+ISDOC je český standard pro výměnu elektronických faktur ve formátu XML, který podporuje většina tuzemských účetních programů. Faktura ISDOC obsahuje strukturovaná data (dodavatel, odběratel, data, položky, sazby a~částky DPH, platební údaje), takže ji příjemce načte do účetnictví bez přepisování. ISDOC nepopisuje vzhled, ale jen data, proto nevzniká ze šablony, ale přímo z~výsledku metody \texttt{data()} typu dokumentu Faktura. Tištěná faktura a~faktura ISDOC tak vždy obsahují stejné položky a~částky. Přiřazení údajů k~prvkům formátu ukazuje tabulka~\ref{tab:isdoc}.
+
+\begin{longtable}{p{0.40\textwidth}p{0.52\textwidth}}
+\caption{Přiřazení údajů faktury k~prvkům formátu ISDOC}\label{tab:isdoc}\\
+\hline \textbf{Prvek ISDOC} & \textbf{Zdroj v aplikaci} \\ \hline\endfirsthead
+\hline \textbf{Prvek ISDOC} & \textbf{Zdroj v aplikaci} \\ \hline\endhead
+\texttt{ID}, \texttt{UUID} & \texttt{dokument.cislo}; UUID odvozené z~identifikace faktury \\
+\texttt{IssueDate}, \texttt{TaxPointDate} & \texttt{dokument.datum\_vystaveni}, \texttt{dokument.duzp} \\
+\texttt{AccountingSupplierParty} & údaje firmy z~nastavení (\texttt{firma.*}) \\
+\texttt{AccountingCustomerParty} & údaje zákazníka (\texttt{zakaznik.*}) \\
+\texttt{InvoiceLines} & seznam \texttt{polozky} \\
+\texttt{TaxTotal} & rekapitulace DPH vypočtená z~položek podle sazeb \\
+\texttt{LegalMonetaryTotal} & součty bez DPH, s~DPH a~částka k~úhradě \\
+\texttt{PaymentMeans} & číslo účtu firmy, datum splatnosti, variabilní symbol \\
+\hline
+\end{longtable}
+
+Při převodu aplikace rozdělí adresu uloženou jako jeden text na ulici, číslo, PSČ a~město, rozdělí číslo účtu na účet a~kód banky, spočítá rekapitulaci DPH zvlášť pro každou sazbu a~odvodí stálý identifikátor UUID z~identifikace faktury. Hotový dokument se před odesláním ověří proti oficiálnímu schématu XSD formátu ISDOC~6.0.2, takže aplikace nikdy nevydá neplatnou fakturu. Správnost převodu ověřují automatické testy (oddíl~\ref{sec:testovani-automaticke}).
+
+Stejný modul čte i~faktury ISDOC od dodavatelů (oddíl~\ref{sec:prijate-faktury}). Načítá je s~vypnutým rozbalováním entit a~přístupem k~síti, aby nahraný soubor nemohl číst jiné soubory serveru (ochrana proti útoku XXE), a~zvládá formáty ISDOC~5 i~6 i~zabalený formát ISDOCX.\label{sec:isdoc-import}

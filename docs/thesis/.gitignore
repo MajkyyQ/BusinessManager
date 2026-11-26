@@ -1,0 +1,16 @@
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bcf
+*.blg
+*.bbl
+*.run.xml
+*.toc
+*.out
+*.lof
+*.lot
+*-SAVE-ERROR
+*.bak
+*.tmp

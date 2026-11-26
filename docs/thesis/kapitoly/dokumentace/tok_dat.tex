@@ -1,0 +1,52 @@
+% ============================================================
+% Tok dat aplikací (zkrácená verze; jednotlivé kroky podrobně popisuje
+% dokumentace aplikace: docs/06-tok-dat.md v repozitáři)
+% ============================================================
+\section{Tok dat aplikací}\label{sec:tok-dat}
+
+Tento oddíl propojuje popsané součásti a~sleduje, jak data procházejí systémem od zadání zakázky po výsledný dokument (obrázek~\ref{fig:tok-dat}). Údaje zakázky se zadávají formulářem a~ukládají v~jedné transakci, během opravy se k~zakázce přidávají práce, materiál a~další záznamy. Při vytvoření nabídky nebo faktury se z~prací a~materiálu stanou položky dokladu. Při zobrazení dokumentu typ dokumentu sestaví data ve standardizovaném tvaru (výpis~\ref{lst:data}), doplní je o~údaje firmy a~odvozené hodnoty, vloží je do zvolené šablony a~LibreOffice výsledek převede na PDF. Elektronická faktura ISDOC vzniká ze stejných dat, jen místo do šablony se data převedou rovnou do XML, takže PDF a~ISDOC si nemohou odporovat. Podrobný popis jednotlivých kroků je součástí dokumentace aplikace\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/06-tok-dat.md}}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=5mm and 5mm, font=\footnotesize,
+    krok/.style={bm blok, text width=3.6cm, minimum height=1.25cm},
+    cislo/.style={circle, draw, fill=black, text=white, font=\scriptsize\bfseries, inner sep=1pt, minimum size=4mm}]
+  % levý sloupec – zadání dat
+  \node[krok] (k1) {\textbf{Přijetí zakázky}\\formulář Nová zakázka};
+  \node[krok, below=of k1] (k2) {\textbf{Doplnění zakázky}\\práce, materiál, fotografie, přílohy, stav};
+  \node[krok, below=of k2] (k3) {\textbf{Vytvoření dokladu}\\nabídka nebo faktura\\ze zakázky};
+  % prostřední sloupec – databáze
+  \node[bm uloziste, right=14mm of k2, text width=3.6cm] (db) {\textbf{Databáze}\\zakázky, zákazníci, zařízení, práce, materiál, doklady a~položky};
+  \node[bm uloziste, above=7mm of db, text width=3.6cm] (media) {\textbf{Soubory}\\fotky, přílohy};
+  \node[bm uloziste, below=7mm of db, text width=3.6cm] (kal) {\textbf{Kalendář, historie}\\automatické záznamy};
+  % pravý sloupec – dokument
+  \node[krok, right=14mm of db] (k4) {\textbf{Sestavení dat}\\typ dokumentu, \texttt{data()}};
+  \node[krok, below=of k4] (k5) {\textbf{Vyplnění šablony}\\výchozí nebo zvolená šablona};
+  \node[krok, below=of k5] (k6) {\textbf{Export}\\PDF (LibreOffice),\\náhled, tisk};
+  \node[krok, below=of k6] (k7) {\textbf{Export ISDOC}\\faktura jako XML,\\ověření schématem};
+  % čísla kroků
+  \foreach \n in {1,...,6} \node[cislo] at (k\n.north west) {\n};
+  % šipky
+  \draw[bm sipka] (k1) -- (k2);
+  \draw[bm sipka] (k2) -- (k3);
+  \draw[bm sipka] (k1.east) -- node[above, sloped] {uložení} (db.north west);
+  \draw[bm sipka] (k2.east) -- (db.west);
+  \draw[bm sipka] (k1.east) -- (media.west);
+  \draw[bm sipka] (k3.east) -- node[below, sloped] {položky} (db.south west);
+  \draw[bm sipka] (db) -- node[right] {signály} (kal);
+  \draw[bm sipka] (db) -- node[above] {čtení} (k4);
+  \draw[bm sipka] (k4) -- (k5);
+  \draw[bm sipka] (k5) -- (k6);
+  \draw[bm sipka] (k4.east) -- ++(4mm,0) |- node[right, pos=0.25] {faktura} (k7.east);
+  \draw[bm sipka] (media.east) -- node[above, sloped] {logo} (k4.north west);
+\end{tikzpicture}
+\caption{Tok dat od zadání zakázky po výsledný dokument}\label{fig:tok-dat}
+\end{figure}
+
+Z~toku dat vyplývají tři vlastnosti, na kterých stojí návrh celé aplikace:
+
+\begin{itemize}
+\item \textbf{Jedno místo zadání.} Každý údaj (zákazník, zařízení, cena materiálu) se zadá jednou a~dále se na něj jen odkazuje. Všechny výstupy z~něj vznikají automaticky.
+\item \textbf{Jasný okamžik zamrazení.} Zdrojová data zakázky se mohou měnit až do vytvoření dokladu. Doklad si uloží vlastní kopii položek a~údajů zákazníka, a~zůstává proto ve stavu, v~jakém byl vystaven. Zakázkový list vlastní kopii nemá a~vždy ukazuje aktuální stav zakázky.
+\item \textbf{Dokument je pohled na data.} Výsledné dokumenty se neukládají, ale vždy se sestaví z~databáze a~šablony. Změna šablony změní vzhled všech dokumentů, nikoli jejich obsah, a~oprava dat se projeví ve všech dokumentech, které se z~nich znovu vytvoří.
+\end{itemize}

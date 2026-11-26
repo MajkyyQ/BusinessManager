@@ -1,0 +1,136 @@
+% ============================================================
+% Databáze (zkrácená verze; popis všech tabulek a sloupců je v dokumentaci
+% aplikace: docs/07-databaze.md a docs/databaze-tabulky.md v repozitáři)
+% ============================================================
+\section{Databázový model}\label{sec:databaze}
+
+Aplikace ukládá data do relační databáze. Relační model byl zvolen, protože data mají pevnou strukturu a~jsou navzájem silně provázaná: zakázka patří zákazníkovi, obsahuje jeho zařízení a~navazují na ni práce, materiál, doklady a~platby. Vazby vyjadřují cizí klíče a~databáze hlídá jejich platnost, takže nemůže vzniknout například zakázka bez zákazníka. Podporovány jsou systémy SQLite (vývoj, provoz bez Dockeru) a~PostgreSQL~17 (provoz ve firmě); kód aplikace je pro oba stejný.
+
+Databáze je jediným místem, kde jsou uložena data aplikace. Soubory (fotografie, přílohy, šablony, logo) se do ní neukládají, obsahuje jen jejich cestu. Výsledné dokumenty se také neukládají, ale vždy se sestavují z~aktuálních dat. Aplikace s~databází pracuje výhradně přes ORM frameworku Django: každá tabulka je popsána modelem v~souboru \path{core/models.py} a~z~modelů vznikají migrace, které schéma vytvoří nebo upraví. Pro návrh jsou důležité tyto konvence:
+
+\begin{itemize}
+\item Každá tabulka má primární klíč \texttt{id}, cizí klíče se ukládají do sloupců s~příponou \texttt{\_id} a~u~každého je určeno chování při smazání odkazovaného záznamu (\texttt{PROTECT}, \texttt{CASCADE}, \texttt{SET\_NULL}). Databáze sama hlídá, aby cizí klíč neodkazoval na neexistující záznam (viz oddíl~\ref{sec:principy-odchylky}).
+\item Vazby M:N realizují vazební tabulky se dvěma cizími klíči, například \path{core_zakazka_zarizeni}.
+\item Peněžní částky se ukládají jako desetinná čísla s~pevnou přesností (\texttt{DecimalField}), aby nevznikaly zaokrouhlovací chyby. Datum a~čas se ukládá v~UTC.
+\item Záznamy číselníků a~evidence mají sloupec \texttt{aktivni}; smazání v~aplikaci je jen deaktivace, takže historické zakázky a~doklady zůstávají úplné.
+\item Schéma obsahuje kromě klíčů i~omezení \texttt{UNIQUE} a~\texttt{CHECK} (tabulka~\ref{tab:principy-omezeni}). Formuláře je kontrolují už před uložením a~zobrazí srozumitelné hlášení.
+\end{itemize}
+
+\subsection{Schéma databáze}\label{sec:schema-databaze}
+
+Databáze obsahuje 30~tabulek aplikace a~10~vazebních tabulek pro vazby M:N. Navíc aplikace využívá tabulku uživatelských účtů \path{auth_user} frameworku Django. Schéma je rozděleno do tří obrázků: jádro databáze se zakázkou (obrázek~\ref{fig:db-zakazka}), doklady, platby, přijaté faktury a~kalendář (obrázek~\ref{fig:db-doklady}) a~uživatelé, oprávnění a~nastavení (obrázek~\ref{fig:db-ostatni}). Popisky na spojnicích udávají kardinalitu vazby.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1cm, y=1cm]
+  \node[bm tabulka, fill=gray!25, font=\footnotesize\sffamily\bfseries] (zakazka) at (6.8,-3) {Zakazka};
+  \node[bm tabulka] (zakaznik) at (6.8,0) {Zakaznik};
+  \node[bm tabulka] (zarizeni) at (3.2,0) {Zarizeni};
+  \node[bm tabulka] (zkontakt) at (10.4,0) {ZakaznikKontakt};
+  \node[bm tabulka] (kosoba) at (13.6,-1.5) {KontaktniOsoba};
+  \node[bm tabulka] (zakkontakt) at (10.4,-3) {ZakazkaKontakt};
+  \node[bm tabulka] (foto) at (3.2,-3) {Fotografie};
+  \node[bm tabulka] (priloha) at (0,-1.5) {Priloha};
+  \node[bm tabulka] (stav) at (0,-4.5) {StavZakazky};
+  \node[bm tabulka] (ukon) at (3.2,-6) {ProvedenyUkon};
+  \node[bm tabulka] (typukonu) at (0,-7.5) {TypUkonu};
+  \node[bm tabulka] (zam) at (6.8,-6) {Zamestnanec};
+  \node[bm tabulka] (pmat) at (10.4,-6) {PouzityMaterial};
+  \node[bm tabulka] (mat) at (13.6,-7.5) {Material};
+
+  \draw (zakaznik) -- node[bm vazba] {1:N} (zarizeni);
+  \draw (zakaznik) -- node[bm vazba] {1:N} (zakazka);
+  \draw (zakaznik) -- node[bm vazba] {1:N} (zkontakt);
+  \draw (zkontakt) -- node[bm vazba] {N:1} (kosoba);
+  \draw (zakazka) -- node[bm vazba] {1:N} (zakkontakt);
+  \draw (zakkontakt) -- node[bm vazba] {N:1} (kosoba);
+  \draw[densely dashed] (zakazka) -- node[bm vazba] {M:N} (zarizeni);
+  \draw (zakazka) -- node[bm vazba] {1:N} (foto);
+  \draw[densely dashed] (zakazka) -- node[bm vazba, pos=0.62] {M:N} (priloha);
+  \draw (stav) -- node[bm vazba, pos=0.38] {1:N} (zakazka);
+  \draw (zakazka) -- node[bm vazba] {1:N} (ukon);
+  \draw[densely dashed] (zakazka) -- node[bm vazba] {M:N} (zam);
+  \draw (zakazka) -- node[bm vazba] {1:N} (pmat);
+  \draw (typukonu) -- node[bm vazba] {1:N} (ukon);
+  \draw[densely dashed] (ukon) -- node[bm vazba] {M:N} (zam);
+  \draw (mat) -- node[bm vazba] {1:N} (pmat);
+\end{tikzpicture}
+\caption{Schéma databáze -- zakázka a navázané tabulky (čárkovaně vazby M:N)}\label{fig:db-zakazka}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1cm, y=1cm]
+  \node[bm tabulka] (zakaznik) at (6.8,0) {Zakaznik};
+  \node[bm tabulka, fill=gray!25, font=\footnotesize\sffamily\bfseries] (zakazka) at (8.6,-2.6) {Zakazka};
+  \node[bm tabulka] (nabidka) at (3.2,0) {Nabidka};
+  \node[bm tabulka] (pnab) at (0,-1.3) {PolozkaNabidky};
+  \node[bm tabulka] (objed) at (10.4,0) {Objednavka};
+  \node[bm tabulka] (priloha) at (13.6,-1.3) {Priloha};
+  \node[bm tabulka] (faktura) at (3.2,-5.2) {Faktura};
+  \node[bm tabulka] (pfak) at (0,-3.9) {PolozkaFaktury};
+  \node[bm tabulka] (platba) at (6.8,-5.2) {Platba};
+  \node[bm tabulka] (kal) at (10.4,-5.2) {KalendarUdalost};
+  \node[bm tabulka] (zam) at (13.6,-3.9) {Zamestnanec};
+  \node[bm tabulka] (prijata) at (10.4,-8.0) {PrijataFaktura};
+  \node[bm tabulka] (dodavatel) at (6.8,-8.0) {Dodavatel};
+
+  \draw (zakaznik) -- node[bm vazba] {1:N} (nabidka);
+  \draw (zakaznik) -- node[bm vazba] {1:N} (objed);
+  \draw (zakaznik) -- node[bm vazba, pos=0.35] {1:N} (faktura);
+  \draw (zakaznik) -- node[bm vazba] {1:N} (zakazka);
+  \draw (nabidka) -- node[bm vazba] {1:N} (pnab);
+  \draw (faktura) -- node[bm vazba] {1:N} (pfak);
+  \draw[densely dashed] (nabidka) -- node[bm vazba, pos=0.6] {M:N} (zakazka);
+  \draw[densely dashed] (objed) -- node[bm vazba] {M:N} (zakazka);
+  \draw[densely dashed] (faktura) -- node[bm vazba, pos=0.6] {M:N} (zakazka);
+  \draw (objed) -- node[bm vazba] {N:1} (priloha);
+  \draw (faktura) -- node[bm vazba] {1:N} (platba);
+  \draw (zakazka) -- node[bm vazba] {1:N} (platba);
+  \draw (platba) -- node[bm vazba] {1:N} (kal);
+  \draw (zakazka) -- node[bm vazba] {1:N} (kal);
+  \draw (faktura.south) to[out=-25, in=-155] node[bm vazba] {1:N} (kal.south);
+  \draw[densely dashed] (kal) -- node[bm vazba] {M:N} (zam);
+  \draw (prijata) -- node[bm vazba] {1:N} (kal);
+  \draw (dodavatel) -- node[bm vazba] {1:N} (prijata);
+  \draw (zakazka.east) to[out=0, in=0, looseness=1.15] node[bm vazba, pos=0.62] {1:N} (prijata.east);
+\end{tikzpicture}
+\caption{Schéma databáze -- doklady, platby, přijaté faktury a kalendář}\label{fig:db-doklady}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[x=1cm, y=1cm]
+  \node[bm tabulka, fill=gray!25] (user) at (7.6,0) {auth\_user (Django)};
+  \node[bm tabulka] (zam) at (3.8,0) {Zamestnanec};
+  \node[bm tabulka] (role) at (0,0) {Role};
+  \node[bm tabulka] (opr) at (0,-2) {Opravneni};
+  \node[bm tabulka] (hist) at (11.8,0) {HistorieZmen};
+  \node[font=\footnotesize\sffamily, align=left, text width=9.2cm, anchor=north west] (pozn) at (3.8,-1.3)
+     {Na \texttt{auth\_user} dále odkazují sloupce \texttt{vypracoval} (Nabidka), \texttt{vystavil} (Faktura), \texttt{nahral} (Fotografie, Priloha) a~\texttt{vytvoril} (KalendarUdalost, NastaveniFirmy).};
+  \node[bm tabulka] (nast) at (0,-4.2) {NastaveniFirmy};
+  \node[bm tabulka] (dph) at (3.8,-4.2) {SazbaDPH};
+  \node[bm tabulka] (sab) at (7.6,-4.2) {SablonaDokumentu};
+  \node[bm tabulka] (cis) at (3.8,-5.4) {CiselnaRada};
+  \node[font=\footnotesize\sffamily, align=left, text width=4.6cm, anchor=west] at (9.4,-4.2) {tabulky nastavení bez vazeb na evidenci zakázek};
+
+  \draw (user) -- node[bm vazba] {1:1} (zam);
+  \draw[densely dashed] (zam) -- node[bm vazba] {M:N} (role);
+  \draw[densely dashed] (role) -- node[bm vazba] {M:N} (opr);
+  \draw (user) -- node[bm vazba] {1:N} (hist);
+\end{tikzpicture}
+\caption{Schéma databáze -- uživatelé, oprávnění a nastavení}\label{fig:db-ostatni}
+\end{figure}
+\subsection{Klíčové části modelu}\label{sec:tabulky}
+
+\paragraph{Zakázka} (tabulka Zakazka) je středem celého modelu. Odkazuje na zákazníka a~na stav z~číselníku StavZakazky a~nese číslo zakázky, datum přijetí a~vydání a~popis závady. Se zařízeními a~zaměstnanci je spojena vazbami M:N, s~kontaktními osobami tabulkou ZakazkaKontakt, která nese roli osoby (například \enquote{přinesl zařízení}). Na zakázku navazují fotografie, přílohy, provedené práce (ProvedenyUkon) a~použitý materiál (PouzityMaterial). Použitý materiál si při uložení zkopíruje aktuální cenu z~katalogu, takže pozdější změna ceníku starší zakázky neovlivní.
+
+\paragraph{Doklady.} Nabídka a~faktura mají vlastní tabulky položek (PolozkaNabidky, PolozkaFaktury) a~kromě odkazu na zákazníka obsahují i~\emph{kopii jeho údajů} (jméno, firmu, adresu, IČO a~DIČ) v~okamžiku vystavení. Pozdější změna adresy zákazníka tak vystavený doklad nezmění. Toto zdvojení údajů je záměrnou odchylkou od normalizace, kterou zdůvodňuje oddíl~\ref{sec:principy-odchylky}. Každá položka si při uložení spočítá cenu bez DPH a~s~DPH a~přepočítá součty dokladu. Podobu čísel dokladů určuje tabulka CiselnaRada. K~faktuře se váže platba (Platba).
+
+\paragraph{Kalendář a historie.} Tabulka KalendarUdalost uchovává ruční i~automatické události (přijetí a~vydání zakázky, vystavení a~zaplacení faktury, splatnost přijaté faktury), které vznikají signály modelů. Tabulka HistorieZmen zaznamenává, kdo, kdy a~co v~aplikaci změnil.
+
+\paragraph{Přijaté faktury} od dodavatelů eviduje tabulka PrijataFaktura spolu s~číselníkem dodavatelů (Dodavatel). Nejsou součástí dokladů firmy, ale přehledu jejích závazků.
+
+\paragraph{Nastavení a~oprávnění.} Tabulky nastavení nemají vazby na evidenci zakázek a~obsahují údaje o~firmě (NastaveniFirmy, včetně odkazu na účet, který firmu založil), sazby DPH, číselné řady a~šablony dokumentů (SablonaDokumentu). Barvu a~pořadí stavů zakázky ukládá číselník StavZakazky. Tabulky Role a~Opravneni určují, co smí který zaměstnanec: zaměstnanci se přiřadí role a~role je svazek oprávnění. Šablona obsahuje jen vzhled dokumentu a~mapování polí ve formátu JSON, nikdy jeho data.
+
+Popis všech tabulek s~účelem, sloupci, datovými typy, klíči a~integritními omezeními je součástí dokumentace aplikace\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/07-databaze.md}}. Úplný referenční přehled sloupců se generuje přímo z~modelů aplikace\footnote{\url{https://github.com/MajkyyQ/BusinessManager/blob/main/docs/databaze-tabulky.md}}, takže vždy odpovídá aktuální verzi.

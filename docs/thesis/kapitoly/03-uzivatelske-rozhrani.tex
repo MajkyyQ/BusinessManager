@@ -1,0 +1,76 @@
+% ============================================================
+% Teoretická část, bod 3: Zásady návrhu přehledného a efektivního
+% uživatelského rozhraní
+% Jen doporučení z literatury. Porovnání s rozhraním aplikace je
+% v praktické části, oddíl sec:ui-soulad (kapitoly/navrh/ui-soulad.tex).
+% ============================================================
+\chapter{Zásady návrhu přehledného a~efektivního uživatelského rozhraní}\label{kap:uzivatelske-rozhrani}
+
+\section{Význam uživatelského rozhraní v~podnikových aplikacích}
+
+Uživatelské rozhraní představuje klíčový prvek každé softwarové aplikace, který významně ovlivňuje její použitelnost a~efektivitu v~praxi. V~případě podnikových aplikací, které jsou používány každodenně, má kvalita návrhu uživatelského rozhraní přímý dopad na rychlost práce, chybovost při zadávání údajů a~celkovou spokojenost uživatelů.
+
+Špatně navržené rozhraní může vést k~neefektivní práci, zvýšené chybovosti a~odmítání aplikace ze strany uživatelů, zatímco přehledné a~srozumitelné rozhraní podporuje plynulý průběh pracovních procesů. Jordan et~al.\ řadí jednoduché ovládání mezi hlavní faktory úspěšného zavedení systému pro správu dokumentů \cite[s.~48]{Jordan2022}. Z~tohoto důvodu není návrh uživatelského rozhraní náhodný, ale vychází z~ověřených principů použitelnosti a~návrhu interakce, které shrnují následující oddíly.
+
+\section{Uživatelský kontext a~cílová skupina}
+
+Navrhovaná aplikace je určena především pro zaměstnance malé servisní firmy, kteří zajišťují administrativní zpracování zakázek, fakturaci a~související dokumentaci. Typickými uživateli jsou administrativní pracovníci, kteří pracují s~aplikací pravidelně v~rámci své každodenní pracovní činnosti.
+
+Jedná se o~uživatele bez specializovaných IT znalostí, proto je nutné klást důraz na intuitivní ovládání, jasnou strukturu obrazovek a~srozumitelné popisy jednotlivých funkcí. Uživatelské rozhraní by mělo být navrženo tak, aby bylo snadno pochopitelné i~pro uživatele bez technického zázemí a~nevyžadovalo rozsáhlé školení. Shneiderman tento požadavek formuluje jako \emph{univerzální použitelnost}: rozhraní má počítat s~rozdílnými skupinami uživatelů, od začátečníků po zkušené \cite{Shneiderman-pravidla}.
+
+\section{Obecné heuristiky použitelnosti}\label{sec:ui-heuristiky}
+
+Nejrozšířenějším souborem zásad pro návrh rozhraní je deset heuristik použitelnosti, které sestavil Jakob Nielsen. Jde o~obecná pravidla, ne o~konkrétní návod, a~používají se i~pro hodnocení hotových rozhraní \cite{Nielsen-heuristiky}:
+\begin{enumerate}
+\item \textbf{Viditelnost stavu systému.} Uživatel má vždy vědět, co se děje, a~dostat včas zpětnou vazbu.
+\item \textbf{Shoda systému s~reálným světem.} Rozhraní používá slova a~pojmy, které uživatel zná, a~informace řadí v~přirozeném pořadí.
+\item \textbf{Kontrola a~svoboda uživatele.} Uživatel potřebuje jasně označený \enquote{nouzový východ}, kterým nechtěnou akci opustí nebo vrátí.
+\item \textbf{Konzistence a~standardy.} Stejná slova a~akce mají znamenat totéž v~celé aplikaci.
+\item \textbf{Prevence chyb.} Lepší než dobré chybové hlášení je návrh, který chybě předejde.
+\item \textbf{Rozpoznání místo vybavování.} Prvky, akce a~volby mají být vidět, aby si je uživatel nemusel pamatovat.
+\item \textbf{Flexibilita a~efektivita.} Zkušený uživatel má mít k~dispozici zkratky, které začátečníkovi nepřekáží.
+\item \textbf{Estetický a~minimalistický design.} Rozhraní nemá obsahovat informace, které nejsou potřeba.
+\item \textbf{Pomoc s~rozpoznáním a~opravou chyb.} Chybová hlášení mají být srozumitelná a~navrhnout řešení.
+\item \textbf{Nápověda a~dokumentace.} Má být snadno dohledatelná a~zaměřená na úkol uživatele.
+\end{enumerate}
+
+Podobný soubor tvoří \emph{osm zlatých pravidel} Bena Shneidermana: usilovat o~konzistenci, usilovat o~univerzální použitelnost, poskytovat informativní zpětnou vazbu, navrhovat dialogy s~jasným zakončením, předcházet chybám, umožnit snadné vrácení akcí, ponechat uživateli kontrolu a~snižovat zátěž krátkodobé paměti \cite{Shneiderman-pravidla}. Wong ukazuje, že se obě sady pravidel z~velké části překrývají a~dohromady tvoří praktická \enquote{pravidla palce} pro návrh rozhraní \cite{Wong2025}.
+
+Kaplan ukazuje, jak se heuristiky uplatní ve složitých podnikových aplikacích. Konzistenci dokládá příkladem, kdy je hlavní akce pro vytvoření nové položky ve všech pracovních prostorech na stejném místě, v~pravém horním rohu, a~vypadá stejně \cite{Kaplan2021}. K~minimalismu uvádí, že každá informace navíc soupeří s~informacemi důležitými a~ztěžuje jejich vyhledání. Zřídka používaná nastavení proto doporučuje skrýt, dokud nejsou potřeba \cite{Kaplan2021}.
+
+\section{Zásady přehlednosti a~jednoduchosti}\label{sec:ui-prehlednost}
+
+Jedním ze základních principů návrhu uživatelského rozhraní je přehlednost. Rozhraní by mělo být vizuálně jednoduché, bez nadbytečných prvků, které by uživatele zbytečně rozptylovaly. Minimalistický přístup umožňuje uživateli soustředit se na aktuálně vykonávaný úkol a~snižuje kognitivní zátěž. Sajedi et~al.\ doporučují zobrazovat jen informace potřebné pro aktuální úkol a~ostatní skrýt \cite[s.~2332]{Sajedi2011}. Rozhraní má být jednoduché a~složitější úkoly rozdělit do jednodušších kroků a~formulářů \cite[s.~2330]{Sajedi2011}.
+
+Důležitým aspektem je také logické členění obrazovek a~jednoznačné rozdělení funkcí do samostatných částí aplikace. Uživatel by měl být schopen rychle se orientovat v~tom, kde se nachází a~jaké akce může v~daném kontextu provádět. Použití jednotného vizuálního stylu, konzistentního rozložení prvků a~jasné hierarchie informací přispívá k~celkové srozumitelnosti rozhraní \cite[s.~2328]{Sajedi2011}.
+
+\emph{Postupné odhalování} (progressive disclosure) řeší rozpor mezi požadavkem na jednoduchost a~potřebou nabídnout všechny funkce. Na první obrazovce se zobrazí jen nejdůležitější volby a~méně používané funkce jsou až na další obrazovce, kam je uživatel otevře jen v~případě potřeby. Nielsen uvádí, že tím se zlepší učení, efektivita i~chybovost \cite{Nielsen-progressive}. Sajedi et~al.\ podobně doporučují funkce, ke kterým uživatel nemá oprávnění, podle situace zakázat nebo zcela skrýt \cite[s.~2331]{Sajedi2011}.
+
+\section{Základní principy použitelnosti a~UX}\label{sec:ui-principy}
+
+Návrh uživatelského rozhraní vychází ze základních principů použitelnosti a~uživatelské zkušenosti (UX). Mezi klíčové principy patří konzistence, srozumitelné ovládání a~předvídatelné chování aplikace.
+
+Konzistence znamená jednotné používání ovládacích prvků, barev, ikon a~terminologie napříč celou aplikací \cite{Nielsen-heuristiky}. Díky tomu si uživatel rychle vytváří mentální model práce se systémem a~minimalizuje se riziko chyb. Sajedi et~al.\ dodávají, že barva má sloužit jen jako doplňkové vodítko a~informace nesmí záviset jen na ní \cite[s.~2329]{Sajedi2011}.
+
+Dalším důležitým principem je minimalizace počtu kroků potřebných k~dosažení cíle. Uživatel by měl být schopen provádět běžné činnosti s~co nejmenším počtem interakcí, aniž by bylo nutné procházet složitými dialogy nebo nabídkami. Sajedi et~al.\ doporučují, aby systém sám doplňoval známé údaje a~pamatoval si předchozí volby uživatele \cite[s.~2331--2332]{Sajedi2011}. Často používané prvky mají být snadno dosažitelné. Podle Fittsova zákona se nejrychleji zasáhnou velké cíle a~cíle u~okrajů a~v~rozích obrazovky \cite[s.~2330]{Sajedi2011}.
+
+Uživatel má mít nad aplikací kontrolu. Má mít možnost akci zrušit nebo vrátit a~systém ho má chránit před chybami, například potvrzením nevratné akce \cite[s.~2331--2332]{Sajedi2011}. U~složitějších formulářů má být k~dispozici stručná nápověda \cite[s.~2330]{Sajedi2011}.
+
+\section{Navigace}\label{sec:ui-navigace}
+
+Navigace má uživateli ukázat, kde se v~aplikaci nachází a~kam může pokračovat \cite[s.~2332--2333]{Sajedi2011}. Laubheimer doporučuje pro desktopové rozhraní svislou navigaci v~levé části obrazovky. Pojme více položek než vodorovná lišta, lze ji rozšiřovat bez přepracování celé struktury a~svislý seznam se rychleji prohlíží, protože uživatelé se nejčastěji dívají do levé poloviny obrazovky. Ikony bez textových popisků nedoporučuje, protože jsou nejednoznačné. Navigace sbalená jen na ikony je podle něj přijatelná u~aplikací používaných denně, kde se uživatelé položky naučí, ne však u~občas navštěvovaných webů \cite{Laubheimer2021}.
+
+\section{Přístupnost}\label{sec:ui-pristupnost}
+
+Pravidla přístupnosti webového obsahu WCAG~2.2 stanovují měřitelná kritéria, která pomáhají i~uživatelům se slabším zrakem nebo menší zručností \cite{WCAG22}. Pro aplikaci tohoto typu jsou podstatná zejména tato kritéria:
+\begin{itemize}
+\item \textbf{1.4.1 Použití barvy} -- barva nesmí být jediným prostředkem, který nese informaci;
+\item \textbf{1.4.3 Kontrast} -- běžný text musí mít vůči pozadí kontrastní poměr alespoň 4,5\,:\,1;
+\item \textbf{2.5.8 Velikost cíle} -- klikací prvky mají mít alespoň 24~$\times$~24 pixelů.
+\end{itemize}
+
+\section{Doporučení pro návrh uživatelského rozhraní}\label{sec:ui-doporuceni}
+
+Na základě uvedených principů lze formulovat obecná doporučení pro návrh uživatelského rozhraní podnikové aplikace. Rozhraní by mělo obsahovat pouze funkce, které jsou skutečně využívány v~rámci pracovních procesů, a~vyhýbat se nadbytečným možnostem, které mohou působit matoucím dojmem. Funkce potřebné jen pro správu systému mají být oddělené a~dostupné jen těm, kdo je potřebují.
+
+Důraz by měl být kladen na přehledné zobrazení klíčových informací, jednoznačné označení ovládacích prvků a~jasnou zpětnou vazbu o~provedených akcích. Hlavní akce má být na každé obrazovce na stejném místě, navigace svislá vlevo a~barvy doplněné textem. Takto navržené rozhraní podporuje efektivní práci uživatelů a~zvyšuje pravděpodobnost úspěšného nasazení aplikace v~reálném provozu. Jak tato doporučení naplňuje rozhraní aplikace, porovnává oddíl~\ref{sec:ui-soulad} v~praktické části.

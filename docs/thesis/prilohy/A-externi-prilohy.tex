@@ -1,0 +1,36 @@
+\chapter{Externí přílohy}\label{sec:ep}
+
+Zdrojový kód aplikace BusinessManager a~její dokumentace jsou zveřejněny pod licencí MIT v~repozitáři na GitHubu:\\ \url{https://github.com/MajkyyQ/BusinessManager}.
+
+Dokumentace ve složce \path{docs/} popisuje aplikaci podrobněji, než umožňuje rozsah práce, a~text práce na ni na příslušných místech odkazuje. Na GitHubu se zobrazuje jako formátovaný text včetně diagramů. Strukturu repozitáře shrnuje tabulka~\ref{tab:repozitar}.
+
+\begin{longtable}{p{0.36\textwidth}p{0.56\textwidth}}
+\caption{Struktura repozitáře aplikace}\label{tab:repozitar}\\
+\hline
+\textbf{Soubor nebo složka} & \textbf{Obsah} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Soubor nebo složka} & \textbf{Obsah} \\
+\hline
+\endhead
+\path{README.md} & přehled aplikace a rychlá instalace ve Windows \\
+\path{INSTALACE.md} & podrobný návod k instalaci, zálohování, obnově a řešení potíží \\
+\path{docs/README.md} & rozcestník dokumentace \\
+\path{docs/01-popis-aplikace.md} & účel aplikace a typický průběh práce \\
+\path{docs/02-funkce.md} & popis všech funkcí z pohledu uživatele i systému \\
+\path{docs/03-technologie.md} & použité technologie a důvody jejich volby \\
+\path{docs/04-architektura.md} & architektura, zabezpečení, spuštění a nasazení \\
+\path{docs/05-struktura-projektu.md} & struktura zdrojového kódu \\
+\path{docs/06-tok-dat.md} & tok dat od zadání zakázky po dokument \\
+\path{docs/07-databaze.md} & databázový model, diagramy a popis všech tabulek \\
+\path{docs/databaze-tabulky.md} & referenční přehled sloupců generovaný z modelů \\
+\path{docs/08-sablony-dokumentu.md} & systém šablon, editor šablon, export a import ISDOC \\
+\path{docs/09-vyvoj-a-testovani.md} & spuštění pro vývoj a automatické testy \\
+\path{docs/10-prvni-nastaveni.md} & co nastavit po instalaci: firma, role, zaměstnanci, typy úkonů \\
+\path{config/}, \path{core/} & zdrojový kód aplikace Django \\
+\path{Dockerfile}, \path{docker-compose.yml} & zabalení aplikace do kontejnerů \\
+\path{instalace.bat}, \path{aktualizace.bat}, \path{zaloha.bat} & instalace, aktualizace a záloha ve Windows dvojklikem \\
+\path{LICENSE} & licence MIT \\
+\hline
+\end{longtable}
