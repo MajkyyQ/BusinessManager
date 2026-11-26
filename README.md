@@ -8,6 +8,8 @@ nabídek a faktur (PDF i ISDOC) z uložených dat.
 [šablony dokumentů, PDF a ISDOC](docs/08-sablony-dokumentu.md), [vývoj a testování](docs/09-vyvoj-a-testovani.md),
 [první nastavení po instalaci](docs/10-prvni-nastaveni.md),
 [volitelné moduly](docs/11-moduly.md) (odesílání e-mailů, QR platba; stahují se z [BusinessManager-moduly](https://github.com/MajkyyQ/BusinessManager-moduly)).
+Bakalářská práce, ve které aplikace vznikla: [docs/bakalarska-prace.pdf](docs/bakalarska-prace.pdf)
+(*Návrh a implementace systému pro evidenci servisních zakázek a automatizovanou tvorbu faktur*, UJEP 2026).
 Instalace: níže a podrobně v [INSTALACE.md](INSTALACE.md).
 
 ## Rychlá instalace (Windows)
